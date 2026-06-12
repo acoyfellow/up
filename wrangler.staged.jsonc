@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "inhouse-app",
+  "main": "build/worker.bundled.mjs",
+  "compatibility_date": "2026-06-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "build": { "command": "bun run build" },
+  "vars": {
+    "TEAM_DOMAIN": "https://REPLACE.cloudflareaccess.com",
+    "POLICY_AUD": "REPLACE",
+    "ADMIN_EMAILS": "",
+    "CONTROL_HOST": "",
+    "SITE_DOMAIN": "",
+    "MAX_SITE_BYTES": "52428800",
+    "MAX_FILE_BYTES": "10485760",
+    "MAX_FILES": "500"
+  },
+  "durable_objects": { "bindings": [{ "name": "REGISTRY", "class_name": "InhouseRegistry" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InhouseRegistry"] }],
+  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "inhouse-assets" }]
+}

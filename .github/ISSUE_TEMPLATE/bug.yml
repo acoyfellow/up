@@ -1,0 +1,19 @@
+name: Bug report
+description: Report a reproducible Inhouse defect
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include tokens, Access assertions, private site URLs, account IDs, or uploaded content. Use a private Security Advisory for possible exposure.
+  - type: input
+    id: version
+    attributes: { label: Version, value: "0.0.1" }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes: { label: Reproduction, description: Exact minimal steps and expected/actual result }
+    validations: { required: true }
+  - type: textarea
+    id: checks
+    attributes: { label: Validation output, description: Redacted output from bun run check and bun run dry-run }
