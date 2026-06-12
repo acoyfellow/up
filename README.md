@@ -36,6 +36,8 @@ folder → immutable private upload → Access-authenticated URL
 4. Attach the control hostname and wildcard site route. Disable `workers.dev` and Preview URLs.
 5. Open `https://inhouse.example.com/app`, choose a folder containing `index.html`, and publish.
 
+For a reproducible setup, `bun run access:provision` creates the Access organization/application and exact-email allow policy when supplied an API token with **Access Apps and Policies Write**. `bun run test:production` then performs the authenticated publish and isolated anonymous-denial receipt.
+
 The portable button deployment intentionally fails closed until Access is configured. **Do not make the Worker public to finish setup.** Deploy to Cloudflare does not yet provision the wildcard Access application safely on your behalf.
 
 ## What publishing does
