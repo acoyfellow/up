@@ -17,5 +17,6 @@ jobs:
       - run: bun run test
       - run: bunx biome check .
       - run: bun run dry-run
+      - run: bunx playwright install --with-deps chromium
       - run: bun run test:e2e
       - run: bun run public:check
