@@ -7,7 +7,7 @@ try {
   await page.goto(origin, { waitUntil: 'networkidle' });
   if (!(await page.getByRole('heading', { name: 'Nothing here yet.' }).isVisible()))
     throw Error('empty onboarding state missing');
-  await page.locator('input[type="file"]').setInputFiles('fixtures/hello-site');
+  await page.locator('input[type="file"]').setInputFiles('examples/baseline-site');
   await page.getByText('index.html found').waitFor();
   const deploy = page.getByRole('link', { name: /deploy inhouse/i });
   if (!(await deploy.isVisible())) throw Error('deploy CTA missing after folder validation');

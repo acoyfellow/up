@@ -1,0 +1,4 @@
+INHOUSE_BASELINE_OK
+version=0.0.1
+files=5
+purpose=stable end-to-end deployment fixture

@@ -100,6 +100,8 @@ bun run dry-run
 
 The test suite executes the real Worker, SQLite-backed Durable Object, and R2 implementation under Cloudflare’s Workers Vitest pool. It proves manifest validation, digest enforcement, partial-upload rejection, ownership, atomic activation, content serving, and anonymous denial.
 
+For a stable manual publish fixture, choose [`examples/baseline-site`](examples/BASELINE.md). It exercises nested CSS, JavaScript, SVG, a text asset, and the authenticated identity endpoint without external dependencies.
+
 For the browser pass:
 
 ```sh

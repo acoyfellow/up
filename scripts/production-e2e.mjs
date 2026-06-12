@@ -76,7 +76,7 @@ async function publish(directory) {
   if (!activated.ok) throw new Error(`activate: ${activated.status} ${await activated.text()}`);
   return deployment.id;
 }
-const firstId = await publish('fixtures/hello-site');
+const firstId = await publish('examples/baseline-site');
 const siteUrl = `https://${site}.${siteDomain}`;
 const authenticated = await fetch(siteUrl, { headers: { 'cf-access-token': accessToken } });
 const authenticatedBody = await authenticated.text();
