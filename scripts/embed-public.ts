@@ -2,6 +2,8 @@ import { readdir, writeFile } from 'node:fs/promises';
 import { extname, join, relative, sep } from 'node:path';
 
 const types: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.woff2': 'font/woff2',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
@@ -25,7 +27,10 @@ const entries = await Promise.all(
       {
         body: Buffer.from(bytes).toString('base64'),
         type: types[extname(path)] || 'application/octet-stream',
-        immutable: route.startsWith('/icons/') || route.startsWith('/screenshots/'),
+        immutable:
+          route.startsWith('/icons/') ||
+          route.startsWith('/screenshots/') ||
+          route.startsWith('/fonts/'),
       },
     ] as const;
   }),

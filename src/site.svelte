@@ -88,7 +88,7 @@ async function publish() {
   }
 }
 </script>
-<svelte:head><meta name="theme-color" content="#0b1118"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></svelte:head>
+<svelte:head><meta name="theme-color" content="#0b1118"><link rel="stylesheet" href="/fonts.css"></svelte:head>
 <header><a class="brand" href="/"><span class="mark">IH</span><span><strong>Agent Experience</strong><em>Inhouse</em></span></a><nav><a href="/tutorial">Tutorial</a><a href="/how-to">How-to</a><a href="/reference">Reference</a><a href="/explanation">Why</a></nav><a class="source" href="https://github.com/acoyfellow/inhouse">Source ↗</a></header>
 <main>
 {#if section==='home'}

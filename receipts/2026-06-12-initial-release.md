@@ -23,7 +23,9 @@ Date: 2026-06-12
 - GitHub Actions: passed
 - production SEO/PWA audit: passed
 - production Playwright public-site pass: passed
+- production Lighthouse: 100 performance / 100 accessibility / 100 best practices / 100 SEO
 - canonical route/link/content-type checks: passed
+- self-hosted Inter and IBM Plex Mono; no third-party font request
 
 ## Private product state
 
