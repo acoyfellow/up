@@ -27,6 +27,6 @@ Date: 2026-06-12
 
 ## Private product state
 
-The personal-account Worker, Durable Object namespace, and private R2 bucket were provisioned. `inhouse-app` is deliberately staged with **no deployed target**, placeholder Access configuration, `workers_dev: false`, and Preview URLs disabled. Its attempted route deployment returned only fail-closed 503 responses and was removed immediately.
+The private R2 bucket was provisioned. A personal-account `inhouse-app` Worker was used to verify production routing behavior: its attempted route deployment returned only fail-closed 503 responses. Because the available API token cannot create Access applications, the Worker and every app/site route were then deleted rather than leave a binding-bearing public target. `workers.dev` and Preview URLs were never enabled.
 
 This is not yet an authenticated production receipt. The remaining gate is to create the personal account's Access organization/application, configure the exact issuer/audience, attach `app.inhouse.coey.dev` plus `*.inhouse.coey.dev`, then execute the authenticated publish and isolated anonymous-denial checks. No public fallback will be used to bypass that gate.
