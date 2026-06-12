@@ -1,0 +1,26 @@
+:root {
+  font-family: system-ui;
+  color-scheme: dark;
+}
+body {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  margin: 0;
+  background: #0b1118;
+  color: #f7f9fb;
+}
+main {
+  padding: 3rem;
+}
+p {
+  color: #f6821f;
+  font-family: monospace;
+}
+h1 {
+  font-size: clamp(3rem, 9vw, 7rem);
+  line-height: 0.9;
+}
+output {
+  color: #71b8d8;
+}

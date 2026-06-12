@@ -1,0 +1,5 @@
+TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+POLICY_AUD=your-access-application-audience
+ADMIN_EMAILS=you@example.com
+CONTROL_HOST=localhost
+SITE_DOMAIN=localhost
