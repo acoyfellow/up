@@ -8,7 +8,7 @@ Date: 2026-06-12
 - Repository: https://github.com/acoyfellow/inhouse
 - Documentation and demo: https://inhouse.coey.dev
 - Deploy button: redirects to Cloudflare Dashboard with `acoyfellow/inhouse`
-- Docs Worker: `inhouse-site`, version `5c3aaa33-5c1f-418f-8930-98f3b9e84a70`
+- Docs Worker: `inhouse-site`, version `0826bedc-da85-443d-aae6-a79442efde29`
 - Exposure: custom domain only; `workers.dev` and Preview URLs disabled
 
 ## Validation

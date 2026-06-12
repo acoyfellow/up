@@ -1,127 +1,350 @@
 <script lang="ts">
-import { onMount } from 'svelte';
+  import { onMount } from 'svelte';
 
-let { section = 'home', eyebrow = '' } = $props<{ section: string; eyebrow: string }>();
-let files = $state<File[]>([]),
-  siteName = $state(''),
-  status = $state('Choose a folder containing index.html.'),
-  publishing = $state(false),
-  publishedUrl = $state('');
-let sites = $state<Array<{ name: string; owner: string; activeDeploymentId?: string }>>([]);
-const deploy = 'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/inhouse';
-onMount(() => {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
-  if (section === 'app') loadSites();
-});
-async function hash(file: File) {
-  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-function choose(e: Event) {
-  files = Array.from((e.currentTarget as HTMLInputElement).files || []);
-  status = files.length ? `${files.length} files ready.` : 'Choose a folder containing index.html.';
-}
-async function loadSites() {
-  try {
-    const r = await fetch('/api/sites'),
-      d = await r.json();
-    if (r.ok) sites = d.sites;
-  } catch {}
-}
-async function publish() {
-  if (!siteName || !files.length || publishing) return;
-  publishing = true;
-  publishedUrl = '';
-  try {
-    status = 'Hashing files locally…';
-    const prepared = await Promise.all(
-      files.map(async (file) => ({
-        file,
-        path: file.webkitRelativePath
-          ? file.webkitRelativePath.split('/').slice(1).join('/')
-          : file.name,
-        sha256: await hash(file),
-      })),
+  type Site = {
+    name: string;
+    owner: string;
+    updatedAt?: string;
+    activeDeploymentId?: string;
+  };
+
+  type PreparedFile = {
+    file: File;
+    path: string;
+    sha256: string;
+  };
+
+  let { section = 'home', eyebrow = '' } = $props<{ section: string; eyebrow: string }>();
+
+  let files = $state<File[]>([]);
+  let prepared = $state<PreparedFile[]>([]);
+  let siteName = $state('');
+  let status = $state('');
+  let progress = $state(0);
+  let publishing = $state(false);
+  let publishedUrl = $state('');
+  let sites = $state<Site[]>([]);
+  let identity = $state('');
+  let siteDomain = $state('inhouse.example.com');
+  let dragging = $state(false);
+  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list'>('empty');
+  let input = $state<HTMLInputElement>();
+
+  const deployUrl =
+    'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/inhouse';
+  const isProduct = $derived(section === 'app');
+
+  onMount(() => {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+    if (isProduct) void initializeProduct();
+  });
+
+  async function initializeProduct() {
+    await Promise.all([loadSites(), loadIdentity()]);
+    view = sites.length ? 'list' : 'empty';
+  }
+
+  async function loadIdentity() {
+    try {
+      const response = await fetch('/api/me');
+      const data = await response.json();
+      if (response.ok) identity = data.email;
+    } catch {
+      identity = '';
+    }
+  }
+
+  async function loadSites() {
+    try {
+      const response = await fetch('/api/sites');
+      const data = await response.json();
+      if (response.ok) {
+        sites = data.sites;
+        if (data.siteDomain) siteDomain = data.siteDomain;
+      }
+    } catch {
+      sites = [];
+    }
+  }
+
+  function chooseFolder() {
+    input?.click();
+  }
+
+  function acceptInput(event: Event) {
+    const element = event.currentTarget as HTMLInputElement;
+    void acceptFiles(Array.from(element.files || []));
+  }
+
+  function folderName(fileList: File[]): string {
+    const first = fileList.find((file) => file.webkitRelativePath)?.webkitRelativePath;
+    return first?.split('/')[0] || 'internal-site';
+  }
+
+  function normalizeName(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 63);
+  }
+
+  function relativePath(file: File): string {
+    return file.webkitRelativePath
+      ? file.webkitRelativePath.split('/').slice(1).join('/')
+      : file.name;
+  }
+
+  async function digest(file: File): Promise<string> {
+    const value = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    return [...new Uint8Array(value)]
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  async function acceptFiles(fileList: File[]) {
+    if (!fileList.length) return;
+    files = fileList;
+    siteName = normalizeName(folderName(fileList));
+    publishedUrl = '';
+    status = 'Preparing files';
+    view = 'selected';
+    prepared = await Promise.all(
+      fileList.map(async (file) => ({ file, path: relativePath(file), sha256: await digest(file) })),
     );
-    const manifest = prepared.map(({ file, path, sha256 }) => ({
-      path,
-      size: file.size,
-      contentType: file.type || 'application/octet-stream',
-      sha256,
-    }));
-    const created = await fetch(`/api/sites/${encodeURIComponent(siteName)}/deployments`, {
+    status = prepared.some((asset) => asset.path === 'index.html')
+      ? 'Ready to publish'
+      : 'index.html is required';
+  }
+
+  function drop(event: DragEvent) {
+    event.preventDefault();
+    dragging = false;
+    void acceptFiles(Array.from(event.dataTransfer?.files || []));
+  }
+
+  function reset() {
+    files = [];
+    prepared = [];
+    siteName = '';
+    status = '';
+    progress = 0;
+    publishing = false;
+    publishedUrl = '';
+    if (input) input.value = '';
+    view = isProduct && sites.length ? 'list' : 'empty';
+  }
+
+  const totalBytes = $derived(files.reduce((sum, file) => sum + file.size, 0));
+  const hasIndex = $derived(prepared.some((asset) => asset.path === 'index.html'));
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  async function publish() {
+    if (!isProduct || !siteName || !prepared.length || !hasIndex || publishing) return;
+    publishing = true;
+    view = 'publishing';
+    progress = 5;
+    try {
+      const manifest = prepared.map(({ file, path, sha256 }) => ({
+        path,
+        size: file.size,
+        contentType: file.type || 'application/octet-stream',
+        sha256,
+      }));
+      status = 'Creating deployment';
+      const created = await fetch(`/api/sites/${encodeURIComponent(siteName)}/deployments`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ manifest }),
-      }),
-      creation = await created.json();
-    if (!created.ok) throw Error(creation.error);
-    for (let i = 0; i < prepared.length; i++) {
-      const x = prepared[i];
-      if (!x) continue;
-      status = `Uploading ${i + 1} of ${prepared.length}: ${x.path}`;
-      const r = await fetch(
-        `/api/deployments/${creation.deployment.id}/assets?path=${encodeURIComponent(x.path)}`,
-        {
-          method: 'PUT',
-          headers: { 'content-type': x.file.type || 'application/octet-stream' },
-          body: x.file,
-        },
-      );
-      if (!r.ok) throw Error((await r.json()).error);
-    }
-    status = 'Verifying and activating…';
-    const r = await fetch(`/api/deployments/${creation.deployment.id}/activate`, {
+      });
+      const creation = await created.json();
+      if (!created.ok) throw new Error(creation.error || 'Unable to create deployment');
+
+      for (let index = 0; index < prepared.length; index++) {
+        const asset = prepared[index];
+        if (!asset) continue;
+        status = `Uploading ${index + 1} of ${prepared.length}`;
+        progress = 10 + Math.round(((index + 1) / prepared.length) * 75);
+        const response = await fetch(
+          `/api/deployments/${creation.deployment.id}/assets?path=${encodeURIComponent(asset.path)}`,
+          {
+            method: 'PUT',
+            headers: { 'content-type': asset.file.type || 'application/octet-stream' },
+            body: asset.file,
+          },
+        );
+        if (!response.ok) throw new Error((await response.json()).error || 'Upload failed');
+      }
+
+      status = 'Verifying deployment';
+      progress = 90;
+      const activated = await fetch(`/api/deployments/${creation.deployment.id}/activate`, {
         method: 'POST',
-      }),
-      d = await r.json();
-    if (!r.ok) throw Error(d.error);
-    publishedUrl = d.siteUrl || '';
-    status = publishedUrl
-      ? 'Published behind your Access boundary.'
-      : 'Published. Configure SITE_DOMAIN to receive a URL.';
-    await loadSites();
-  } catch (e) {
-    status = e instanceof Error ? e.message : 'Publish failed';
-  } finally {
-    publishing = false;
+      });
+      const result = await activated.json();
+      if (!activated.ok) throw new Error(result.error || 'Activation failed');
+      publishedUrl = result.siteUrl || '';
+      progress = 100;
+      status = 'Published';
+      view = 'success';
+      await loadSites();
+    } catch (error) {
+      status = error instanceof Error ? error.message : 'Publishing failed';
+      view = 'selected';
+    } finally {
+      publishing = false;
+    }
   }
-}
+
+  async function copyLink() {
+    if (publishedUrl) await navigator.clipboard.writeText(publishedUrl);
+  }
 </script>
-<svelte:head><meta name="theme-color" content="#0b1118"><link rel="stylesheet" href="/fonts.css"></svelte:head>
-<header><a class="brand" href="/"><span class="mark">IH</span><span><strong>Agent Experience</strong><em>Inhouse</em></span></a><nav><a href="/tutorial">Tutorial</a><a href="/how-to">How-to</a><a href="/reference">Reference</a><a href="/explanation">Why</a></nav><a class="source" href="https://github.com/acoyfellow/inhouse">Source ↗</a></header>
-<main>
-{#if section==='home'}
-<p class="eyebrow">{eyebrow}</p><section class="hero"><div class="grid"></div><div class="copy"><div class="badge"><i></i> Agent Experience / Cloudflare</div><p class="prompt"><span>~/your-company</span> $ inhouse publish</p><h1>Your company’s<br><em>private web.</em></h1><p class="lede">Drop a folder of HTML, CSS, JavaScript, and assets. Get a URL that only people in your organization can open—on your Cloudflare account.</p><div class="actions"><a class="primary" href={deploy}>Deploy to Cloudflare ↘</a><a class="secondary" href="/tutorial">See how it works</a></div><div class="meta"><span>ACCESS BEFORE CONTENT</span><span>WORKER · DURABLE OBJECT · PRIVATE R2</span></div></div><div class="terminal"><div class="chrome"><span><i></i> verified deployment</span><span>inhouse · 0.0.1</span></div><pre><b>$</b> inhouse publish ./dist
 
-Hashing 14 files locally…
-Uploading immutable deployment…
-Verifying Access boundary…
+<svelte:head>
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="stylesheet" href="/fonts.css" />
+</svelte:head>
 
-<b>Published quarterly-planning</b>
-https://quarterly-planning.inhouse.example.com
+<header class:product={isProduct}>
+  <a class="wordmark" href="/">inhouse</a>
+  <nav aria-label="Primary">
+    {#if !isProduct}
+      <a href="/tutorial">Setup</a>
+      <a href="/explanation">About</a>
+      <a href="https://github.com/acoyfellow/inhouse">Source ↗</a>
+    {:else}
+      <span>{identity}</span>
+    {/if}
+  </nav>
+</header>
 
-Access: your organization
-Public exposure: denied</pre></div></section><div class="cards"><article><span>01</span><h2>Install once</h2><p>Configure the hostname and identity boundary once. Employees publish without rebuilding infrastructure.</p></article><article><span>02</span><h2>Private by default</h2><p>No public R2 objects, preview URLs, or bearer links. A URL is not authorization.</p></article><article><span>03</span><h2>Made for agents</h2><p>If an agent produces a static folder, it can target Inhouse. Identity stays with the organization.</p></article></div>
-{:else if section==='app'}
-<article class="doc"><div class="badge"><i></i> Authenticated control plane</div><h1>Publish inhouse.</h1><p class="summary">Files remain pending until every manifest digest is verified. Activation swaps the complete deployment atomically.</p><section class="publisher"><label>Site name<input bind:value={siteName} pattern="[a-z0-9-]+" placeholder="quarterly-planning"></label><label>Static site folder<input type="file" webkitdirectory multiple onchange={choose}></label><button onclick={publish} disabled={publishing||!files.length||!siteName}>{publishing?'Publishing…':'Publish privately'}</button><p role="status">{status}</p>{#if publishedUrl}<a class="receipt" href={publishedUrl} target="_blank" rel="noopener noreferrer">{publishedUrl} ↗</a>{/if}</section><h2>Sites in this installation</h2>{#if sites.length}<div class="site-list">{#each sites as site}<div><strong>{site.name}</strong><span>{site.owner}</span><small>{site.activeDeploymentId?'active':'pending'}</small></div>{/each}</div>{:else}<p>No sites yet.</p>{/if}</article>
-{:else if section==='tutorial'}
-<article class="doc"><h1>Deploy Inhouse</h1><p class="summary">Create the resources, attach a private hostname, then prove unauthenticated requests cannot reach content.</p><h2>1. Create the resources</h2><p><a class="primary" href={deploy}>Deploy to Cloudflare</a></p><p>The button creates a Worker, SQLite-backed Durable Object, and private R2 bucket. Until Access is configured, control and site requests fail closed.</p><h2>2. Attach hostnames</h2><pre><code>CONTROL_HOST=inhouse.example.com
-SITE_DOMAIN=inhouse.example.com
+<main class:product={isProduct}>
+  {#if section === 'home' || section === 'app'}
+    <section class="workspace" aria-label="Inhouse publisher">
+      {#if view === 'empty'}
+        <div
+          class:dragging
+          class="empty-state"
+          role="region"
+          aria-label="Folder drop area"
+          ondragover={(event) => {
+            event.preventDefault();
+            dragging = true;
+          }}
+          ondragleave={() => (dragging = false)}
+          ondrop={drop}
+        >
+          <p class="state-label">{isProduct ? 'No sites' : 'Empty installation'}</p>
+          <h1>Nothing here yet.</h1>
+          <p>Drop a folder to publish your first internal site.</p>
+          <button class="primary" onclick={chooseFolder}>Choose folder</button>
+          <small>Private to your organization</small>
+        </div>
+      {:else if view === 'list'}
+        <div class="list-view">
+          <div class="view-heading">
+            <div><p class="state-label">Sites</p><h1>Your sites</h1></div>
+            <button class="primary small" onclick={chooseFolder}>Publish site</button>
+          </div>
+          <div class="site-list">
+            {#each sites as site}
+              <article>
+                <div><strong>{site.name}</strong><code>{site.name}.{siteDomain}</code></div>
+                <div><span>{site.owner}</span><small>{site.activeDeploymentId ? 'Published' : 'Pending'}</small></div>
+              </article>
+            {/each}
+          </div>
+        </div>
+      {:else if view === 'selected'}
+        <div class="selected-view">
+          <button class="back" onclick={reset}>← Back</button>
+          <p class="state-label">New site</p>
+          <h1>{folderName(files)}/</h1>
+          <dl class="file-summary">
+            <div><dt>Files</dt><dd>{files.length}</dd></div>
+            <div><dt>Size</dt><dd>{formatBytes(totalBytes)}</dd></div>
+            <div><dt>Entry point</dt><dd class:valid={hasIndex}>{hasIndex ? 'index.html found' : 'Missing index.html'}</dd></div>
+          </dl>
+          <label class="address">
+            <span>Site address</span>
+            <div><input bind:value={siteName} aria-label="Site name" /><em>.{siteDomain}</em></div>
+          </label>
+          <p class="privacy"><i></i> Private to your organization</p>
+          <div class="footer-actions">
+            <button class="secondary" onclick={reset}>Cancel</button>
+            {#if isProduct}
+              <button class="primary" onclick={publish} disabled={!hasIndex || !siteName}>{status}</button>
+            {:else}
+              <a class="primary link-button" href={deployUrl}>Deploy Inhouse</a>
+            {/if}
+          </div>
+        </div>
+      {:else if view === 'publishing'}
+        <div class="publishing-view">
+          <p class="state-label">Publishing</p>
+          <h1>{siteName}</h1>
+          <div class="steps">
+            <div><span>Preparing files</span><b>Complete</b></div>
+            <div><span>Uploading files</span><b>{status.startsWith('Uploading') ? status.replace('Uploading ', '') : 'Complete'}</b></div>
+            <div><span>Verifying deployment</span><b>{progress >= 90 ? 'In progress' : 'Waiting'}</b></div>
+            <div><span>Publishing</span><b>{progress === 100 ? 'Complete' : 'Waiting'}</b></div>
+          </div>
+          <div class="progress"><i style={`width:${progress}%`}></i></div>
+          <p class="progress-number">{progress}%</p>
+          <small>Your current site remains unchanged until publishing completes.</small>
+        </div>
+      {:else if view === 'success'}
+        <div class="success-view">
+          <p class="state-label success">Published</p>
+          <h1>{siteName} is live.</h1>
+          <a class="published-url" href={publishedUrl} target="_blank" rel="noopener noreferrer">{publishedUrl}</a>
+          <div class="success-actions"><button class="secondary" onclick={copyLink}>Copy link</button><a class="text-link" href={publishedUrl} target="_blank" rel="noopener noreferrer">Open site ↗</a></div>
+          <dl class="receipt"><div><dt>Access</dt><dd>Your organization</dd></div><div><dt>Published by</dt><dd>{identity}</dd></div><div><dt>Files</dt><dd>{files.length}</dd></div></dl>
+          <button class="text-button" onclick={reset}>Publish another</button>
+        </div>
+      {/if}
+      <input bind:this={input} class="file-input" type="file" webkitdirectory multiple aria-label="Choose a static site folder" onchange={acceptInput} />
+    </section>
+    {#if !isProduct}
+      <aside class="demo-note"><span>Demo</span><p>This is the end-user shell. Deploy Inhouse to connect it to your Cloudflare account and Access identity.</p></aside>
+    {/if}
+  {:else}
+    <article class="doc">
+      <p class="state-label">{eyebrow}</p>
+      {#if section === 'tutorial'}
+        <h1>Set up Inhouse</h1><p class="summary">Install the resources, establish the Access boundary, then publish a folder.</p>
+        <h2>1. Deploy the resources</h2><p><a class="primary link-button" href={deployUrl}>Deploy to Cloudflare</a></p><p>The button creates the Worker, Durable Object, and private R2 bucket. The application remains closed until Access is configured.</p>
+        <h2>2. Protect the hostnames</h2><pre><code>app.inhouse.example.com
+*.inhouse.example.com</code></pre><p>Create one Access application covering both. Configure the exact team domain and audience, then keep <code>workers.dev</code> and Preview URLs disabled.</p>
+        <h2>3. Verify before use</h2><p>Publish a folder while authenticated. Open the resulting URL in a clean browser. It must reach Access before any uploaded bytes.</p>
+      {:else if section === 'how-to'}
+        <h1>Operate Inhouse</h1><p class="summary">Keep the publishing plane small and the trust boundary intact.</p><h2>Update a site</h2><p>Publish the same site name. Inhouse activates the replacement only after every asset passes verification.</p><h2>Use a coding agent</h2><pre><code>Build a static site into ./dist.
+Keep secrets out of browser code.
+Publish the folder through Inhouse.</code></pre><h2>Respond to exposure</h2><p>Disable the wildcard route or deny the Access application first. Never enable a public Worker hostname as a workaround.</p>
+      {:else if section === 'reference'}
+        <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create deployment</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomic activation</td></tr></tbody></table><h2>Limits</h2><ul><li>500 files</li><li>10 MiB per file</li><li>50 MiB total</li><li><code>index.html</code> required</li></ul>
+      {:else if section === 'explanation'}
+        <h1>The boundary is the product.</h1><p class="summary">One installation gives a company a private place for small web software.</p><h2>Privacy is ambient</h2><p>There is no public mode or privacy checkbox. Every site inherits the organization’s Access identity boundary.</p><h2>Content stays separate</h2><p>Generated JavaScript runs on sibling site hostnames and receives no Worker bindings or secrets. Control mutations require exact-origin requests.</p><h2>Deployment is atomic</h2><p>Files remain pending in private R2 until every manifest digest is verified. Visitors never see a partial update.</p>
+      {:else if section === 'offline'}
+        <h1>You are offline.</h1><p class="summary">The documentation shell is cached. Publishing still requires the network and Access.</p>
+      {:else}
+        <h1>Page not found.</h1><p class="summary">The requested page does not exist.</p><a href="/">Return to Inhouse</a>
+      {/if}
+    </article>
+  {/if}
+</main>
 
-inhouse.example.com
-*.inhouse.example.com</code></pre><h2>3. Protect both hostnames</h2><p>Create a wildcard Cloudflare Access application covering the control hostname and site wildcard. Set <code>TEAM_DOMAIN</code> and <code>POLICY_AUD</code>. Disable <code>workers.dev</code> for production.</p><h2>4. Publish and verify</h2><p>Open <code>/app</code>, publish a folder, then open the result in both an authenticated browser and an isolated browser. The isolated browser must reach Access—not uploaded content.</p></article>
-{:else if section==='how-to'}
-<article class="doc"><h1>How-to guides</h1><p class="summary">Operate Inhouse without weakening its trust boundary.</p><h2>Update a site</h2><p>Publish the same name. Inhouse switches the active pointer only after every new object passes its manifest digest.</p><h2>Grant administrators</h2><p>Set <code>ADMIN_EMAILS</code>. Creators manage their own sites; company members read through Access.</p><h2>Use a coding agent</h2><pre><code>Build a static site into ./dist. Keep secrets out of browser code.
-Ask me to open Inhouse and publish ./dist when ready.
-Return the company-private URL and deployment receipt.</code></pre><h2>Respond to an incident</h2><p>Disable the wildcard route or Access policy before investigating. Never enable <code>workers.dev</code> as a workaround.</p></article>
-{:else if section==='reference'}
-<article class="doc"><h1>Reference</h1><p class="summary">Exact routes and limits for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Access-authenticated publisher.</td></tr><tr><th><code>GET /api/sites</code></th><td>List installation sites.</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create pending deployment.</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Digest-check one asset.</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Verify and activate.</td></tr><tr><th><code>GET /__inhouse/me</code></th><td>Validated viewer identity.</td></tr></tbody></table><h2>Defaults</h2><ul><li>500 files</li><li>10 MiB per file</li><li>50 MiB total</li><li><code>index.html</code> required</li></ul></article>
-{:else if section==='explanation'}
-<article class="doc"><h1>The trust boundary is the product.</h1><p class="summary">Building a small site is easier than sharing it safely inside a company.</p><h2>One installation, many sites</h2><p>A wildcard Access application protects the publishing plane once. Every site inherits organization identity.</p><h2>Control and content differ</h2><p>The control API accepts mutations only from its exact origin. Generated code runs on sibling hostnames and receives no Cloudflare bindings or secrets.</p><h2>Identifiers are not credentials</h2><p>Site names, deployment IDs, object keys, and URLs grant nothing. Every read requires Access; every mutation checks ownership.</p><h2>No public interval</h2><p>Content stays pending in private R2 until verified. Production routes are attached only after Access exists.</p></article>
-{:else if section==='offline'}<article class="doc"><h1>You are offline.</h1><p class="summary">The docs shell is cached. Publishing still requires Access.</p></article>
-{:else}<article class="doc"><h1>That page is not inhouse.</h1><p class="summary">The documentation may have moved.</p><a class="secondary" href="/">Return home</a></article>{/if}
-</main><footer><span>Cloudflare / Agent Experience</span><span>INHOUSE · MIT · 0.0.1</span><a href="https://coey.dev">coey.dev ↗</a></footer>
+<footer><span>Inhouse 0.0.1</span><nav><a href="/tutorial">Setup</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/inhouse">GitHub</a></nav></footer>
+
 <style>
-:global(:root){color-scheme:dark;--sans:Inter,system-ui,sans-serif;--mono:"IBM Plex Mono",monospace;--ink:#0b1118;--layer:#111a24;--layer2:#182431;--text:#f7f9fb;--muted:#9baaba;--border:#aec4d824;--strong:#aec4d845;--orange:#f6821f;--blue:#71b8d8;--green:#63d5a2}:global(*){box-sizing:border-box}:global(body){min-width:320px;margin:0;background:var(--ink);color:var(--text);font-family:var(--sans)}:global(a){color:inherit}:global(code),pre{font-family:var(--mono)}header,footer,main{width:min(100%,1280px);margin:auto;padding-inline:28px}header{height:76px;display:flex;align-items:center;gap:30px;border-bottom:1px solid var(--border)}.brand{display:flex;align-items:center;gap:.7rem;text-decoration:none}.mark{display:grid;place-items:center;width:2.3rem;height:2.3rem;border-radius:50%;color:#210c00;background:radial-gradient(circle at 30% 20%,white,var(--blue) 40%,var(--orange) 75%);font:700 .65rem var(--mono)}.brand>span:last-child{display:grid;line-height:1}.brand strong{font-size:.9rem}.brand em{margin-top:.28rem;color:var(--muted);font:400 .66rem var(--mono);font-style:normal}header nav{display:flex;gap:22px;margin-left:auto}header nav a,.source{color:var(--muted);font:500 .65rem var(--mono);text-decoration:none;text-transform:uppercase}.source{padding:.65rem .75rem;border:1px solid var(--strong);border-radius:.45rem}main{padding-block:70px 110px}.eyebrow{color:var(--orange);font:600 .66rem var(--mono);letter-spacing:.1em;text-transform:uppercase}.hero{position:relative;display:grid;grid-template-columns:1.08fr .92fr;gap:5vw;align-items:center;min-height:550px;padding:clamp(30px,5vw,68px);border:1px solid var(--border);border-radius:.7rem;overflow:hidden;background:linear-gradient(110deg,#080d13fc,#0d1f2be8)}.grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff0c 1px,transparent 1px),linear-gradient(90deg,#ffffff0c 1px,transparent 1px);background-size:4rem 4rem}.copy,.terminal{position:relative}.badge{display:inline-flex;gap:.5rem;align-items:center;padding:.42rem .58rem;border:1px solid var(--strong);border-radius:999px;font:600 .58rem var(--mono);text-transform:uppercase}.badge i,.chrome i{width:.42rem;height:.42rem;border-radius:50%;background:var(--orange)}.prompt{margin:2rem 0 .8rem;color:var(--muted);font:500 .68rem var(--mono)}.prompt span{color:var(--blue)}h1{margin:0 0 1.25rem;font:500 clamp(2.8rem,5.5vw,5.5rem)/.96 var(--mono);letter-spacing:-.07em}h1 em{color:var(--blue);font-style:normal}.lede,.summary{max-width:650px;color:#c8d4dd;font-size:clamp(1rem,1.6vw,1.18rem);line-height:1.65}.actions{display:flex;gap:.65rem;margin-top:2rem}.primary,.secondary,button{display:inline-flex;justify-content:center;align-items:center;min-height:2.7rem;padding:0 1rem;border-radius:.45rem;font-size:.76rem;font-weight:700;text-decoration:none}.primary,button{border:1px solid var(--orange);background:var(--orange);color:#210c00}.secondary{border:1px solid var(--strong);background:var(--layer2)}.meta{display:flex;gap:1.2rem;margin-top:2rem;color:var(--muted);font:500 .54rem var(--mono)}.meta span:first-child{color:var(--orange)}.terminal{border:1px solid var(--strong);border-radius:.7rem;background:#080d13;box-shadow:0 32px 100px #0007;overflow:hidden}.chrome{height:42px;display:flex;justify-content:space-between;align-items:center;padding:0 .85rem;border-bottom:1px solid var(--border);color:var(--muted);font:500 .56rem var(--mono)}.chrome span:first-child{display:flex;gap:.45rem;align-items:center}.chrome i{background:var(--green)}.terminal pre{min-height:330px;margin:0;padding:1.5rem;color:#d7e2ec;font-size:.72rem;line-height:1.7}.terminal b{color:var(--orange)}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:1rem;border:1px solid var(--border);border-radius:.7rem;background:var(--border);overflow:hidden}.cards article{min-height:230px;padding:1.35rem;background:var(--layer)}.cards span{color:var(--orange);font:600 .6rem var(--mono)}.cards h2{margin:4rem 0 .6rem}.cards p,.doc p,.doc li{color:var(--muted);font-size:.84rem;line-height:1.72}.doc{max-width:960px}.doc h1{font-size:clamp(3rem,6vw,5.5rem)}.doc h2{margin-top:3rem}.doc pre{padding:1.15rem;border:1px solid var(--border);border-radius:.7rem;background:#080d13;overflow:auto}.doc table{width:100%;border-collapse:collapse}.doc th,.doc td{padding:1rem .65rem;border-bottom:1px solid var(--border);text-align:left}.doc th{width:290px}.doc td{color:var(--muted)}.publisher{display:grid;gap:1rem;margin:2rem 0;padding:1.3rem;border:1px solid var(--strong);border-radius:.7rem;background:var(--layer)}.publisher label{display:grid;gap:.45rem;color:var(--muted);font:600 .68rem var(--mono)}.publisher input{padding:.8rem;border:1px solid var(--strong);border-radius:.4rem;background:var(--ink);color:var(--text)}button{width:max-content;cursor:pointer}button:disabled{opacity:.45}.receipt{padding:.8rem;border:1px solid #63d5a255;border-radius:.4rem;color:var(--green);font-family:var(--mono)}.site-list{border:1px solid var(--border);border-radius:.7rem}.site-list div{display:grid;grid-template-columns:1fr 1.2fr auto;gap:1rem;padding:1rem;border-bottom:1px solid var(--border)}.site-list span,.site-list small{color:var(--muted);font-size:.72rem}footer{display:grid;grid-template-columns:1fr auto auto;gap:2rem;padding-block:1.7rem 3rem;border-top:1px solid var(--border);color:var(--muted);font:500 .58rem var(--mono)}footer a{color:var(--blue)}@media(max-width:900px){header nav{display:none}.source{margin-left:auto}.hero{grid-template-columns:1fr}.cards{grid-template-columns:1fr}.cards article{min-height:170px}.cards h2{margin-top:2rem}}@media(max-width:600px){header{padding-inline:18px}.brand em{display:none}main{padding:42px 18px 80px}.hero{padding:26px 20px}h1{font-size:3rem}.actions{flex-direction:column}.terminal pre{font-size:.58rem}.meta{display:grid}.site-list div{grid-template-columns:1fr}footer{grid-template-columns:1fr;padding-inline:18px}}
+  :global(:root){color-scheme:light;--white:#fff;--canvas:#f7f7f5;--ink:#171717;--muted:#6b6b66;--quiet:#70706a;--line:#deded9;--line-dark:#c8c8c1;--orange:#f6821f;--orange-hover:#e87416;--blue:#2678a4;--green:#16835b;--red:#b83825;--sans:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace}:global(*){box-sizing:border-box}:global(html){background:var(--white)}:global(body){min-width:320px;margin:0;background:var(--white);color:var(--ink);font-family:var(--sans);font-synthesis:none}:global(button),:global(input){font:inherit}:global(a){color:inherit}:global(code),:global(pre){font-family:var(--mono)}:global(::selection){background:#f6821f33}
+  header,main,footer{width:min(100%,1120px);margin-inline:auto;padding-inline:32px}header{height:68px;display:flex;align-items:center;border-bottom:1px solid var(--line)}.wordmark{font-size:.9rem;font-weight:700;letter-spacing:-.025em;text-decoration:none}header nav{display:flex;align-items:center;gap:24px;margin-left:auto;color:var(--muted);font-size:.72rem}header nav a{text-decoration:none}header nav a:hover{color:var(--ink)}header nav span{font-family:var(--mono);font-size:.64rem}main{min-height:calc(100vh - 130px);padding-top:72px;padding-bottom:100px}.workspace{min-height:560px;display:grid;align-items:center}.empty-state{max-width:520px;margin:auto;text-align:center;padding:80px 40px;border:1px solid transparent;transition:border-color .12s,background .12s}.empty-state.dragging{border-color:var(--orange);background:#fffaf5}.state-label{margin:0 0 14px;color:var(--quiet);font:500 .65rem/1 var(--mono);letter-spacing:.04em;text-transform:uppercase}.empty-state h1,.selected-view h1,.publishing-view h1,.success-view h1,.view-heading h1,.doc h1{margin:0;letter-spacing:-.045em}.empty-state h1{font-size:2rem;font-weight:600}.empty-state>p:not(.state-label){margin:12px 0 28px;color:var(--muted);font-size:.95rem}.empty-state small{display:block;margin-top:18px;color:var(--quiet);font-size:.7rem}.primary,.secondary,.link-button{display:inline-flex;min-height:40px;align-items:center;justify-content:center;padding:0 16px;border:1px solid;border-radius:3px;font-size:.78rem;font-weight:600;text-decoration:none;cursor:pointer}.primary{border-color:var(--orange);background:var(--orange);color:#211005}.primary:hover{border-color:var(--orange-hover);background:var(--orange-hover)}.primary:disabled{opacity:.45;cursor:not-allowed}.secondary{border-color:var(--line-dark);background:var(--white);color:var(--ink)}.secondary:hover{border-color:var(--ink)}.small{min-height:34px;padding-inline:13px}.file-input{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none}.demo-note{display:grid;grid-template-columns:60px 1fr;max-width:620px;margin:0 auto;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.72rem;line-height:1.6}.demo-note span{color:var(--quiet);font-family:var(--mono);text-transform:uppercase}.demo-note p{margin:0}.selected-view,.publishing-view,.success-view,.list-view{width:min(100%,720px);margin:auto}.back{margin-bottom:56px;padding:0;border:0;background:none;color:var(--muted);font-size:.75rem;cursor:pointer}.back:hover{color:var(--ink)}.selected-view h1,.publishing-view h1,.success-view h1,.view-heading h1{font-size:2rem;font-weight:600}.file-summary{margin:38px 0 44px;border-top:1px solid var(--line)}.file-summary div{display:grid;grid-template-columns:1fr 1fr;padding:14px 0;border-bottom:1px solid var(--line)}dt{color:var(--muted);font-size:.75rem}dd{margin:0;text-align:right;font:500 .72rem var(--mono)}dd.valid{color:var(--green)}.address{display:grid;gap:10px}.address>span{font-size:.72rem;font-weight:600}.address>div{display:flex;align-items:center;border:1px solid var(--line-dark);border-radius:3px;overflow:hidden}.address input{min-width:0;flex:1;height:44px;padding:0 12px;border:0;outline:none;font-family:var(--mono);font-size:.78rem}.address input:focus{box-shadow:inset 0 0 0 1px var(--blue)}.address em{padding-right:12px;color:var(--quiet);font:400 .7rem var(--mono);font-style:normal}.privacy{display:flex;align-items:center;gap:8px;margin:18px 0 50px;color:var(--muted);font-size:.72rem}.privacy i{width:7px;height:7px;border-radius:50%;background:var(--green)}.footer-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:18px;border-top:1px solid var(--line)}.steps{margin:42px 0 34px}.steps div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:.78rem}.steps b{font:500 .68rem var(--mono)}.progress{height:2px;background:var(--line)}.progress i{display:block;height:100%;background:var(--orange);transition:width .2s}.progress-number{margin:9px 0 40px;text-align:right;color:var(--muted);font:500 .65rem var(--mono)}.publishing-view>small{color:var(--quiet);font-size:.72rem}.state-label.success{color:var(--green)}.published-url{display:block;margin:28px 0;color:var(--blue);font:500 .85rem var(--mono);text-decoration:none;word-break:break-all}.success-actions{display:flex;align-items:center;gap:22px}.text-link,.text-button{color:var(--blue);font-size:.76rem;text-decoration:none}.text-button{padding:0;border:0;background:none;cursor:pointer}.receipt{margin:52px 0 36px;border-top:1px solid var(--line)}.receipt div{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)}.receipt dd{font-family:var(--sans)}.view-heading{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:42px}.site-list{border-top:1px solid var(--line)}.site-list article{display:grid;grid-template-columns:1fr auto;gap:20px;padding:20px 0;border-bottom:1px solid var(--line)}.site-list article>div{display:grid;gap:6px}.site-list article>div:last-child{text-align:right}.site-list strong{font-size:.85rem}.site-list code,.site-list span,.site-list small{color:var(--muted);font-size:.66rem}.doc{width:min(100%,720px);margin:auto}.doc h1{font-size:2.4rem;font-weight:600}.summary{max-width:620px;margin:16px 0 50px;color:var(--muted);font-size:1rem;line-height:1.65}.doc h2{margin:46px 0 12px;font-size:1rem}.doc p,.doc li{color:var(--muted);font-size:.83rem;line-height:1.7}.doc pre{margin:18px 0;padding:16px;border:1px solid var(--line);background:var(--canvas);overflow:auto;font-size:.72rem;line-height:1.7}.doc table{width:100%;border-collapse:collapse}.doc th,.doc td{padding:14px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:.75rem}.doc th{width:52%;font-weight:500}.doc td{color:var(--muted)}footer{display:flex;align-items:center;min-height:62px;border-top:1px solid var(--line);color:var(--quiet);font:500 .62rem var(--mono)}footer nav{display:flex;gap:20px;margin-left:auto}footer a{text-decoration:none}
+  @media(max-width:700px){header,main,footer{padding-inline:20px}header nav a:not(:last-child){display:none}main{padding-top:38px}.workspace{min-height:510px}.empty-state{padding:60px 10px}.selected-view,.publishing-view,.success-view,.list-view{width:100%}.back{margin-bottom:38px}.address>div{display:grid}.address em{padding:0 12px 11px}.footer-actions{display:grid;grid-template-columns:1fr 1fr}.site-list article{grid-template-columns:1fr}.site-list article>div:last-child{text-align:left}.view-heading{align-items:flex-start}.demo-note{grid-template-columns:1fr;gap:5px}.doc h1{font-size:2rem}footer nav a:first-child{display:none}}
+  @media(prefers-reduced-motion:reduce){:global(*){transition:none!important}}
 </style>
