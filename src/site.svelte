@@ -318,11 +318,11 @@
     <article class="doc">
       <p class="state-label">{eyebrow}</p>
       {#if section === 'tutorial'}
-        <h1>Set up Inhouse</h1><p class="summary">Install the resources, establish the Access boundary, then publish a folder.</p>
-        <h2>1. Deploy the resources</h2><p><a class="primary link-button" href={deployUrl}>Deploy to Cloudflare</a></p><p>The button creates the Worker, Durable Object, and private R2 bucket. The application remains closed until Access is configured.</p>
-        <h2>2. Protect the hostnames</h2><pre><code>app.inhouse.example.com
-*.inhouse.example.com</code></pre><p>Create one Access application covering both. Configure the exact team domain and audience, then keep <code>workers.dev</code> and Preview URLs disabled.</p>
-        <h2>3. Verify before use</h2><p>Publish a folder while authenticated. Open the resulting URL in a clean browser. It must reach Access before any uploaded bytes.</p>
+        <h1>Set up Inhouse</h1><p class="summary">Connect your Cloudflare account once. Inhouse provisions itself and the Access boundary on your behalf — no API tokens to mint.</p>
+        <h2>1. Connect with Cloudflare</h2><p><a class="primary link-button" href="/how-to">Connect with Cloudflare</a></p><p>You review the requested scopes on Cloudflare’s consent screen and approve. Inhouse then creates the Worker, Durable Object, private R2 bucket, and the Access application — all in your own account.</p>
+        <h2>2. Choose who gets in</h2><p>The Access policy defaults to your company email domain. Point it at your existing SSO (Okta, Entra, Google) or Cloudflare authentication. Everyone in the company; nobody outside.</p>
+        <h2>3. Verify before use</h2><p>Publish a folder while authenticated. Open the resulting URL in a clean browser. It must reach Access before any uploaded bytes. <code>workers.dev</code> and Preview URLs stay disabled.</p>
+        <p>Prefer to fork and self-host the source? <a href={deployUrl}>Deploy to Cloudflare ↗</a></p>
       {:else if section === 'how-to'}
         <h1>Operate Inhouse</h1><p class="summary">Keep the publishing plane small and the trust boundary intact.</p><h2>Update a site</h2><p>Publish the same site name. Inhouse activates the replacement only after every asset passes verification.</p><h2>Use a coding agent</h2><pre><code>Build a static site into ./dist.
 Keep secrets out of browser code.

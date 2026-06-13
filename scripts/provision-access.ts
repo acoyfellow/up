@@ -1,4 +1,4 @@
-export {};
+import { resolveToken } from './lib/cf-credentials';
 
 interface Envelope<T> {
   success: boolean;
@@ -6,15 +6,17 @@ interface Envelope<T> {
   errors?: Array<{ message: string }>;
 }
 
-const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-const token = process.env.CLOUDFLARE_API_TOKEN;
+const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_PERSONAL_ACCOUNT_ID;
 const allowedEmail = process.env.INHOUSE_ALLOWED_EMAIL;
+const bucketName = process.env.INHOUSE_R2_BUCKET || 'inhouse-assets';
 const authName = process.env.INHOUSE_ACCESS_NAME || `inhouse-${crypto.randomUUID().slice(0, 8)}`;
-if (!accountId || !token || !allowedEmail) {
+if (!accountId || !allowedEmail) {
   throw new Error(
-    'Set CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN with Access Apps and Policies Write, and INHOUSE_ALLOWED_EMAIL',
+    'Set CLOUDFLARE_ACCOUNT_ID and INHOUSE_ALLOWED_EMAIL (run bun run oauth:connect first)',
   );
 }
+// Resolved from CLOUDFLARE_API_TOKEN or the OAuth credential written by oauth:connect.
+const token = await resolveToken();
 const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
 async function cf<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
@@ -41,6 +43,20 @@ try {
       session_duration: '24h',
     }),
   });
+}
+// Ensure the private assets bucket exists before the Worker binds to it.
+try {
+  const buckets = await cf<{ buckets: Array<{ name: string }> }>(
+    `/accounts/${accountId}/r2/buckets`,
+  );
+  if (!buckets.buckets?.some((bucket) => bucket.name === bucketName)) {
+    await cf(`/accounts/${accountId}/r2/buckets`, {
+      method: 'POST',
+      body: JSON.stringify({ name: bucketName }),
+    });
+  }
+} catch (error) {
+  if (!(error instanceof Error) || !error.message.toLowerCase().includes('already')) throw error;
 }
 const existing = await cf<Array<{ id: string; name?: string; aud?: string }>>(
   `/accounts/${accountId}/access/apps`,

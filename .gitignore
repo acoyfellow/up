@@ -5,6 +5,7 @@ dist/
 .dev.vars
 .env*
 !.dev.vars.example
+.cloudflare-oauth.json
 coverage/
 playwright-report/
 test-results/

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { openLocalBrowser } from 'unsurf/skills/record';
 
@@ -7,7 +8,7 @@ const exec = promisify(execFile);
 const origin = process.env.INHOUSE_CONTROL_ORIGIN || 'https://app.inhouse.coey.dev';
 const profile = process.env.INHOUSE_VIDEO_PROFILE || `${process.env.HOME}/.inhouse-video-profile`;
 const session = process.env.INHOUSE_VIDEO_SESSION || 'inhouse-video';
-const folder = process.env.INHOUSE_VIDEO_FOLDER || 'examples/baseline-site';
+const folder = resolve(process.env.INHOUSE_VIDEO_FOLDER || 'examples/baseline-site');
 const siteName = process.env.INHOUSE_VIDEO_SITE || 'baseline-video';
 const output = process.env.INHOUSE_VIDEO_OUTPUT || 'artifacts/video/inhouse-publish.webm';
 
@@ -48,7 +49,13 @@ try {
   recording = true;
   await browser.wait(800);
 
+  // A webkitdirectory input only accepts a directory path, and the bound
+  // Svelte handler listens for a real change event, so dispatch one.
   await command('upload', 'input[type="file"]', folder);
+  await command(
+    'eval',
+    'document.querySelector(\'input[type="file"]\').dispatchEvent(new Event("change",{bubbles:true}))',
+  );
   await browser.wait({ selector: '.selected-view', timeoutMs: 15_000 });
   await browser.wait(1_400);
   await browser.fill('input[aria-label="Site name"]', siteName);
