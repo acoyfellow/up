@@ -1,7 +1,7 @@
 {
-  "name": "Inhouse — your company’s private web",
-  "short_name": "Inhouse",
-  "description": "Publish company-private static sites on your Cloudflare account.",
+  "name": "Up — put your company’s private web online",
+  "short_name": "Up",
+  "description": "Drop a folder and put it online for your company, private by default.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

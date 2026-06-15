@@ -4,7 +4,7 @@ Report vulnerabilities privately through GitHub Security Advisories for `acoyfel
 
 ## Trust model
 
-The public documentation contains no customer data and reads no bindings. The control plane and every site request require a valid Cloudflare Access JWT. Inhouse independently verifies its signature, exact issuer, exact audience, and email claim before reading Durable Object or R2 state.
+The public documentation contains no customer data and reads no bindings. The control plane and every site request require a valid Cloudflare Access JWT. Up independently verifies its signature, exact issuer, exact audience, and email claim before reading Durable Object or R2 state.
 
 Uploaded sites are untrusted active JavaScript. Host them on sibling site hostnames, never on the exact control-plane origin. The control API rejects state-changing requests unless `Origin` is the exact request origin and `Sec-Fetch-Site` is `same-origin` when present.
 

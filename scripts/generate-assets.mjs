@@ -24,7 +24,7 @@ try {
   });
   await mobile.goto(origin, { waitUntil: 'networkidle' });
   await mobile.screenshot({ path: 'public/screenshots/mobile.png' });
-  console.log('Generated Inhouse screenshots and social card.');
+  console.log('Generated Up screenshots and social card.');
 } finally {
   await browser.close();
 }

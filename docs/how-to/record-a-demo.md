@@ -4,7 +4,7 @@ The video workflow uses a dedicated Chrome profile. It never imports cookies fro
 
 ## 1. Prepare the real installation
 
-The control plane must be deployed at `https://app.inhouse.coey.dev`, protected by Cloudflare Access, and the invited test user must have permission to publish.
+The control plane must be deployed at `https://app.up.ax.cloudflare.dev`, protected by Cloudflare Access, and the invited test user must have permission to publish.
 
 ## 2. Authenticate the isolated profile
 
@@ -22,7 +22,7 @@ bun run video:record
 
 The script records:
 
-1. authenticated Inhouse shell;
+1. authenticated Up shell;
 2. upload of `examples/baseline-site`;
 3. deterministic site name `baseline-video`;
 4. real manifest upload and activation;

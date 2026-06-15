@@ -1,9 +1,9 @@
 # Support
 
-Inhouse is an open-source `0.0.1` product maintained through GitHub.
+Up is an open-source `0.0.1` product maintained through GitHub.
 
 - Setup or usage question: open a GitHub Discussion.
-- Reproducible bug: open an issue with the Inhouse version, browser, Cloudflare resource configuration with identifiers redacted, and the failing step.
+- Reproducible bug: open an issue with the Up version, browser, Cloudflare resource configuration with identifiers redacted, and the failing step.
 - Security concern or possible public exposure: use a private GitHub Security Advisory. Do not post tokens, Access assertions, customer content, account IDs, or private URLs.
 
 Before requesting support, run:

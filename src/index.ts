@@ -26,54 +26,53 @@ export interface Env extends AccessConfiguration {
   MAX_FILE_BYTES?: string;
   MAX_FILES?: string;
 }
-const origin = 'https://inhouse.coey.dev';
+const origin = 'https://up.ax.cloudflare.dev';
 const pages = {
   '/': {
     section: 'home',
-    title: 'Inhouse — Your Company’s Private Web on Cloudflare',
+    title: 'Up — Put Your Company’s Private Web Online',
     description:
-      'Publish static sites for your company in seconds. Inhouse runs on your Cloudflare account, stores assets privately, and requires Access before content.',
+      'Drop a static folder and put it online for your company. Up runs in your Cloudflare account and keeps every site behind Access.',
     eyebrow: 'Private sites · Cloudflare Access · your account',
   },
   '/tutorial': {
     section: 'tutorial',
-    title: 'Deploy Inhouse to Cloudflare — Tutorial',
+    title: 'Set Up Up on Cloudflare — Tutorial',
     description:
-      'Install Inhouse in your Cloudflare account, protect the wildcard hostname with Access, and publish a first company-private static site.',
+      'Connect Up to your Cloudflare account, establish the Access boundary, and publish a first company-private static site.',
     eyebrow: 'Tutorial · publish a private site',
   },
   '/how-to': {
     section: 'how-to',
-    title: 'Operate Company-Private Sites — Inhouse How-to Guides',
+    title: 'Operate Company-Private Sites — Up How-to Guides',
     description:
-      'Update and verify sites, configure company identity, inspect deployment receipts, and operate Inhouse safely on Cloudflare.',
+      'Update and verify sites, configure company identity, inspect deployment receipts, and operate Up safely on Cloudflare.',
     eyebrow: 'How-to · operate a deployment',
   },
   '/reference': {
     section: 'reference',
-    title: 'Inhouse Reference — API, Limits, and Cloudflare Resources',
+    title: 'Up Reference — API, Limits, and Cloudflare Resources',
     description:
-      'Exact Inhouse contracts for authenticated routes, manifests, limits, R2 keys, Durable Object state, Access identity, and headers.',
+      'Exact Up contracts for authenticated routes, manifests, limits, R2 keys, Durable Object state, Access identity, and headers.',
     eyebrow: 'Reference · exact contracts',
   },
   '/explanation': {
     section: 'explanation',
-    title: 'Why Inhouse Is Private by Default — Architecture',
+    title: 'Why Up Is Private by Default — Architecture',
     description:
-      'Understand why Inhouse uses an organization-wide Access boundary, private R2, immutable deployments, and a trusted control plane.',
+      'Understand why Up uses an organization-wide Access boundary, private R2, immutable deployments, and a trusted control plane.',
     eyebrow: 'Explanation · the company trust boundary',
   },
   '/app': {
     section: 'app',
-    title: 'Publish a Private Site — Inhouse',
-    description:
-      'Publish a static folder to the authenticated Inhouse installation in your Cloudflare account.',
+    title: 'Put a Private Site Up — Up',
+    description: 'Publish a static folder to your authenticated Up installation on Cloudflare.',
     eyebrow: 'Control plane · authenticated employees',
     noindex: true,
   },
   '/offline': {
     section: 'offline',
-    title: 'Inhouse is offline',
+    title: 'Up is offline',
     description:
       'The cached Inhouse documentation shell is available while the network is offline.',
     eyebrow: 'Offline · cached documentation',
@@ -97,7 +96,7 @@ function head(path: string, page: Page) {
     '@graph': [
       {
         '@type': 'SoftwareApplication',
-        name: 'Inhouse',
+        name: 'Up',
         applicationCategory: 'DeveloperApplication',
         description: pages['/'].description,
         url: origin,
@@ -117,7 +116,7 @@ function head(path: string, page: Page) {
       },
     ],
   };
-  return `<meta name="description" content="${esc(page.description)}"><meta name="robots" content="${page.noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'}"><link rel="canonical" href="${canonical}"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><link rel="alternate" href="/llms.txt" type="text/plain"><meta name="theme-color" content="#ffffff"><meta property="og:type" content="website"><meta property="og:site_name" content="Inhouse"><meta property="og:title" content="${esc(page.title)}"><meta property="og:description" content="${esc(page.description)}"><meta property="og:url" content="${canonical}"><meta property="og:image" content="${image}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(page.title)}"><meta name="twitter:description" content="${esc(page.description)}"><meta name="twitter:image" content="${image}"><script type="application/ld+json">${JSON.stringify(schema).replaceAll('<', '\\u003c')}</script>`;
+  return `<meta name="description" content="${esc(page.description)}"><meta name="robots" content="${page.noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'}"><link rel="canonical" href="${canonical}"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><link rel="alternate" href="/llms.txt" type="text/plain"><meta name="theme-color" content="#ffffff"><meta property="og:type" content="website"><meta property="og:site_name" content="Up"><meta property="og:title" content="${esc(page.title)}"><meta property="og:description" content="${esc(page.description)}"><meta property="og:url" content="${canonical}"><meta property="og:image" content="${image}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(page.title)}"><meta name="twitter:description" content="${esc(page.description)}"><meta name="twitter:image" content="${image}"><script type="application/ld+json">${JSON.stringify(schema).replaceAll('<', '\\u003c')}</script>`;
 }
 const decode = (body: string) => Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
 const secure = {
@@ -279,10 +278,10 @@ async function serveSite(
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
-  headers.set(
-    'cache-control',
-    requested === 'index.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
-  );
+  // Site URLs are stable across atomic deployment swaps. Every asset must
+  // revalidate so a newly activated deployment cannot be masked by an old
+  // immutable browser entry. Protected content must never be marked public.
+  headers.set('cache-control', 'private, no-cache');
   headers.set('x-content-type-options', 'nosniff');
   headers.set('referrer-policy', 'strict-origin-when-cross-origin');
   headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
@@ -383,8 +382,8 @@ app.all('/api/*', async (c) => {
 });
 const nf = {
   section: 'not-found',
-  title: 'Page not found — Inhouse',
-  description: 'The requested Inhouse page does not exist.',
+  title: 'Page not found — Up',
+  description: 'The requested Up page does not exist.',
   eyebrow: '404 · page not found',
   noindex: true,
 };

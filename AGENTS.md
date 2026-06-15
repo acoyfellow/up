@@ -1,6 +1,6 @@
 # Agent guide
 
-Inhouse is a security-first static publishing plane on Cloudflare.
+Up is a security-first static publishing plane on Cloudflare.
 
 ## Commands
 

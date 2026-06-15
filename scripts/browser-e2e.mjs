@@ -5,16 +5,16 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
   await page.goto(origin, { waitUntil: 'networkidle' });
-  if (!(await page.getByRole('heading', { name: 'Nothing here yet.' }).isVisible()))
+  if (!(await page.getByRole('heading', { name: 'Put it up.' }).isVisible()))
     throw Error('empty onboarding state missing');
   await page.locator('input[type="file"]').setInputFiles('examples/baseline-site');
   await page.getByText('index.html found').waitFor();
-  const deploy = page.getByRole('link', { name: /deploy inhouse/i });
+  const deploy = page.getByRole('link', { name: /deploy up/i });
   if (!(await deploy.isVisible())) throw Error('deploy CTA missing after folder validation');
   if (!(await deploy.getAttribute('href'))?.includes('deploy.workers.cloudflare.com'))
     throw Error('deploy CTA target is wrong');
   await page.goto(`${origin}/tutorial`);
-  if (!(await page.getByRole('heading', { name: 'Set up Inhouse' }).isVisible()))
+  if (!(await page.getByRole('heading', { name: 'Set up Up' }).isVisible()))
     throw Error('tutorial missing');
   const protectedApi = await page.request.get(`${origin}/api/sites`);
   if (![403, 503].includes(protectedApi.status()))

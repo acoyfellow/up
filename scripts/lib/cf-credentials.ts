@@ -25,10 +25,10 @@ export const DEFAULT_SCOPES = [
   'workers-scripts.write', // deploy the control Worker (+ Durable Objects)
   'workers-routes.write', // bind the wildcard + app routes
   'workers-r2.write', // create/manage the private assets bucket
-  'dns.write', // create the app subdomain record
+  'dns.write', // create the app subdomain/delegation records
   'zone.read', // resolve the target zone
+  'zone.write', // create an isolated child zone when requested
   'user-details.read', // identify the connecting operator
-  'offline_access', // refresh token
 ];
 
 interface StoredCredentials {

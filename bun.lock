@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "inhouse",
+      "name": "up",
       "dependencies": {
         "hono": "^4.12.19",
         "jose": "^6.1.0",

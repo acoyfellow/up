@@ -1,4 +1,4 @@
-const CACHE = 'inhouse-docs-v1',
+const CACHE = 'up-shell-v2',
   SHELL = ['/', '/tutorial', '/how-to', '/reference', '/explanation', '/offline', '/icon.svg'];
 self.addEventListener('install', (e) =>
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))),

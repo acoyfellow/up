@@ -1,6 +1,6 @@
 # Baseline site
 
-A deterministic, dependency-free folder for manual and automated Inhouse publishing tests.
+A deterministic, dependency-free folder for manual and automated Up publishing tests.
 
 ## Publish
 
@@ -16,7 +16,7 @@ baseline
 - HTML, CSS, and JavaScript each show `loaded` in green.
 - Identity shows the authenticated Access email.
 - `/assets/mark.svg` renders as the favicon.
-- `/baseline.txt` returns `INHOUSE_BASELINE_OK`.
+- `/baseline.txt` returns `UP_BASELINE_OK`.
 - A clean unauthenticated browser cannot read either page or text asset.
 
 Do not add timestamps, external dependencies, generated files, or random content. Stability is the point.

@@ -1,9 +1,9 @@
 {
-  "name": "inhouse",
+  "name": "up",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Your company's private web, on your Cloudflare account.",
+  "description": "Put your company's private web online, on your Cloudflare account.",
   "scripts": {
     "assets:embed": "bun run scripts/embed-public.ts",
     "build": "bun run assets:embed && bun run build.mjs",

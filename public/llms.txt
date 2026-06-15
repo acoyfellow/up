@@ -1,8 +1,9 @@
-# Inhouse
-> Your company's private web, on your Cloudflare account.
-- Tutorial: https://inhouse.coey.dev/tutorial
-- How-to: https://inhouse.coey.dev/how-to
-- Reference: https://inhouse.coey.dev/reference
-- Explanation: https://inhouse.coey.dev/explanation
+# Up
+
+- Setup: https://up.ax.cloudflare.dev/tutorial
+- How-to: https://up.ax.cloudflare.dev/how-to
+- Reference: https://up.ax.cloudflare.dev/reference
+- Principles: https://up.ax.cloudflare.dev/explanation
 - Source: https://github.com/acoyfellow/inhouse
-Security: configure Access before attaching production routes. Uploaded sites receive no bindings or secrets.
+
+Up puts static folders online for your company behind Cloudflare Access. Sites stay private by default and run from private R2 in your Cloudflare account.

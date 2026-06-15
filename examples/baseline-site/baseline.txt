@@ -1,4 +1,4 @@
-INHOUSE_BASELINE_OK
+UP_BASELINE_OK
 version=0.0.1
 files=5
-purpose=stable end-to-end deployment fixture
+purpose=stable Up end-to-end deployment fixture

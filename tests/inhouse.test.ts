@@ -138,7 +138,7 @@ describe('real Durable Object and R2 deployment flow', () => {
     );
     expect(active.status).toBe(409);
   });
-  it('publishes complete immutable assets and serves them only through an authenticated site request', async () => {
+  it('publishes complete immutable deployments and privately revalidates stable asset URLs', async () => {
     const { site, id, html, css } = await createDeployment();
     expect((await upload(id, html)).status).toBe(200);
     expect((await upload(id, css)).status).toBe(200);
@@ -156,6 +156,7 @@ describe('real Durable Object and R2 deployment flow', () => {
     expect(page.status).toBe(200);
     expect(await page.text()).toContain('private receipt');
     expect(page.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(page.headers.get('cache-control')).toBe('private, no-cache');
     const identity = await handleAuthenticatedRequest(
       new Request(`https://${site}.inhouse.example.com/__inhouse/me`),
       bindings,

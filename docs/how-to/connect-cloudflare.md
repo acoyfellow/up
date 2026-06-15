@@ -1,10 +1,10 @@
-# Connect Inhouse to Cloudflare
+# Connect Up to Cloudflare
 
-Inhouse provisions itself into *your* Cloudflare account using the OAuth
+Up provisions itself into *your* Cloudflare account using the OAuth
 Authorization Code flow. You approve a scoped consent screen — you never paste
 or mint an API token.
 
-## What Inhouse requests
+## What Up requests
 
 Least-privilege scopes, shown on Cloudflare's consent screen before you approve:
 

@@ -2,34 +2,46 @@
  * One-shot installer: connect → provision → wire AUD → deploy.
  *
  * A human never creates or copies an AUD. This script creates the Access
- * application, reads the AUD it generated, injects it (with the team domain)
- * into a gitignored Wrangler config, and deploys. It is the CLI equivalent of
- * the hosted "Connect with Cloudflare" button.
+ * application, reads the generated AUD, injects it into a gitignored Wrangler
+ * config, and deploys.
  *
  * Required env:
- *   CLOUDFLARE_ACCOUNT_ID        target account
- *   INHOUSE_CONTROL_HOST         e.g. sites.example.com (sites at *.<host>)
- *   INHOUSE_ZONE_NAME            e.g. sites.example.com
- *   INHOUSE_ALLOWED_EMAIL | INHOUSE_ALLOWED_DOMAIN   who Access lets in
- * Optional env:
- *   INHOUSE_APP_NAME (default derived from host), INHOUSE_R2_BUCKET,
- *   INHOUSE_TEAM_DOMAIN (reuse an existing Zero Trust team domain),
- *   INHOUSE_CONFIG_OUT (default wrangler.<app>.jsonc),
- *   INHOUSE_ADMIN_EMAILS, INHOUSE_COMPAT_DATE
+ *   CLOUDFLARE_ACCOUNT_ID
+ *   INHOUSE_CONTROL_HOST                  e.g. sites.example.com
+ *   INHOUSE_ALLOWED_EMAIL | INHOUSE_ALLOWED_DOMAIN
+ *   INHOUSE_ZONE_NAME                     existing deployment zone
+ *     OR
+ *   INHOUSE_PARENT_ZONE                   create/delegate CONTROL_HOST as a child zone
+ *
+ * Optional: INHOUSE_APP_NAME, INHOUSE_R2_BUCKET, INHOUSE_TEAM_DOMAIN,
+ * INHOUSE_CONFIG_OUT, INHOUSE_ADMIN_EMAILS, INHOUSE_COMPAT_DATE.
  */
 import { spawn } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import { resolveToken } from './lib/cf-credentials';
-import { cfFactory, ensureAccessApp, ensureR2Bucket, ensureWildcardDns } from './lib/provision';
+import { ensureChildDelegation, ensureChildZone, waitForActiveZone } from './lib/child-zone';
+import {
+  cfFactory,
+  ensureAccessApp,
+  ensureR2Bucket,
+  ensureWildcardDns,
+  resaveAccessApp,
+} from './lib/provision';
 
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 const controlHost = process.env.INHOUSE_CONTROL_HOST;
-const zoneName = process.env.INHOUSE_ZONE_NAME;
+const configuredZone = process.env.INHOUSE_ZONE_NAME;
+const parentZone = process.env.INHOUSE_PARENT_ZONE;
 const allowEmail = process.env.INHOUSE_ALLOWED_EMAIL;
 const allowDomain = process.env.INHOUSE_ALLOWED_DOMAIN;
-if (!accountId || !controlHost || !zoneName || (!allowEmail && !allowDomain)) {
+if (
+  !accountId ||
+  !controlHost ||
+  (!configuredZone && !parentZone) ||
+  (!allowEmail && !allowDomain)
+) {
   throw new Error(
-    'Required: CLOUDFLARE_ACCOUNT_ID, INHOUSE_CONTROL_HOST, INHOUSE_ZONE_NAME, and INHOUSE_ALLOWED_EMAIL or INHOUSE_ALLOWED_DOMAIN',
+    'Required: CLOUDFLARE_ACCOUNT_ID, INHOUSE_CONTROL_HOST, INHOUSE_ZONE_NAME or INHOUSE_PARENT_ZONE, and INHOUSE_ALLOWED_EMAIL or INHOUSE_ALLOWED_DOMAIN',
   );
 }
 
@@ -43,15 +55,27 @@ const siteWildcard = `*.${controlHost}`;
 const configOut = process.env.INHOUSE_CONFIG_OUT || `wrangler.${appName}.jsonc`;
 const compatDate = process.env.INHOUSE_COMPAT_DATE || '2026-06-12';
 const adminEmails = process.env.INHOUSE_ADMIN_EMAILS || allowEmail || '';
-
 const token = await resolveToken();
 const cf = cfFactory(token);
 
-console.log(`[1/4] Ensuring private R2 bucket "${bucket}"…`);
+let deploymentZone = configuredZone || controlHost;
+if (parentZone) {
+  console.log(`[1/6] Ensuring isolated child zone "${controlHost}"…`);
+  const child = await ensureChildZone(cf, accountId, controlHost);
+  console.log(`[2/6] Delegating only "${controlHost}" from parent "${parentZone}"…`);
+  await ensureChildDelegation(cf, accountId, parentZone, child);
+  console.log(`[3/6] Waiting for child zone activation…`);
+  await waitForActiveZone(cf, accountId, controlHost);
+  deploymentZone = controlHost;
+} else {
+  console.log(`[1/6] Using existing zone "${deploymentZone}"…`);
+}
+
+console.log(`[4/6] Ensuring private R2 bucket "${bucket}"…`);
 await ensureR2Bucket(cf, accountId, bucket);
 
-console.log(`[2/4] Ensuring Access application "${appName}" (${controlHost} + ${siteWildcard})…`);
-const access = await ensureAccessApp(cf, {
+console.log(`[5/6] Ensuring Access application and injecting its generated AUD…`);
+let access = await ensureAccessApp(cf, {
   accountId,
   appName,
   controlHost,
@@ -60,10 +84,12 @@ const access = await ensureAccessApp(cf, {
   allowDomain,
   teamDomainOverride: process.env.INHOUSE_TEAM_DOMAIN,
 });
+if (parentZone) {
+  const resaved = await resaveAccessApp(cf, accountId, access.applicationId);
+  access = { ...access, policyAud: resaved.policyAud };
+}
 
-console.log('[3/4] Ensuring wildcard DNS + writing deploy config (AUD injected automatically)…');
-await ensureWildcardDns(cf, accountId, zoneName, controlHost);
-
+await ensureWildcardDns(cf, accountId, deploymentZone, controlHost);
 const config = {
   $schema: 'node_modules/wrangler/config-schema.json',
   name: appName,
@@ -76,7 +102,7 @@ const config = {
   build: { command: 'bun run build' },
   routes: [
     { pattern: controlHost, custom_domain: true },
-    { pattern: `${siteWildcard}/*`, zone_name: zoneName },
+    { pattern: `${siteWildcard}/*`, zone_name: deploymentZone },
   ],
   vars: {
     TEAM_DOMAIN: `https://${access.teamDomain}`,
@@ -97,7 +123,7 @@ await writeFile(
   `// Generated by bun run setup. Gitignored: contains account Access config.\n${JSON.stringify(config, null, 2)}\n`,
 );
 
-console.log(`[4/4] Deploying "${appName}"…`);
+console.log(`[6/6] Deploying "${appName}" into zone "${deploymentZone}"…`);
 await new Promise<void>((resolve, reject) => {
   const child = spawn('bunx', ['wrangler', 'deploy', '-c', configOut], {
     stdio: 'inherit',
@@ -110,4 +136,4 @@ await new Promise<void>((resolve, reject) => {
 });
 
 console.log(`\nDone. https://${controlHost} is live behind Cloudflare Access.`);
-console.log('You never touched an AUD — it was created and wired automatically.');
+console.log('The Access AUD was created, re-associated, and wired automatically.');

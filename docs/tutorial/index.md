@@ -1,7 +1,7 @@
 # Tutorial: publish a company-private site
 
 1. Click the Deploy to Cloudflare button in the README.
-2. Create `inhouse.example.com` and `*.inhouse.example.com` in a zone owned by the same account.
+2. Create `up.example.com` and `*.up.example.com` in a zone owned by the same account.
 3. Create one Access application that protects both hostnames for your organization.
 4. Configure `TEAM_DOMAIN`, `POLICY_AUD`, `CONTROL_HOST`, `SITE_DOMAIN`, and administrators.
 5. Disable `workers.dev` and Preview URLs, then attach production routes.

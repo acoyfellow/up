@@ -1,49 +1,43 @@
-# Inhouse
+# Up
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/inhouse)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Your company’s private web, on your Cloudflare account.**
+**Put your company’s private web online, on your Cloudflare account.**
 
-Inhouse publishes folders of HTML, CSS, JavaScript, and assets at company-private URLs. An organization installs it once; employees and coding agents can then share small sites without creating infrastructure or configuring authentication for every artifact.
+Up turns folders of HTML, CSS, JavaScript, and assets into company-private URLs. An organization connects Cloudflare once; employees and coding agents can then share small sites without creating infrastructure or configuring authentication for every artifact.
 
 ```text
 folder → immutable private upload → Access-authenticated URL
 ```
 
-**Version:** `0.0.1` · **Dogfood:** <https://inhouse.coey.dev>
+**Version:** `0.0.1` · **Dogfood:** <https://up.ax.cloudflare.dev>
 
 ## Deploy
 
-1. Click **Deploy to Cloudflare** above. The button provisions one Worker, one SQLite-backed Durable Object namespace, and one private R2 bucket in your account.
-2. Before enabling a production route, create a Cloudflare Access application covering both:
+Up uses Cloudflare OAuth. You approve a scoped consent screen; no API token or Access audience is created or copied by hand.
 
-   ```text
-   inhouse.example.com
-   *.inhouse.example.com
-   ```
+```sh
+export INHOUSE_OAUTH_CLIENT_ID=<client id>
+bun run oauth:connect
 
-3. Configure the Worker:
+export CLOUDFLARE_ACCOUNT_ID=<account id>
+export INHOUSE_CONTROL_HOST=up.example.com
+export INHOUSE_PARENT_ZONE=example.com
+export INHOUSE_ALLOWED_DOMAIN=example.com
+bun run setup
+```
 
-   ```text
-   TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-   POLICY_AUD=<Access application audience>
-   ADMIN_EMAILS=you@example.com
-   CONTROL_HOST=inhouse.example.com
-   SITE_DOMAIN=inhouse.example.com
-   ```
+`bun run setup` creates an isolated child zone when requested, delegates only the control hostname, creates private R2 and the Access application, reads back its generated AUD, injects it into a gitignored deploy config, and deploys the Worker. `workers.dev` and Preview URLs remain disabled.
 
-4. Attach the control hostname and wildcard site route. Disable `workers.dev` and Preview URLs.
-5. Open `https://inhouse.example.com/app`, choose a folder containing `index.html`, and publish.
+Open `https://up.example.com/app`, choose a folder containing `index.html`, and publish. Sites appear at `<name>.up.example.com` behind the same company Access boundary.
 
-For a reproducible setup, `bun run access:provision` creates the Access organization/application and exact-email allow policy when supplied an API token with **Access Apps and Policies Write**. `bun run test:production` then performs the authenticated publish and isolated anonymous-denial receipt.
-
-The portable button deployment intentionally fails closed until Access is configured. **Do not make the Worker public to finish setup.** Deploy to Cloudflare does not yet provision the wildcard Access application safely on your behalf.
+The portable deployment fails closed until Access is configured. **Do not make the Worker public to finish setup.**
 
 ## What publishing does
 
 1. The browser hashes every file locally and declares a bounded manifest.
-2. Inhouse creates a pending immutable deployment in its Durable Object.
+2. Up creates a pending immutable deployment in its Durable Object.
 3. Each uploaded R2 object must match the declared path, size, and SHA-256 digest.
 4. Activation verifies every object, then atomically swaps the active deployment pointer.
 5. Site requests validate the Cloudflare Access JWT before reading private R2.
@@ -84,7 +78,7 @@ Read [SECURITY.md](SECURITY.md) before attaching a real company hostname.
 - [Reference](docs/reference/index.md) — exact routes, limits, and configuration
 - [Explanation](docs/explanation/index.md) — architecture and trust boundaries
 
-The same documentation is published at <https://inhouse.coey.dev>.
+The dogfood installation is available at <https://up.ax.cloudflare.dev> behind Cloudflare Access.
 
 ## Local verification
 
@@ -127,7 +121,7 @@ A release is done only after all of these are recorded:
 
 ## Status
 
-Inhouse is permanently minimal at `0.0.1`. It supports static folders, organization-wide reading, creator/admin publishing, immutable deployments, and atomic activation. Public sites, arbitrary backend code, per-recipient ACLs, server-side secrets, databases, and scheduled jobs are intentionally out of scope.
+Up is permanently minimal at `0.0.1`. It supports static folders, organization-wide reading, creator/admin publishing, immutable deployments, and atomic activation. Public sites, arbitrary backend code, per-recipient ACLs, server-side secrets, databases, and scheduled jobs are intentionally out of scope.
 
 ## License
 
