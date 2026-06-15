@@ -14,10 +14,10 @@ Least-privilege scopes, shown on Cloudflare's consent screen before you approve:
 | `workers-scripts.write` | Deploy the control Worker and its Durable Object |
 | `workers-routes.write` | Bind the control and wildcard routes |
 | `workers-r2.write` | Create and manage the private assets bucket |
-| `dns.write` | Create the control-plane subdomain record |
-| `zone.read` | Resolve the target zone |
+| `dns.write` | Create wildcard and child-zone delegation records |
+| `zone.read` | Resolve the target and parent zones |
+| `zone.write` | Create an isolated child zone when requested |
 | `user-details.read` | Identify the connecting operator |
-| `offline_access` | Refresh the token without re-prompting |
 
 Revoke at any time from **Manage account → OAuth authorizations** in the
 Cloudflare dashboard.
@@ -42,26 +42,24 @@ Copy the **Client ID** (and secret, if any).
 ### 2. Connect
 
 ```sh
-export INHOUSE_OAUTH_CLIENT_ID=<client id>
-# export INHOUSE_OAUTH_CLIENT_SECRET=<secret>   # only for a confidential client
+export UP_OAUTH_CLIENT_ID=<client id>
+# export UP_OAUTH_CLIENT_SECRET=<secret>   # only for a confidential client
 bun run oauth:connect
 ```
 
-A browser opens to Cloudflare's consent screen. Approve it. The token is stored
-in `.cloudflare-oauth.json` (gitignored, mode `600`) and refreshed
-automatically.
+A browser opens to Cloudflare's consent screen. Approve it. The short-lived token is stored in `.cloudflare-oauth.json` (gitignored, mode `600`). Re-run the consent command when it expires; it never asks for an API token.
 
 ### 3. Provision and deploy
 
 ```sh
 export CLOUDFLARE_ACCOUNT_ID=<account id>
-export INHOUSE_ALLOWED_EMAIL=you@yourcompany.com
-bun run access:provision   # Access org + app + policy, private R2 bucket
-bun run deploy:app         # the control Worker, behind Access
+export UP_CONTROL_HOST=up.yourcompany.com
+export UP_PARENT_ZONE=yourcompany.com
+export UP_ALLOWED_EMAIL=you@yourcompany.com
+bun run setup
 ```
 
-`access:provision` prints the `TEAM_DOMAIN` and `POLICY_AUD` to wire into
-`wrangler.production.jsonc`.
+`setup` delegates an isolated child zone when requested, creates private R2 and the Access application, reads back its generated audience, injects it into a gitignored deployment config, and deploys. No AUD is created or copied by hand.
 
 ## Hosted path (roadmap)
 

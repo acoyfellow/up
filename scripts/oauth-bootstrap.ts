@@ -19,15 +19,22 @@ import {
   TOKEN_ENDPOINT,
 } from './lib/cf-credentials';
 
-const clientId = process.env.INHOUSE_OAUTH_CLIENT_ID;
-const clientSecret = process.env.INHOUSE_OAUTH_CLIENT_SECRET;
-const redirectUri = process.env.INHOUSE_OAUTH_REDIRECT || 'http://localhost:8976/callback';
-const scopes = (process.env.INHOUSE_OAUTH_SCOPES || DEFAULT_SCOPES.join(' ')).trim();
+const clientId = process.env.UP_OAUTH_CLIENT_ID || process.env.INHOUSE_OAUTH_CLIENT_ID;
+const clientSecret = process.env.UP_OAUTH_CLIENT_SECRET || process.env.INHOUSE_OAUTH_CLIENT_SECRET;
+const redirectUri =
+  process.env.UP_OAUTH_REDIRECT ||
+  process.env.INHOUSE_OAUTH_REDIRECT ||
+  'http://localhost:8976/callback';
+const scopes = (
+  process.env.UP_OAUTH_SCOPES ||
+  process.env.INHOUSE_OAUTH_SCOPES ||
+  DEFAULT_SCOPES.join(' ')
+).trim();
 
 if (!clientId) {
   console.error(
     [
-      'Set INHOUSE_OAUTH_CLIENT_ID (and INHOUSE_OAUTH_CLIENT_SECRET for a confidential client).',
+      'Set UP_OAUTH_CLIENT_ID (and UP_OAUTH_CLIENT_SECRET for a confidential client).',
       '',
       'Create the client once at https://dash.cloudflare.com/?to=/:account/oauth-clients',
       `Redirect URL: ${redirectUri}`,
@@ -65,7 +72,7 @@ authorizeUrl.search = new URLSearchParams({
 }).toString();
 
 function openInBrowser(url: string) {
-  if (process.env.INHOUSE_OAUTH_NO_OPEN) return;
+  if (process.env.UP_OAUTH_NO_OPEN || process.env.INHOUSE_OAUTH_NO_OPEN) return;
   const opener =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   spawn(opener, [url], { stdio: 'ignore', detached: true }).on('error', () => {});

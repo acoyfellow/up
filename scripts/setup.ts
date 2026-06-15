@@ -7,14 +7,14 @@
  *
  * Required env:
  *   CLOUDFLARE_ACCOUNT_ID
- *   INHOUSE_CONTROL_HOST                  e.g. sites.example.com
- *   INHOUSE_ALLOWED_EMAIL | INHOUSE_ALLOWED_DOMAIN
- *   INHOUSE_ZONE_NAME                     existing deployment zone
+ *   UP_CONTROL_HOST                  e.g. sites.example.com
+ *   UP_ALLOWED_EMAIL | UP_ALLOWED_DOMAIN
+ *   UP_ZONE_NAME                     existing deployment zone
  *     OR
- *   INHOUSE_PARENT_ZONE                   create/delegate CONTROL_HOST as a child zone
+ *   UP_PARENT_ZONE                   create/delegate CONTROL_HOST as a child zone
  *
- * Optional: INHOUSE_APP_NAME, INHOUSE_R2_BUCKET, INHOUSE_TEAM_DOMAIN,
- * INHOUSE_CONFIG_OUT, INHOUSE_ADMIN_EMAILS, INHOUSE_COMPAT_DATE.
+ * Optional: UP_APP_NAME, UP_R2_BUCKET, UP_TEAM_DOMAIN, UP_CONFIG_OUT,
+ * UP_ADMIN_EMAILS, UP_COMPAT_DATE. Legacy INHOUSE_* names remain supported.
  */
 import { spawn } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
@@ -28,12 +28,13 @@ import {
   resaveAccessApp,
 } from './lib/provision';
 
+const setting = (name: string) => process.env[`UP_${name}`] || process.env[`INHOUSE_${name}`];
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-const controlHost = process.env.INHOUSE_CONTROL_HOST;
-const configuredZone = process.env.INHOUSE_ZONE_NAME;
-const parentZone = process.env.INHOUSE_PARENT_ZONE;
-const allowEmail = process.env.INHOUSE_ALLOWED_EMAIL;
-const allowDomain = process.env.INHOUSE_ALLOWED_DOMAIN;
+const controlHost = setting('CONTROL_HOST');
+const configuredZone = setting('ZONE_NAME');
+const parentZone = setting('PARENT_ZONE');
+const allowEmail = setting('ALLOWED_EMAIL');
+const allowDomain = setting('ALLOWED_DOMAIN');
 if (
   !accountId ||
   !controlHost ||
@@ -41,20 +42,16 @@ if (
   (!allowEmail && !allowDomain)
 ) {
   throw new Error(
-    'Required: CLOUDFLARE_ACCOUNT_ID, INHOUSE_CONTROL_HOST, INHOUSE_ZONE_NAME or INHOUSE_PARENT_ZONE, and INHOUSE_ALLOWED_EMAIL or INHOUSE_ALLOWED_DOMAIN',
+    'Required: CLOUDFLARE_ACCOUNT_ID, UP_CONTROL_HOST, UP_ZONE_NAME or UP_PARENT_ZONE, and UP_ALLOWED_EMAIL or UP_ALLOWED_DOMAIN',
   );
 }
 
-const appName = (
-  process.env.INHOUSE_APP_NAME ||
-  controlHost.split('.')[0] ||
-  controlHost
-).toLowerCase();
-const bucket = process.env.INHOUSE_R2_BUCKET || `${appName}-assets`;
+const appName = (setting('APP_NAME') || controlHost.split('.')[0] || controlHost).toLowerCase();
+const bucket = setting('R2_BUCKET') || `${appName}-assets`;
 const siteWildcard = `*.${controlHost}`;
-const configOut = process.env.INHOUSE_CONFIG_OUT || `wrangler.${appName}.jsonc`;
-const compatDate = process.env.INHOUSE_COMPAT_DATE || '2026-06-12';
-const adminEmails = process.env.INHOUSE_ADMIN_EMAILS || allowEmail || '';
+const configOut = setting('CONFIG_OUT') || `wrangler.${appName}.jsonc`;
+const compatDate = setting('COMPAT_DATE') || '2026-06-12';
+const adminEmails = setting('ADMIN_EMAILS') || allowEmail || '';
 const token = await resolveToken();
 const cf = cfFactory(token);
 
@@ -82,7 +79,7 @@ let access = await ensureAccessApp(cf, {
   siteWildcard,
   allowEmail,
   allowDomain,
-  teamDomainOverride: process.env.INHOUSE_TEAM_DOMAIN,
+  teamDomainOverride: setting('TEAM_DOMAIN'),
 });
 if (parentZone) {
   const resaved = await resaveAccessApp(cf, accountId, access.applicationId);

@@ -18,13 +18,13 @@ folder → immutable private upload → Access-authenticated URL
 Up uses Cloudflare OAuth. You approve a scoped consent screen; no API token or Access audience is created or copied by hand.
 
 ```sh
-export INHOUSE_OAUTH_CLIENT_ID=<client id>
+export UP_OAUTH_CLIENT_ID=<client id>
 bun run oauth:connect
 
 export CLOUDFLARE_ACCOUNT_ID=<account id>
-export INHOUSE_CONTROL_HOST=up.example.com
-export INHOUSE_PARENT_ZONE=example.com
-export INHOUSE_ALLOWED_DOMAIN=example.com
+export UP_CONTROL_HOST=up.example.com
+export UP_PARENT_ZONE=example.com
+export UP_ALLOWED_DOMAIN=example.com
 bun run setup
 ```
 

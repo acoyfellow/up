@@ -66,7 +66,7 @@ async function refresh(stored: StoredCredentials): Promise<StoredCredentials> {
     refresh_token: stored.refresh_token,
     client_id: stored.client_id,
   });
-  const secret = process.env.INHOUSE_OAUTH_CLIENT_SECRET;
+  const secret = process.env.UP_OAUTH_CLIENT_SECRET || process.env.INHOUSE_OAUTH_CLIENT_SECRET;
   const headers: Record<string, string> = { 'content-type': 'application/x-www-form-urlencoded' };
   if (secret) headers.authorization = `Basic ${btoa(`${stored.client_id}:${secret}`)}`;
   const response = await fetch(TOKEN_ENDPOINT, { method: 'POST', headers, body });
