@@ -5,14 +5,14 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
   await page.goto(origin, { waitUntil: 'networkidle' });
-  if (!(await page.getByRole('heading', { name: 'Put it up.' }).isVisible()))
-    throw Error('empty onboarding state missing');
-  await page.locator('input[type="file"]').setInputFiles('examples/baseline-site');
-  await page.getByText('index.html found').waitFor();
-  const deploy = page.getByRole('link', { name: /deploy up/i });
-  if (!(await deploy.isVisible())) throw Error('deploy CTA missing after folder validation');
-  if (!(await deploy.getAttribute('href'))?.includes('deploy.workers.cloudflare.com'))
-    throw Error('deploy CTA target is wrong');
+  if (!(await page.getByRole('heading', { name: 'Your company’s private web.' }).isVisible()))
+    throw Error('product front door missing');
+  if (!(await page.getByRole('link', { name: 'Open Up', exact: true }).isVisible()))
+    throw Error('publisher CTA missing');
+  for (const name of ['Tutorial', 'How-to guides', 'Reference', 'Explanation']) {
+    if (!(await page.getByRole('link', { name }).first().isVisible()))
+      throw Error(`Diátaxis entry missing: ${name}`);
+  }
   await page.goto(`${origin}/tutorial`);
   if (!(await page.getByRole('heading', { name: 'Set up Up' }).isVisible()))
     throw Error('tutorial missing');

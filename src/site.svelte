@@ -222,9 +222,9 @@
   <a class="wordmark" href="/" aria-label="Up home"><i aria-hidden="true"></i>up</a>
   <nav aria-label="Primary">
     {#if !isProduct}
-      <a href="/tutorial">Setup</a>
-      <a href="/explanation">Principles</a>
-      <a href="https://github.com/acoyfellow/inhouse">Source ↗</a>
+      <a href="/tutorial">Docs</a>
+      <a href="/explanation">How it works</a>
+      <a href="/app">Open Up ↗</a>
     {:else}
       <span class="identity"><i aria-hidden="true"></i>{identity}</span>
     {/if}
@@ -232,7 +232,67 @@
 </header>
 
 <main class:product={isProduct}>
-  {#if section === 'home' || section === 'app'}
+  {#if section === 'home'}
+    <div class="home-shell">
+      <section class="home-hero" aria-labelledby="home-title">
+        <div class="home-kicker"><span>Cloudflare-native</span><i aria-hidden="true"></i><span>Private by default</span></div>
+        <h1 id="home-title">Your company’s<br />private web.</h1>
+        <p class="home-tagline">Drop a static folder. Get a company-only URL behind the identity system your organization already trusts.</p>
+        <div class="home-actions">
+          <a class="primary link-button" href="/app">Open Up <span aria-hidden="true">→</span></a>
+          <a class="home-secondary" href="/tutorial">Set up your installation</a>
+        </div>
+        <div class="home-signal" aria-hidden="true">
+          <span class="signal-navy"></span><span class="signal-blue"></span><span class="signal-cyan"></span><span class="signal-red"></span><span class="signal-orange"></span>
+        </div>
+      </section>
+
+      <section class="home-intro" aria-labelledby="intro-title">
+        <p class="section-index">01 / PRODUCT</p>
+        <div>
+          <h2 id="intro-title">One installation.<br />Every small site.</h2>
+          <p>Up gives employees and agents one dependable place to publish prototypes, reports, demos, and internal tools. Files stay in private R2. Every request meets Cloudflare Access first.</p>
+        </div>
+      </section>
+
+      <section class="feature-grid" aria-label="Product capabilities">
+        <article><span>01</span><h3>Choose a folder</h3><p>HTML, CSS, JavaScript, and assets. No framework or build system required.</p></article>
+        <article><span>02</span><h3>Publish atomically</h3><p>Every digest is verified before a deployment becomes visible. Partial updates never leak.</p></article>
+        <article><span>03</span><h3>Share inside</h3><p>Each site receives a sibling hostname and inherits the organization’s Access boundary.</p></article>
+        <article><span>04</span><h3>Stay in control</h3><p>The Worker, Durable Object, R2 bucket, DNS, and Access app remain in your account.</p></article>
+      </section>
+
+      <section class="system-model" aria-labelledby="model-title">
+        <p class="section-index">02 / SYSTEM</p>
+        <div>
+          <h2 id="model-title">Folder to private URL.</h2>
+          <div class="model-flow" aria-label="Folder to private URL workflow">
+            <span>static folder</span><i>→</i><span>verified upload</span><i>→</i><span>private R2</span><i>→</i><span>Access URL</span>
+          </div>
+          <ol>
+            <li><strong>Connect</strong><span>Approve Up once in Cloudflare.</span></li>
+            <li><strong>Publish</strong><span>Choose a folder and name the site.</span></li>
+            <li><strong>Prove</strong><span>Verify authenticated content and anonymous denial.</span></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="docs-map" aria-labelledby="docs-title">
+        <div class="docs-map-heading"><div><p class="section-index">03 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
+        <div class="docs-quadrants">
+          <a href="/tutorial"><span>LEARNING</span><strong>Tutorial</strong><p>Connect Cloudflare and publish a first private site.</p><i aria-hidden="true">01 →</i></a>
+          <a href="/how-to"><span>GOALS</span><strong>How-to guides</strong><p>Update, operate, verify, and respond safely.</p><i aria-hidden="true">02 →</i></a>
+          <a href="/reference"><span>INFORMATION</span><strong>Reference</strong><p>Routes, limits, bindings, headers, and exact contracts.</p><i aria-hidden="true">03 →</i></a>
+          <a href="/explanation"><span>UNDERSTANDING</span><strong>Explanation</strong><p>Why the Access boundary and atomic model matter.</p><i aria-hidden="true">04 →</i></a>
+        </div>
+      </section>
+
+      <section class="read-next" aria-labelledby="next-title">
+        <p class="section-index">WHAT TO READ NEXT</p>
+        <div><h2 id="next-title">Start with a first publish.</h2><a href="/tutorial">Your first Up site <span aria-hidden="true">→</span></a></div>
+      </section>
+    </div>
+  {:else if section === 'app'}
     <section class="workspace" aria-label="Up publisher">
       {#if view === 'empty'}
         <div
@@ -343,11 +403,19 @@
       {/if}
       <input bind:this={input} class="file-input" type="file" webkitdirectory multiple aria-label="Choose a static site folder" onchange={acceptInput} />
     </section>
-    {#if !isProduct}
-      <aside class="demo-note"><span>Preview</span><p>The end-user shell. Connect Cloudflare once, then every folder is private by default.</p></aside>
-    {/if}
   {:else}
-    <article class="doc">
+    <div class="docs-shell">
+      <aside class="docs-nav" aria-label="Documentation">
+        <p>Documentation</p>
+        <nav>
+          <a class:active={section === 'tutorial'} href="/tutorial"><span>01</span>Tutorial</a>
+          <a class:active={section === 'how-to'} href="/how-to"><span>02</span>How-to guides</a>
+          <a class:active={section === 'reference'} href="/reference"><span>03</span>Reference</a>
+          <a class:active={section === 'explanation'} href="/explanation"><span>04</span>Explanation</a>
+        </nav>
+        <div><span>Up 0.0.1</span><a href="/app">Open publisher →</a></div>
+      </aside>
+      <article class="doc">
       <p class="state-label">{eyebrow}</p>
       {#if section === 'tutorial'}
         <h1>Set up Up</h1><p class="summary">Connect your Cloudflare account once. Up provisions itself and the Access boundary on your behalf — no API tokens to mint.</p>
@@ -368,7 +436,8 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
       {:else}
         <h1>Page not found.</h1><p class="summary">The requested page does not exist.</p><a href="/">Return to Up</a>
       {/if}
-    </article>
+      </article>
+    </div>
   {/if}
 </main>
 
@@ -376,8 +445,8 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
 
 <style>
   :global(:root){color-scheme:light;--white:#fff;--canvas:#f7f7f5;--ink:#171717;--muted:#6b6b66;--quiet:#70706a;--line:#deded9;--line-dark:#c8c8c1;--orange:#f6821f;--orange-hover:#e87416;--blue:#2678a4;--green:#16835b;--red:#b83825;--sans:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace}:global(*){box-sizing:border-box}:global(html){background:var(--white)}:global(body){min-width:320px;margin:0;background:var(--white);color:var(--ink);font-family:var(--sans);font-synthesis:none}:global(button),:global(input){font:inherit}:global(a){color:inherit}:global(code),:global(pre){font-family:var(--mono)}:global(::selection){background:#f6821f33}
-  header,main,footer{width:min(100%,1120px);margin-inline:auto;padding-inline:32px}header{height:68px;display:flex;align-items:center;border-bottom:1px solid var(--line)}.wordmark{font-size:.9rem;font-weight:700;letter-spacing:-.025em;text-decoration:none}header nav{display:flex;align-items:center;gap:24px;margin-left:auto;color:var(--muted);font-size:.72rem}header nav a{text-decoration:none}header nav a:hover{color:var(--ink)}header nav span{font-family:var(--mono);font-size:.64rem}main{min-height:calc(100vh - 130px);padding-top:72px;padding-bottom:100px}.workspace{min-height:560px;display:grid;align-items:center}.empty-state{max-width:520px;margin:auto;text-align:center;padding:80px 40px;border:1px solid transparent;transition:border-color .12s,background .12s}.empty-state.dragging{border-color:var(--orange);background:#fffaf5}.state-label{margin:0 0 14px;color:var(--quiet);font:500 .65rem/1 var(--mono);letter-spacing:.04em;text-transform:uppercase}.empty-state h1,.selected-view h1,.publishing-view h1,.success-view h1,.view-heading h1,.doc h1{margin:0;letter-spacing:-.045em}.empty-state h1{font-size:2rem;font-weight:600}.empty-copy>p:not(.state-label){margin:12px 0 28px;color:var(--muted);font-size:.95rem}.empty-state small{display:block;margin-top:18px;color:var(--quiet);font-size:.7rem}.primary,.secondary,.link-button{display:inline-flex;min-height:40px;align-items:center;justify-content:center;padding:0 16px;border:1px solid;border-radius:3px;font-size:.78rem;font-weight:600;text-decoration:none;cursor:pointer}.primary{border-color:var(--orange);background:var(--orange);color:#211005}.primary:hover{border-color:var(--orange-hover);background:var(--orange-hover)}.primary:disabled{opacity:.45;cursor:not-allowed}.secondary{border-color:var(--line-dark);background:var(--white);color:var(--ink)}.secondary:hover{border-color:var(--ink)}.small{min-height:34px;padding-inline:13px}.file-input{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none}.demo-note{display:grid;grid-template-columns:60px 1fr;max-width:620px;margin:0 auto;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.72rem;line-height:1.6}.demo-note span{color:var(--quiet);font-family:var(--mono);text-transform:uppercase}.demo-note p{margin:0}.selected-view,.publishing-view,.success-view,.list-view{width:min(100%,720px);margin:auto}.back{margin-bottom:56px;padding:0;border:0;background:none;color:var(--muted);font-size:.75rem;cursor:pointer}.back:hover{color:var(--ink)}.selected-view h1,.publishing-view h1,.success-view h1,.view-heading h1{font-size:2rem;font-weight:600}.file-summary{margin:38px 0 44px;border-top:1px solid var(--line)}.file-summary div{display:grid;grid-template-columns:1fr 1fr;padding:14px 0;border-bottom:1px solid var(--line)}dt{color:var(--muted);font-size:.75rem}dd{margin:0;text-align:right;font:500 .72rem var(--mono)}dd.valid{color:var(--green)}.address{display:grid;gap:10px}.address>span{font-size:.72rem;font-weight:600}.address>div{display:flex;align-items:center;border:1px solid var(--line-dark);border-radius:3px;overflow:hidden}.address input{min-width:0;flex:1;height:44px;padding:0 12px;border:0;outline:none;font-family:var(--mono);font-size:.78rem}.address input:focus{box-shadow:inset 0 0 0 1px var(--blue)}.address em{padding-right:12px;color:var(--quiet);font:400 .7rem var(--mono);font-style:normal}.privacy{display:flex;align-items:center;gap:8px;margin:18px 0 50px;color:var(--muted);font-size:.72rem}.privacy i{width:7px;height:7px;border-radius:50%;background:var(--green)}.footer-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:18px;border-top:1px solid var(--line)}.steps{margin:42px 0 34px}.steps div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:.78rem}.steps b{font:500 .68rem var(--mono)}.progress{height:2px;background:var(--line)}.progress i{display:block;height:100%;background:var(--orange);transition:width .2s}.progress-number{margin:9px 0 40px;text-align:right;color:var(--muted);font:500 .65rem var(--mono)}.publishing-view>small{color:var(--quiet);font-size:.72rem}.state-label.success{color:var(--green)}.published-url{display:block;margin:28px 0;color:var(--blue);font:500 .85rem var(--mono);text-decoration:none;word-break:break-all}.success-actions{display:flex;align-items:center;gap:22px}.text-link,.text-button{color:var(--blue);font-size:.76rem;text-decoration:none}.text-button{padding:0;border:0;background:none;cursor:pointer}.receipt{margin:52px 0 36px;border-top:1px solid var(--line)}.receipt div{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)}.receipt dd{font-family:var(--sans)}.view-heading{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:42px}.site-list{border-top:1px solid var(--line)}.site-list article{display:grid;grid-template-columns:1fr auto;gap:20px;padding:20px 0;border-bottom:1px solid var(--line)}.site-list article>div{display:grid;gap:6px}.site-list article>div:last-child{text-align:right}.site-list strong{font-size:.85rem}.site-list code,.site-list span,.site-list small{color:var(--muted);font-size:.66rem}.doc{width:min(100%,720px);margin:auto}.doc h1{font-size:2.4rem;font-weight:600}.summary{max-width:620px;margin:16px 0 50px;color:var(--muted);font-size:1rem;line-height:1.65}.doc h2{margin:46px 0 12px;font-size:1rem}.doc p,.doc li{color:var(--muted);font-size:.83rem;line-height:1.7}.doc pre{margin:18px 0;padding:16px;border:1px solid var(--line);background:var(--canvas);overflow:auto;font-size:.72rem;line-height:1.7}.doc table{width:100%;border-collapse:collapse}.doc th,.doc td{padding:14px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:.75rem}.doc th{width:52%;font-weight:500}.doc td{color:var(--muted)}footer{display:flex;align-items:center;min-height:62px;border-top:1px solid var(--line);color:var(--quiet);font:500 .62rem var(--mono)}footer nav{display:flex;gap:20px;margin-left:auto}footer a{text-decoration:none}
-  @media(max-width:700px){header,main,footer{padding-inline:20px}header nav a:not(:last-child){display:none}main{padding-top:38px}.workspace{min-height:510px}.empty-state{padding:60px 10px}.selected-view,.publishing-view,.success-view,.list-view{width:100%}.back{margin-bottom:38px}.address>div{display:grid}.address em{padding:0 12px 11px}.footer-actions{display:grid;grid-template-columns:1fr 1fr}.site-list article{grid-template-columns:1fr}.site-list article>div:last-child{text-align:left}.view-heading{align-items:flex-start}.demo-note{grid-template-columns:1fr;gap:5px}.doc h1{font-size:2rem}footer nav a:first-child{display:none}}
+  header,main,footer{width:min(100%,1120px);margin-inline:auto;padding-inline:32px}header{height:68px;display:flex;align-items:center;border-bottom:1px solid var(--line)}.wordmark{font-size:.9rem;font-weight:700;letter-spacing:-.025em;text-decoration:none}header nav{display:flex;align-items:center;gap:24px;margin-left:auto;color:var(--muted);font-size:.72rem}header nav a{text-decoration:none}header nav a:hover{color:var(--ink)}header nav span{font-family:var(--mono);font-size:.64rem}main{min-height:calc(100vh - 130px);padding-top:72px;padding-bottom:100px}.workspace{min-height:560px;display:grid;align-items:center}.empty-state{max-width:520px;margin:auto;text-align:center;padding:80px 40px;border:1px solid transparent;transition:border-color .12s,background .12s}.empty-state.dragging{border-color:var(--orange);background:#fffaf5}.state-label{margin:0 0 14px;color:var(--quiet);font:500 .65rem/1 var(--mono);letter-spacing:.04em;text-transform:uppercase}.empty-state h1,.selected-view h1,.publishing-view h1,.success-view h1,.view-heading h1,.doc h1{margin:0;letter-spacing:-.045em}.empty-state h1{font-size:2rem;font-weight:600}.empty-copy>p:not(.state-label){margin:12px 0 28px;color:var(--muted);font-size:.95rem}.empty-state small{display:block;margin-top:18px;color:var(--quiet);font-size:.7rem}.primary,.secondary,.link-button{display:inline-flex;min-height:40px;align-items:center;justify-content:center;padding:0 16px;border:1px solid;border-radius:3px;font-size:.78rem;font-weight:600;text-decoration:none;cursor:pointer}.primary{border-color:var(--orange);background:var(--orange);color:#211005}.primary:hover{border-color:var(--orange-hover);background:var(--orange-hover)}.primary:disabled{opacity:.45;cursor:not-allowed}.secondary{border-color:var(--line-dark);background:var(--white);color:var(--ink)}.secondary:hover{border-color:var(--ink)}.small{min-height:34px;padding-inline:13px}.file-input{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none}.selected-view,.publishing-view,.success-view,.list-view{width:min(100%,720px);margin:auto}.back{margin-bottom:56px;padding:0;border:0;background:none;color:var(--muted);font-size:.75rem;cursor:pointer}.back:hover{color:var(--ink)}.selected-view h1,.publishing-view h1,.success-view h1,.view-heading h1{font-size:2rem;font-weight:600}.file-summary{margin:38px 0 44px;border-top:1px solid var(--line)}.file-summary div{display:grid;grid-template-columns:1fr 1fr;padding:14px 0;border-bottom:1px solid var(--line)}dt{color:var(--muted);font-size:.75rem}dd{margin:0;text-align:right;font:500 .72rem var(--mono)}dd.valid{color:var(--green)}.address{display:grid;gap:10px}.address>span{font-size:.72rem;font-weight:600}.address>div{display:flex;align-items:center;border:1px solid var(--line-dark);border-radius:3px;overflow:hidden}.address input{min-width:0;flex:1;height:44px;padding:0 12px;border:0;outline:none;font-family:var(--mono);font-size:.78rem}.address input:focus{box-shadow:inset 0 0 0 1px var(--blue)}.address em{padding-right:12px;color:var(--quiet);font:400 .7rem var(--mono);font-style:normal}.privacy{display:flex;align-items:center;gap:8px;margin:18px 0 50px;color:var(--muted);font-size:.72rem}.privacy i{width:7px;height:7px;border-radius:50%;background:var(--green)}.footer-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:18px;border-top:1px solid var(--line)}.steps{margin:42px 0 34px}.steps div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:.78rem}.steps b{font:500 .68rem var(--mono)}.progress{height:2px;background:var(--line)}.progress i{display:block;height:100%;background:var(--orange);transition:width .2s}.progress-number{margin:9px 0 40px;text-align:right;color:var(--muted);font:500 .65rem var(--mono)}.publishing-view>small{color:var(--quiet);font-size:.72rem}.state-label.success{color:var(--green)}.published-url{display:block;margin:28px 0;color:var(--blue);font:500 .85rem var(--mono);text-decoration:none;word-break:break-all}.success-actions{display:flex;align-items:center;gap:22px}.text-link,.text-button{color:var(--blue);font-size:.76rem;text-decoration:none}.text-button{padding:0;border:0;background:none;cursor:pointer}.receipt{margin:52px 0 36px;border-top:1px solid var(--line)}.receipt div{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)}.receipt dd{font-family:var(--sans)}.view-heading{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:42px}.site-list{border-top:1px solid var(--line)}.site-list article{display:grid;grid-template-columns:1fr auto;gap:20px;padding:20px 0;border-bottom:1px solid var(--line)}.site-list article>div{display:grid;gap:6px}.site-list article>div:last-child{text-align:right}.site-list strong{font-size:.85rem}.site-list code,.site-list span,.site-list small{color:var(--muted);font-size:.66rem}.doc{width:min(100%,720px);margin:auto}.doc h1{font-size:2.4rem;font-weight:600}.summary{max-width:620px;margin:16px 0 50px;color:var(--muted);font-size:1rem;line-height:1.65}.doc h2{margin:46px 0 12px;font-size:1rem}.doc p,.doc li{color:var(--muted);font-size:.83rem;line-height:1.7}.doc pre{margin:18px 0;padding:16px;border:1px solid var(--line);background:var(--canvas);overflow:auto;font-size:.72rem;line-height:1.7}.doc table{width:100%;border-collapse:collapse}.doc th,.doc td{padding:14px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:.75rem}.doc th{width:52%;font-weight:500}.doc td{color:var(--muted)}footer{display:flex;align-items:center;min-height:62px;border-top:1px solid var(--line);color:var(--quiet);font:500 .62rem var(--mono)}footer nav{display:flex;gap:20px;margin-left:auto}footer a{text-decoration:none}
+  @media(max-width:700px){header,main,footer{padding-inline:20px}header nav a:not(:last-child){display:none}main{padding-top:38px}.workspace{min-height:510px}.empty-state{padding:60px 10px}.selected-view,.publishing-view,.success-view,.list-view{width:100%}.back{margin-bottom:38px}.address>div{display:grid}.address em{padding:0 12px 11px}.footer-actions{display:grid;grid-template-columns:1fr 1fr}.site-list article{grid-template-columns:1fr}.site-list article>div:last-child{text-align:left}.view-heading{align-items:flex-start}.doc h1{font-size:2rem}footer nav a:first-child{display:none}}
   /* Up — white-space-first institutional shell with one expressive brand gesture. */
   :global(:root){
     --white:#fff;
@@ -434,8 +503,6 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
   .choose{gap:36px;min-width:184px;justify-content:space-between}
   .choose span{font-size:1rem}
   .secondary{border-color:var(--line-dark)}
-  .demo-note{grid-template-columns:76px 1fr;max-width:760px;margin-top:20px;padding:18px 4px 0}
-  .demo-note span{letter-spacing:.08em}
   .selected-view,.publishing-view,.success-view,.list-view{width:min(100%,780px)}
   .selected-view,.publishing-view,.success-view{position:relative;padding-left:32px;border-left:3px solid var(--orange)}
   .back{margin-bottom:64px;font-family:var(--mono);font-size:.68rem}
@@ -477,6 +544,74 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
   .doc{width:min(100%,780px)}
   .doc h1{font-size:clamp(3rem,7vw,5.5rem);font-weight:610;line-height:.95;letter-spacing:-.065em}
   .summary{font-size:1.08rem}
+  /* Product front door: Unsurf-style clarity, organised around Diátaxis. */
+  .home-shell{width:min(100%,1120px);margin:auto}
+  .home-hero{position:relative;min-height:590px;padding:106px 42px 86px;border-block:1px solid var(--line);overflow:hidden}
+  .home-kicker{display:flex;align-items:center;gap:10px;color:var(--quiet);font:500 .66rem var(--mono);letter-spacing:.06em;text-transform:uppercase}
+  .home-kicker i{width:5px;height:5px;border-radius:50%;background:var(--orange)}
+  .home-hero h1{max-width:900px;margin:31px 0 26px;font-size:clamp(5.5rem,10vw,8.5rem);font-weight:610;line-height:.82;letter-spacing:-.08em}
+  .home-tagline{max-width:650px;margin:0;color:var(--muted);font-size:1.14rem;line-height:1.65}
+  .home-actions{display:flex;align-items:center;gap:28px;margin-top:36px}
+  .home-actions .primary{min-width:134px;justify-content:space-between;gap:28px}
+  .home-secondary{color:var(--muted);font-size:.78rem;text-decoration:none;border-bottom:1px solid var(--line-dark);padding-block:10px 7px}
+  .home-secondary:hover{color:var(--ink);border-color:var(--ink)}
+  .home-signal{position:absolute;right:-26px;bottom:39px;width:470px;height:106px;transform:rotate(-7deg)}
+  .home-signal span{position:absolute;right:0;height:20px;border-radius:999px;transform-origin:right center;filter:saturate(1.08)}
+  .signal-navy{top:0;width:94%;background:var(--navy);transform:rotate(-1deg)}
+  .signal-blue{top:19px;width:83%;background:#1451bb;transform:rotate(1deg)}
+  .signal-cyan{top:38px;width:68%;height:12px!important;background:var(--cyan);transform:rotate(-2deg)}
+  .signal-red{top:54px;width:76%;background:#f21f49;transform:rotate(2deg)}
+  .signal-orange{top:74px;width:64%;background:var(--orange);transform:rotate(-1deg)}
+  .section-index{margin:0;color:var(--quiet);font:500 .64rem var(--mono);letter-spacing:.08em}
+  .home-intro,.system-model,.read-next{display:grid;grid-template-columns:220px 1fr;padding:98px 42px;border-bottom:1px solid var(--line)}
+  .home-intro h2,.system-model h2,.docs-map h2,.read-next h2{margin:0;font-size:clamp(2.7rem,5vw,4.9rem);font-weight:610;line-height:.96;letter-spacing:-.06em}
+  .home-intro>div>p{max-width:680px;margin:34px 0 0;color:var(--muted);font-size:1.02rem;line-height:1.75}
+  .feature-grid{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+  .feature-grid article{min-height:250px;padding:29px 27px;border-right:1px solid var(--line)}
+  .feature-grid article:last-child{border-right:0}
+  .feature-grid article>span{color:var(--orange);font:500 .63rem var(--mono)}
+  .feature-grid h3{margin:72px 0 13px;font-size:1rem;letter-spacing:-.025em}
+  .feature-grid p{margin:0;color:var(--muted);font-size:.77rem;line-height:1.65}
+  .system-model>div{min-width:0}
+  .model-flow{display:flex;align-items:center;gap:12px;margin:42px 0;padding:20px 0;border-block:1px solid var(--line);overflow:auto;white-space:nowrap}
+  .model-flow span{padding:9px 12px;border:1px solid var(--line);border-radius:4px;background:#fff;font:500 .69rem var(--mono)}
+  .model-flow i{color:var(--orange);font-style:normal}
+  .system-model ol{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+  .system-model li{display:grid;grid-template-columns:120px 1fr;padding:14px 0;border-bottom:1px solid var(--line);font-size:.78rem}
+  .system-model li span{color:var(--muted)}
+  .docs-map{padding:98px 42px;border-bottom:1px solid var(--line)}
+  .docs-map-heading{display:grid;grid-template-columns:1.3fr .7fr;align-items:end;gap:50px;margin-bottom:54px}
+  .docs-map-heading .section-index{margin-bottom:20px}
+  .docs-map-heading>p{max-width:350px;margin:0;color:var(--muted);font-size:.81rem;line-height:1.7}
+  .docs-quadrants{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line-dark)}
+  .docs-quadrants a{position:relative;min-height:250px;padding:27px 30px;color:var(--ink);text-decoration:none;border-right:1px solid var(--line);border-bottom:1px solid var(--line);transition:background .14s ease}
+  .docs-quadrants a:nth-child(2n){border-right:0}
+  .docs-quadrants a:nth-child(n+3){border-bottom:0}
+  .docs-quadrants a:hover{background:#f7f7f3}
+  .docs-quadrants a>span{color:var(--orange);font:500 .62rem var(--mono);letter-spacing:.08em}
+  .docs-quadrants strong{display:block;margin-top:68px;font-size:1.65rem;letter-spacing:-.045em}
+  .docs-quadrants p{max-width:350px;margin:11px 0 0;color:var(--muted);font-size:.76rem;line-height:1.6}
+  .docs-quadrants i{position:absolute;top:27px;right:28px;color:var(--quiet);font:500 .63rem var(--mono);font-style:normal}
+  .read-next{padding-block:72px 84px}
+  .read-next>div{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .read-next h2{font-size:clamp(2.4rem,4vw,3.8rem)}
+  .read-next a{display:flex;min-width:210px;justify-content:space-between;padding:15px 0;color:var(--ink);font-size:.78rem;text-decoration:none;border-bottom:1px solid var(--ink)}
+  /* Persistent documentation frame inspired by Diátaxis' task-first map. */
+  .docs-shell{display:grid;grid-template-columns:220px minmax(0,780px);gap:82px;width:min(100%,1082px);margin:auto;align-items:start}
+  .docs-nav{position:sticky;top:28px;min-height:560px;padding-right:26px;border-right:1px solid var(--line)}
+  .docs-nav>p{margin:0 0 24px;color:var(--quiet);font:500 .62rem var(--mono);letter-spacing:.08em;text-transform:uppercase}
+  .docs-nav nav{display:grid}
+  .docs-nav nav a{display:grid;grid-template-columns:28px 1fr;padding:12px 8px;color:var(--muted);font-size:.76rem;text-decoration:none;border-bottom:1px solid var(--line)}
+  .docs-nav nav a span{color:var(--quiet);font:500 .57rem var(--mono)}
+  .docs-nav nav a:hover,.docs-nav nav a.active{color:var(--ink);background:#f7f7f3}
+  .docs-nav nav a.active{box-shadow:inset 2px 0 var(--orange)}
+  .docs-nav>div{display:grid;gap:8px;margin-top:32px;padding:14px 8px;border-top:1px solid var(--line);font:500 .62rem var(--mono)}
+  .docs-nav>div span{color:var(--quiet)}
+  .docs-nav>div a{color:var(--blue);text-decoration:none}
+  .docs-shell .doc{width:100%;margin:0;padding-bottom:80px}
+  .docs-shell .doc>h1{max-width:760px}
+  .docs-shell .doc .summary{border-bottom:1px solid var(--line);padding-bottom:42px}
+  .docs-shell .doc h2{margin-top:58px;padding-top:17px;border-top:1px solid var(--line);font-size:1.05rem}
   footer{min-height:68px;border-color:#e2e3de}
   @media(max-width:820px){
     header,main,footer{padding-inline:24px}
@@ -490,6 +625,20 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
     .file-summary div,.file-summary div:first-child{min-height:58px;flex-direction:row;align-items:center;padding:13px 0;border-right:0;border-bottom:1px solid var(--line)}
     .file-summary div:last-child{border-bottom:0}
     .selected-view,.publishing-view,.success-view{padding-left:20px}
+    .home-hero{min-height:640px;padding:78px 28px 190px}
+    .home-hero h1{font-size:clamp(4.8rem,15vw,7rem)}
+    .home-signal{right:-60px;bottom:42px;width:430px}
+    .home-intro,.system-model,.read-next{grid-template-columns:1fr;gap:32px;padding:72px 28px}
+    .feature-grid{grid-template-columns:1fr 1fr}
+    .feature-grid article:nth-child(2){border-right:0}
+    .feature-grid article:nth-child(-n+2){border-bottom:1px solid var(--line)}
+    .docs-map{padding:72px 28px}
+    .docs-map-heading{grid-template-columns:1fr;gap:28px}
+    .docs-shell{grid-template-columns:1fr;gap:42px}
+    .docs-nav{position:static;min-height:0;padding:0;border-right:0;border-bottom:1px solid var(--line)}
+    .docs-nav nav{grid-template-columns:1fr 1fr}
+    .docs-nav nav a:nth-child(odd){border-right:1px solid var(--line)}
+    .docs-nav>div{display:none}
   }
   @media(max-width:560px){
     header,main,footer{padding-inline:18px}
@@ -508,6 +657,25 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
     .footer-actions{grid-template-columns:1fr 1.4fr}
     .footer-actions>*{width:100%}
     .identity{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .home-hero{min-height:600px;padding:62px 14px 180px}
+    .home-hero h1{margin-top:26px;font-size:clamp(3.45rem,16vw,4.5rem)}
+    .home-tagline{font-size:.96rem}
+    .home-actions{align-items:flex-start;flex-direction:column;gap:12px}
+    .home-signal{right:-120px;bottom:34px;width:440px}
+    .home-intro,.system-model,.read-next{padding:58px 14px}
+    .feature-grid{grid-template-columns:1fr}
+    .feature-grid article{min-height:205px;border-right:0;border-bottom:1px solid var(--line)}
+    .feature-grid article:nth-child(n){border-right:0;border-bottom:1px solid var(--line)}
+    .feature-grid article:last-child{border-bottom:0}
+    .feature-grid h3{margin-top:50px}
+    .docs-map{padding:58px 14px}
+    .docs-quadrants{grid-template-columns:1fr}
+    .docs-quadrants a:nth-child(n){min-height:220px;border-right:0;border-bottom:1px solid var(--line)}
+    .docs-quadrants a:last-child{border-bottom:0}
+    .read-next>div{align-items:flex-start;flex-direction:column}
+    .docs-nav nav{grid-template-columns:1fr}
+    .docs-nav nav a:nth-child(odd){border-right:0}
+    .docs-shell .doc h1{font-size:3rem}
     footer nav a:first-child{display:none}
   }
   @media(prefers-reduced-motion:reduce){:global(*){transition:none!important}.brand-stroke svg{transform:none}}
