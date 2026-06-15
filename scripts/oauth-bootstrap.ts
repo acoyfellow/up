@@ -65,6 +65,7 @@ authorizeUrl.search = new URLSearchParams({
 }).toString();
 
 function openInBrowser(url: string) {
+  if (process.env.INHOUSE_OAUTH_NO_OPEN) return;
   const opener =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   spawn(opener, [url], { stdio: 'ignore', detached: true }).on('error', () => {});

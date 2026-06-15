@@ -17,6 +17,7 @@
     "public:check": "bash scripts/check-public.sh",
     "check": "bun run build && bun run typecheck && bun run baseline:check && bun run test && biome check .",
     "oauth:connect": "bun run scripts/oauth-bootstrap.ts",
+    "setup": "bun run scripts/setup.ts",
     "access:provision": "bun run scripts/provision-access.ts",
     "test:production": "node scripts/production-e2e.mjs",
     "video:login": "bash scripts/video-login.sh",
