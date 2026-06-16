@@ -45,5 +45,8 @@ export async function verifyAccessIdentity(
   if (typeof payload.email !== 'string' || !payload.email.trim())
     throw new Error('Access identity requires an email');
   const email = payload.email.trim().toLowerCase();
-  return { email, role: roleFor(email, env.ADMIN_EMAILS) };
+  const groups = Array.isArray(payload.groups)
+    ? payload.groups.filter((group): group is string => typeof group === 'string')
+    : [];
+  return { email, role: roleFor(email, env.ADMIN_EMAILS), groups };
 }

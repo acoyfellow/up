@@ -18,6 +18,13 @@ import {
 } from './core';
 import { publicAssets } from './public.generated';
 import { InhouseRegistry } from './registry';
+import {
+  cookieValue,
+  createSession,
+  sessionCookie,
+  validReturnUrl,
+  verifySession,
+} from './session';
 // @ts-expect-error built by esbuild-svelte
 import Site from './site.svelte';
 export interface Env extends AccessConfiguration {
@@ -29,6 +36,7 @@ export interface Env extends AccessConfiguration {
   MAX_FILE_BYTES?: string;
   MAX_FILES?: string;
   LOADER?: WorkerLoader;
+  SESSION_SECRET?: string;
 }
 const origin = 'https://up.ax.cloudflare.dev';
 const pages = {
@@ -400,11 +408,19 @@ app.use('*', async (c, next) => {
     return serveSite(c.req.raw, c.env, undefined, name, site);
   const error = configurationError(c.env);
   if (error) return json({ error }, 503);
-  let identity: Identity;
+  let identity: Identity | null = null;
   try {
     identity = await verifyAccessIdentity(c.req.raw, c.env);
   } catch {
-    return new Response('Authentication required', { status: 403, headers: secure });
+    if (c.env.SESSION_SECRET)
+      identity = await verifySession(cookieValue(c.req.raw, 'up_session'), c.env.SESSION_SECRET);
+  }
+  if (!identity) {
+    if (!c.env.SESSION_SECRET || !c.env.CONTROL_HOST)
+      return json({ error: 'Private site sessions are not configured' }, 503);
+    const broker = new URL('/app/__session', `https://${c.env.CONTROL_HOST}`);
+    broker.searchParams.set('return', c.req.url);
+    return new Response(null, { status: 302, headers: { ...secure, location: broker.toString() } });
   }
   return serveSite(c.req.raw, c.env, identity, name, site);
 });
@@ -443,6 +459,29 @@ const renderApp = svelteRenderer(Site, {
   title: appPage.title,
   head: head('/app', appPage),
   props: { section: 'app', eyebrow: appPage.eyebrow },
+});
+app.get('/app/__session', async (c) => {
+  const error = configurationError(c.env);
+  if (error) return json({ error }, 503);
+  if (!c.env.SESSION_SECRET || !c.env.SITE_DOMAIN)
+    return json({ error: 'Private site sessions are not configured' }, 503);
+  let identity: Identity;
+  try {
+    identity = await verifyAccessIdentity(c.req.raw, c.env);
+  } catch {
+    return json({ error: 'Authentication required' }, 403);
+  }
+  const target = validReturnUrl(c.req.query('return') || null, c.env.SITE_DOMAIN);
+  if (!target) return json({ error: 'Invalid return URL' }, 400);
+  const value = await createSession(identity, c.env.SESSION_SECRET);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      ...secure,
+      location: target.toString(),
+      'set-cookie': sessionCookie(value, c.env.SITE_DOMAIN),
+    },
+  });
 });
 app.get('/app', async (c, next) => {
   if (configurationError(c.env))

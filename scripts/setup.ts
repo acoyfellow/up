@@ -17,7 +17,8 @@
  * UP_ADMIN_EMAILS, UP_COMPAT_DATE. Legacy INHOUSE_* names remain supported.
  */
 import { spawn } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolveToken } from './lib/cf-credentials';
 import { ensureChildDelegation, ensureChildZone, waitForActiveZone } from './lib/child-zone';
 import {
@@ -54,6 +55,17 @@ const compatDate = setting('COMPAT_DATE') || '2026-06-12';
 const adminEmails = setting('ADMIN_EMAILS') || allowEmail || '';
 const token = await resolveToken();
 const cf = cfFactory(token);
+const sessionSecretFile = setting('SESSION_SECRET_FILE') || '.up-session-secret';
+let sessionSecret = setting('SESSION_SECRET');
+if (!sessionSecret) {
+  try {
+    sessionSecret = (await readFile(sessionSecretFile, 'utf8')).trim();
+  } catch {
+    sessionSecret = randomBytes(48).toString('base64url');
+    await writeFile(sessionSecretFile, `${sessionSecret}\n`, { mode: 0o600 });
+  }
+}
+if (sessionSecret.length < 32) throw new Error('UP_SESSION_SECRET must be at least 32 characters');
 
 let deploymentZone = configuredZone || controlHost;
 if (parentZone) {
@@ -133,5 +145,18 @@ await new Promise<void>((resolve, reject) => {
   );
 });
 
+console.log('Uploading private site-session signing secret…');
+await new Promise<void>((resolve, reject) => {
+  const child = spawn('bunx', ['wrangler', 'secret', 'put', 'SESSION_SECRET', '-c', configOut], {
+    stdio: ['pipe', 'inherit', 'inherit'],
+    env: { ...process.env, CLOUDFLARE_API_TOKEN: token, CLOUDFLARE_ACCOUNT_ID: accountId },
+  });
+  child.stdin.end(sessionSecret);
+  child.on('error', reject);
+  child.on('close', (code) =>
+    code === 0 ? resolve() : reject(new Error(`wrangler secret put exited ${code}`)),
+  );
+});
+
 console.log(`\nDone. https://${controlHost} is live behind Cloudflare Access.`);
-console.log('The Access AUD was created, re-associated, and wired automatically.');
+console.log('The Access AUD and private session secret were wired automatically.');

@@ -10,6 +10,7 @@ import {
   validateManifest,
 } from '../src/core';
 import app, { type Env, handleAuthenticatedRequest } from '../src/index';
+import { createSession, sessionCookie, validReturnUrl, verifySession } from '../src/session';
 
 const owner: Identity = { email: 'owner@example.com', role: 'member' };
 const stranger: Identity = { email: 'stranger@example.com', role: 'member' };
@@ -164,6 +165,35 @@ describe('input boundaries', () => {
   });
 });
 
+describe('Access-backed site sessions', () => {
+  const secret = 'test-session-secret-that-is-at-least-32-characters';
+  it('signs, verifies, expires, and rejects tampering', async () => {
+    const token = await createSession(
+      { email: 'Member@Example.com', role: 'member', groups: ['Engineering'] },
+      secret,
+      60,
+    );
+    expect(await verifySession(token, secret)).toEqual({
+      email: 'member@example.com',
+      role: 'member',
+      groups: ['engineering'],
+    });
+    expect(await verifySession(`${token}x`, secret)).toBeNull();
+    expect(await verifySession(await createSession(owner, secret, -1), secret)).toBeNull();
+  });
+  it('scopes cookies and return URLs to sibling site hosts', async () => {
+    const token = await createSession(owner, secret);
+    expect(sessionCookie(token, 'up.example.com')).toContain(
+      'Domain=.up.example.com; Path=/; Max-Age=28800; HttpOnly; Secure; SameSite=Lax',
+    );
+    expect(validReturnUrl('https://demo.up.example.com/path', 'up.example.com')?.hostname).toBe(
+      'demo.up.example.com',
+    );
+    expect(validReturnUrl('https://evil.example/path', 'up.example.com')).toBeNull();
+    expect(validReturnUrl('javascript:alert(1)', 'up.example.com')).toBeNull();
+  });
+});
+
 describe('real Durable Object and R2 deployment flow', () => {
   it('does not activate partial or digest-mismatched uploads', async () => {
     const { id, html } = await createDeployment();
@@ -211,7 +241,8 @@ describe('real Durable Object and R2 deployment flow', () => {
       bindings,
       createExecutionContext(),
     );
-    expect(noJwt.status).toBe(403);
+    expect(noJwt.status).toBe(302);
+    expect(noJwt.headers.get('location')).toContain('/app/__session');
   });
   it('serves explicit public sites anonymously without exposing private sites', async () => {
     const published = await createDeployment(undefined, { visibility: 'public', readers: [] });
@@ -236,7 +267,21 @@ describe('real Durable Object and R2 deployment flow', () => {
       bindings,
       owner,
     );
-    expect((await SELF.fetch(`https://${company.site}.inhouse.example.com/`)).status).toBe(403);
+    const anonymousCompany = await SELF.fetch(`https://${company.site}.inhouse.example.com/`, {
+      redirect: 'manual',
+    });
+    expect({ status: anonymousCompany.status, body: await anonymousCompany.text() }).toEqual({
+      status: 302,
+      body: '',
+    });
+    const session = await createSession(
+      owner,
+      'test-session-secret-that-is-at-least-32-characters',
+    );
+    const authenticated = await SELF.fetch(`https://${company.site}.inhouse.example.com/`, {
+      headers: { cookie: `up_session=${session}` },
+    });
+    expect(authenticated.status).toBe(200);
   });
   it('enforces restricted email, domain, and group readers while concealing sites', async () => {
     const restricted = await createDeployment(undefined, {
