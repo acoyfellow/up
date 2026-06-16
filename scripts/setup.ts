@@ -114,6 +114,7 @@ const config = {
   durable_objects: { bindings: [{ name: 'REGISTRY', class_name: 'InhouseRegistry' }] },
   migrations: [{ tag: 'v1', new_sqlite_classes: ['InhouseRegistry'] }],
   r2_buckets: [{ binding: 'ASSETS', bucket_name: bucket }],
+  worker_loaders: [{ binding: 'LOADER' }],
 };
 await writeFile(
   configOut,

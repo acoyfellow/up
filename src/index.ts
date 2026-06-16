@@ -28,6 +28,7 @@ export interface Env extends AccessConfiguration {
   MAX_SITE_BYTES?: string;
   MAX_FILE_BYTES?: string;
   MAX_FILES?: string;
+  LOADER?: WorkerLoader;
 }
 const origin = 'https://up.ax.cloudflare.dev';
 const pages = {
@@ -158,6 +159,47 @@ async function reg<T>(env: Env, path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 const key = (d: DeploymentRecord, path: string) => `deployments/${d.siteName}/${d.id}/${path}`;
+const DYNAMIC_ENTRY = '_worker.js';
+const MAX_DYNAMIC_CODE_BYTES = 1024 * 1024;
+
+export async function runDynamicSiteRequest(
+  request: Request,
+  env: Env,
+  deployment: DeploymentRecord,
+): Promise<Response | null> {
+  const entry = deployment.manifest.find((asset) => asset.path === DYNAMIC_ENTRY);
+  if (!entry || !new URL(request.url).pathname.startsWith('/api/')) return null;
+  if (!env.LOADER) return json({ error: 'Dynamic runtime is not configured' }, 503);
+  if (entry.size > MAX_DYNAMIC_CODE_BYTES)
+    return json({ error: 'Dynamic worker is too large' }, 400);
+  try {
+    const worker = env.LOADER.get(`${deployment.id}:${entry.sha256}`, async () => {
+      const object = await env.ASSETS.get(key(deployment, DYNAMIC_ENTRY));
+      if (!object) throw new Error('Dynamic worker code is missing');
+      return {
+        compatibilityDate: '2026-06-16',
+        compatibilityFlags: ['nodejs_compat'],
+        mainModule: DYNAMIC_ENTRY,
+        modules: { [DYNAMIC_ENTRY]: await object.text() },
+        env: {},
+        globalOutbound: null,
+        limits: { cpuMs: 50, subRequests: 5 },
+      } satisfies WorkerLoaderWorkerCode;
+    });
+    const dynamic = await worker
+      .getEntrypoint(undefined, { limits: { cpuMs: 50, subRequests: 5 } })
+      .fetch(request);
+    const headers = new Headers(dynamic.headers);
+    // Untrusted site code cannot set parent-domain cookies or weaken framing.
+    headers.delete('set-cookie');
+    headers.set('x-content-type-options', 'nosniff');
+    headers.set('content-security-policy', "frame-ancestors 'none'");
+    headers.set('cache-control', 'private, no-store');
+    return new Response(dynamic.body, { status: dynamic.status, headers });
+  } catch {
+    return json({ error: 'Dynamic request failed' }, 502);
+  }
+}
 function sameOrigin(request: Request): Response | null {
   const originHeader = request.headers.get('origin');
   const fetchSite = request.headers.get('sec-fetch-site');
@@ -303,6 +345,8 @@ async function serveSite(
     env,
     `/deployments/${site.activeDeploymentId}`,
   );
+  const dynamic = await runDynamicSiteRequest(request, env, deployment);
+  if (dynamic) return dynamic;
   const requested = cleanAssetPath(url.pathname === '/' ? 'index.html' : url.pathname);
   if (!requested) return new Response('Not found', { status: 404 });
   let object = await env.ASSETS.get(key(deployment, requested));

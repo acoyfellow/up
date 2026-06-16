@@ -24,5 +24,6 @@
   },
   "durable_objects": { "bindings": [{ "name": "REGISTRY", "class_name": "InhouseRegistry" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InhouseRegistry"] }],
-  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }]
+  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }],
+  "worker_loaders": [{ "binding": "LOADER" }]
 }

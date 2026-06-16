@@ -36,6 +36,7 @@ async function manifest(path: string, body: string, contentType: string) {
 async function createDeployment(
   site = `site-${crypto.randomUUID().slice(0, 8)}`,
   access?: unknown,
+  workerCode?: string,
 ) {
   const html = await manifest(
     'index.html',
@@ -43,18 +44,24 @@ async function createDeployment(
     'text/html; charset=utf-8',
   );
   const css = await manifest('assets/app.css', 'h1{color:orange}', 'text/css; charset=utf-8');
+  const worker = workerCode
+    ? await manifest('_worker.js', workerCode, 'text/javascript; charset=utf-8')
+    : undefined;
   const created = await handleAuthenticatedRequest(
     control(`/api/sites/${site}/deployments`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ manifest: [html.entry, css.entry], access }),
+      body: JSON.stringify({
+        manifest: [html.entry, css.entry, ...(worker ? [worker.entry] : [])],
+        access,
+      }),
     }),
     bindings,
     owner,
   );
   expect(created.status).toBe(201);
   const result = await created.json<{ deployment: { id: string }; siteUrl: string }>();
-  return { site, id: result.deployment.id, html, css, siteUrl: result.siteUrl };
+  return { site, id: result.deployment.id, html, css, worker, siteUrl: result.siteUrl };
 }
 
 async function upload(id: string, asset: Awaited<ReturnType<typeof manifest>>, identity = owner) {
@@ -265,6 +272,86 @@ describe('real Durable Object and R2 deployment flow', () => {
       { email: 'denied@example.com', role: 'member' },
     );
     expect(denied.status).toBe(404);
+  });
+  it('loads optional backend code only for site API routes with hard isolation limits', async () => {
+    const code = `export default { fetch() { return new Response('dynamic'); } };`;
+    const created = await createDeployment(undefined, undefined, code);
+    await upload(created.id, created.html);
+    await upload(created.id, created.css);
+    if (!created.worker) throw new Error('worker fixture missing');
+    await upload(created.id, created.worker);
+    await handleAuthenticatedRequest(
+      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
+      bindings,
+      owner,
+    );
+    let loads = 0;
+    let loaded: WorkerLoaderWorkerCode | undefined;
+    const loader = {
+      get(_id: string, getCode: () => Promise<WorkerLoaderWorkerCode>) {
+        return {
+          getEntrypoint(_name?: string, options?: WorkerStubEntrypointOptions) {
+            return {
+              async fetch() {
+                loads++;
+                loaded = await getCode();
+                expect(options?.limits).toEqual({ cpuMs: 50, subRequests: 5 });
+                return new Response('dynamic response', {
+                  status: 201,
+                  headers: { 'set-cookie': 'escape=blocked; Domain=.example.com' },
+                });
+              },
+            };
+          },
+        };
+      },
+    } as unknown as WorkerLoader;
+    const runtimeBindings = Object.assign({}, bindings, { LOADER: loader });
+    const staticPage = await handleAuthenticatedRequest(
+      new Request(`https://${created.site}.inhouse.example.com/`),
+      runtimeBindings,
+      owner,
+    );
+    expect(staticPage.status).toBe(200);
+    expect(loads).toBe(0);
+    const dynamic = await handleAuthenticatedRequest(
+      new Request(`https://${created.site}.inhouse.example.com/api/hello`),
+      runtimeBindings,
+      owner,
+    );
+    expect(dynamic.status).toBe(201);
+    expect(await dynamic.text()).toBe('dynamic response');
+    expect(dynamic.headers.get('set-cookie')).toBeNull();
+    expect(dynamic.headers.get('cache-control')).toBe('private, no-store');
+    expect(loaded?.modules['_worker.js']).toBe(code);
+    expect(loaded?.globalOutbound).toBeNull();
+    expect(loaded?.env).toEqual({});
+    expect(loaded?.limits).toEqual({ cpuMs: 50, subRequests: 5 });
+  });
+  it('returns a generic failure without leaking dynamic code errors', async () => {
+    const code = `throw new Error('TOP SECRET STACK');`;
+    const created = await createDeployment(undefined, undefined, code);
+    await upload(created.id, created.html);
+    await upload(created.id, created.css);
+    if (!created.worker) throw new Error('worker fixture missing');
+    await upload(created.id, created.worker);
+    await handleAuthenticatedRequest(
+      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
+      bindings,
+      owner,
+    );
+    const loader = {
+      get() {
+        throw new Error('TOP SECRET STACK');
+      },
+    } as unknown as WorkerLoader;
+    const response = await handleAuthenticatedRequest(
+      new Request(`https://${created.site}.inhouse.example.com/api/fail`),
+      Object.assign({}, bindings, { LOADER: loader }),
+      owner,
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'Dynamic request failed' });
   });
   it('lets only owners and admins change site visibility', async () => {
     const created = await createDeployment();
