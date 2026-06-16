@@ -18,6 +18,7 @@ import {
 } from './core';
 import { publicAssets } from './public.generated';
 import { InhouseRegistry } from './registry';
+import { cleanAllowedHosts, cleanSecretName, encryptSecret } from './secrets';
 import {
   cookieValue,
   createSession,
@@ -28,6 +29,7 @@ import {
 // @ts-expect-error built by esbuild-svelte
 import Site from './site.svelte';
 import { SiteDatabase } from './site-database';
+import { SiteSecrets } from './site-secrets';
 export interface Env extends AccessConfiguration {
   ASSETS: R2Bucket;
   REGISTRY: DurableObjectNamespace<InhouseRegistry>;
@@ -39,6 +41,8 @@ export interface Env extends AccessConfiguration {
   LOADER?: WorkerLoader;
   SESSION_SECRET?: string;
   SITE_DATABASE?: DurableObjectNamespace<SiteDatabase>;
+  SITE_SECRETS?: DurableObjectNamespace<SiteSecrets>;
+  SECRETS_KEY?: string;
 }
 const origin = 'https://up.ax.cloudflare.dev';
 const pages = {
@@ -192,12 +196,18 @@ export async function runDynamicSiteRequest(
         compatibilityFlags: ['nodejs_compat'],
         mainModule: DYNAMIC_ENTRY,
         modules: { [DYNAMIC_ENTRY]: await object.text() },
-        env:
-          site.databaseEnabled && env.SITE_DATABASE
+        env: {
+          ...(site.databaseEnabled && env.SITE_DATABASE
             ? {
                 UP_DB: env.SITE_DATABASE.get(env.SITE_DATABASE.idFromName(site.name)),
               }
-            : {},
+            : {}),
+          ...(env.SITE_SECRETS && env.SECRETS_KEY
+            ? {
+                UP_SECRETS: env.SITE_SECRETS.get(env.SITE_SECRETS.idFromName(site.name)),
+              }
+            : {}),
+        },
         globalOutbound: null,
         limits: { cpuMs: 50, subRequests: 5 },
       } satisfies WorkerLoaderWorkerCode;
@@ -306,6 +316,56 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
       await stub.fetch('https://database.internal/', { method: 'DELETE' });
     }
     return json(result);
+  }
+  const secretList = url.pathname.match(/^\/api\/sites\/([^/]+)\/secrets$/);
+  if (request.method === 'GET' && secretList) {
+    const siteName = cleanSiteName(secretList[1] || '');
+    if (!siteName) return json({ error: 'Invalid site name' }, 400);
+    const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}`);
+    if (!mayWrite(site.owner, identity)) return json({ error: 'Not found' }, 404);
+    if (!env.SITE_SECRETS || !env.SECRETS_KEY)
+      return json({ error: 'Secret storage is not configured' }, 503);
+    const stub = env.SITE_SECRETS.get(env.SITE_SECRETS.idFromName(siteName));
+    const response = await stub.fetch('https://secrets.internal/secrets', {
+      headers: { 'x-up-manage': env.SECRETS_KEY },
+    });
+    return new Response(response.body, { status: response.status, headers: secure });
+  }
+  const secretRoute = url.pathname.match(/^\/api\/sites\/([^/]+)\/secrets\/([^/]+)$/);
+  if (secretRoute && ['PUT', 'DELETE'].includes(request.method)) {
+    const siteName = cleanSiteName(secretRoute[1] || '');
+    const name = cleanSecretName(secretRoute[2] || '');
+    if (!siteName || !name) return json({ error: 'Invalid site or secret name' }, 400);
+    const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}`);
+    if (!mayWrite(site.owner, identity)) return json({ error: 'Not found' }, 404);
+    if (!env.SITE_SECRETS || !env.SECRETS_KEY)
+      return json({ error: 'Secret storage is not configured' }, 503);
+    const stub = env.SITE_SECRETS.get(env.SITE_SECRETS.idFromName(siteName));
+    if (request.method === 'DELETE') {
+      const response = await stub.fetch(`https://secrets.internal/secrets/${name}`, {
+        method: 'DELETE',
+        headers: { 'x-up-manage': env.SECRETS_KEY },
+      });
+      return new Response(response.body, { status: response.status, headers: secure });
+    }
+    const body = await request
+      .json<{ value?: unknown; allowedHosts?: unknown }>()
+      .catch(() => null);
+    if (!body || typeof body.value !== 'string' || !body.value || body.value.length > 65_536)
+      return json({ error: 'Secret values must contain 1-65536 characters' }, 400);
+    let allowedHosts: string[];
+    try {
+      allowedHosts = cleanAllowedHosts(body.allowedHosts);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Invalid allowed hosts' }, 400);
+    }
+    const encrypted = await encryptSecret(body.value, env.SECRETS_KEY);
+    const response = await stub.fetch(`https://secrets.internal/secrets/${name}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'x-up-manage': env.SECRETS_KEY },
+      body: JSON.stringify({ ...encrypted, allowedHosts }),
+    });
+    return new Response(response.body, { status: response.status, headers: secure });
   }
   const asset = url.pathname.match(/^\/api\/deployments\/([^/]+)\/assets$/);
   if (request.method === 'PUT' && asset) {
@@ -558,5 +618,5 @@ app.notFound(async (c) => {
   return new Response(response.body, { status: 404, headers: response.headers });
 });
 
-export { InhouseRegistry, SiteDatabase };
+export { InhouseRegistry, SiteDatabase, SiteSecrets };
 export default app;

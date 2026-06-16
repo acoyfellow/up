@@ -10,6 +10,7 @@ import {
   validateManifest,
 } from '../src/core';
 import app, { type Env, handleAuthenticatedRequest } from '../src/index';
+import { cleanAllowedHosts, cleanSecretName, decryptSecret, encryptSecret } from '../src/secrets';
 import { createSession, sessionCookie, validReturnUrl, verifySession } from '../src/session';
 
 const owner: Identity = { email: 'owner@example.com', role: 'member' };
@@ -380,6 +381,7 @@ describe('real Durable Object and R2 deployment flow', () => {
     expect(loaded?.modules['_worker.js']).toBe(code);
     expect(loaded?.globalOutbound).toBeNull();
     expect(loaded?.env.UP_DB).toBeTruthy();
+    expect(loaded?.env.UP_SECRETS).toBeTruthy();
     expect(loaded?.limits).toEqual({ cpuMs: 50, subRequests: 5 });
   });
   it('returns a generic failure without leaking dynamic code errors', async () => {
@@ -489,6 +491,73 @@ describe('real Durable Object and R2 deployment flow', () => {
       (await disabled.json<{ site: { databaseEnabled: boolean } }>()).site.databaseEnabled,
     ).toBe(false);
     expect((await query('SELECT body FROM notes')).status).toBe(400);
+  });
+  it('encrypts per-site secret capabilities and never returns plaintext', async () => {
+    const key = 'dGVzdC10ZXN0LXNlY3JldHMta2V5LTMyLWJ5dGVzISE';
+    const encrypted = await encryptSecret('super-secret-value', key);
+    expect(JSON.stringify(encrypted)).not.toContain('super-secret-value');
+    expect(await decryptSecret(encrypted, key)).toBe('super-secret-value');
+    expect(cleanSecretName('api_token')).toBe('API_TOKEN');
+    expect(cleanAllowedHosts(['API.EXAMPLE.COM', 'api.example.com'])).toEqual(['api.example.com']);
+
+    const created = await createDeployment();
+    const payload = JSON.stringify({
+      value: 'super-secret-value',
+      allowedHosts: ['api.example.com'],
+    });
+    const denied = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/secrets/API_TOKEN`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: payload,
+      }),
+      bindings,
+      stranger,
+    );
+    expect(denied.status).toBe(404);
+    const stored = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/secrets/API_TOKEN`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: payload,
+      }),
+      bindings,
+      owner,
+    );
+    expect(stored.status).toBe(201);
+    expect(await stored.text()).not.toContain('super-secret-value');
+    const listed = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/secrets`),
+      bindings,
+      owner,
+    );
+    const listing = await listed.text();
+    expect(listing).toContain('API_TOKEN');
+    expect(listing).toContain('api.example.com');
+    expect(listing).not.toContain('super-secret-value');
+
+    const secrets = bindings.SITE_SECRETS?.get(bindings.SITE_SECRETS.idFromName(created.site));
+    if (!secrets) throw new Error('SITE_SECRETS binding missing');
+    expect((await secrets.fetch('https://secrets.internal/secrets')).status).toBe(404);
+    const disallowed = await secrets.fetch('https://secrets.internal/use/API_TOKEN', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://evil.example/collect' }),
+    });
+    expect(disallowed.status).toBe(403);
+
+    const removed = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/secrets/API_TOKEN`, { method: 'DELETE' }),
+      bindings,
+      owner,
+    );
+    expect(removed.status).toBe(200);
+    const empty = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/secrets`),
+      bindings,
+      owner,
+    );
+    expect(await empty.json()).toEqual({ secrets: [] });
   });
   it('conceals deployment writes from strangers but allows an administrator', async () => {
     const first = await createDeployment();

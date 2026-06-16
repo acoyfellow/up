@@ -55,6 +55,16 @@ const compatDate = setting('COMPAT_DATE') || '2026-06-12';
 const adminEmails = setting('ADMIN_EMAILS') || allowEmail || '';
 const token = await resolveToken();
 const cf = cfFactory(token);
+const secretsKeyFile = setting('SECRETS_KEY_FILE') || '.up-secrets-key';
+let secretsKey = setting('SECRETS_KEY');
+if (!secretsKey) {
+  try {
+    secretsKey = (await readFile(secretsKeyFile, 'utf8')).trim();
+  } catch {
+    secretsKey = randomBytes(32).toString('base64url');
+    await writeFile(secretsKeyFile, `${secretsKey}\n`, { mode: 0o600 });
+  }
+}
 const sessionSecretFile = setting('SESSION_SECRET_FILE') || '.up-session-secret';
 let sessionSecret = setting('SESSION_SECRET');
 if (!sessionSecret) {
@@ -127,11 +137,13 @@ const config = {
     bindings: [
       { name: 'REGISTRY', class_name: 'InhouseRegistry' },
       { name: 'SITE_DATABASE', class_name: 'SiteDatabase' },
+      { name: 'SITE_SECRETS', class_name: 'SiteSecrets' },
     ],
   },
   migrations: [
     { tag: 'v1', new_sqlite_classes: ['InhouseRegistry'] },
     { tag: 'v2', new_sqlite_classes: ['SiteDatabase'] },
+    { tag: 'v3', new_sqlite_classes: ['SiteSecrets'] },
   ],
   r2_buckets: [{ binding: 'ASSETS', bucket_name: bucket }],
   worker_loaders: [{ binding: 'LOADER' }],
@@ -153,18 +165,23 @@ await new Promise<void>((resolve, reject) => {
   );
 });
 
-console.log('Uploading private site-session signing secret…');
-await new Promise<void>((resolve, reject) => {
-  const child = spawn('bunx', ['wrangler', 'secret', 'put', 'SESSION_SECRET', '-c', configOut], {
-    stdio: ['pipe', 'inherit', 'inherit'],
-    env: { ...process.env, CLOUDFLARE_API_TOKEN: token, CLOUDFLARE_ACCOUNT_ID: accountId },
+async function putSecret(name: string, value: string) {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('bunx', ['wrangler', 'secret', 'put', name, '-c', configOut], {
+      stdio: ['pipe', 'inherit', 'inherit'],
+      env: { ...process.env, CLOUDFLARE_API_TOKEN: token, CLOUDFLARE_ACCOUNT_ID: accountId },
+    });
+    child.stdin.end(value);
+    child.on('error', reject);
+    child.on('close', (code) =>
+      code === 0 ? resolve() : reject(new Error(`wrangler secret put exited ${code}`)),
+    );
   });
-  child.stdin.end(sessionSecret);
-  child.on('error', reject);
-  child.on('close', (code) =>
-    code === 0 ? resolve() : reject(new Error(`wrangler secret put exited ${code}`)),
-  );
-});
+}
+console.log('Uploading private site-session signing secret…');
+await putSecret('SESSION_SECRET', sessionSecret);
+console.log('Uploading private secret-encryption key…');
+await putSecret('SECRETS_KEY', secretsKey);
 
 console.log(`\nDone. https://${controlHost} is live behind Cloudflare Access.`);
-console.log('The Access AUD and private session secret were wired automatically.');
+console.log('The Access AUD and private runtime secrets were wired automatically.');

@@ -7,6 +7,7 @@ dist/
 !.dev.vars.example
 .cloudflare-oauth.json
 .up-session-secret
+.up-secrets-key
 coverage/
 playwright-report/
 test-results/

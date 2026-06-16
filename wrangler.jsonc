@@ -21,12 +21,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "REGISTRY", "class_name": "InhouseRegistry" },
-      { "name": "SITE_DATABASE", "class_name": "SiteDatabase" }
+      { "name": "SITE_DATABASE", "class_name": "SiteDatabase" },
+      { "name": "SITE_SECRETS", "class_name": "SiteSecrets" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["InhouseRegistry"] },
-    { "tag": "v2", "new_sqlite_classes": ["SiteDatabase"] }
+    { "tag": "v2", "new_sqlite_classes": ["SiteDatabase"] },
+    { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] }
   ],
   "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }],
   "worker_loaders": [{ "binding": "LOADER" }]
