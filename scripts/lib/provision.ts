@@ -112,7 +112,9 @@ export async function ensureAccessApp(cf: Cf, opts: AccessOptions): Promise<Acce
       body: JSON.stringify({
         name: opts.appName,
         type: 'self_hosted',
-        domain: opts.controlHost,
+        // Keep the product/docs front door public. Access begins at the
+        // publisher/API paths and covers every isolated site hostname.
+        domain: `${opts.controlHost}/app`,
         session_duration: '24h',
         enable_binding_cookie: true,
         http_only_cookie_attribute: true,
@@ -120,7 +122,8 @@ export async function ensureAccessApp(cf: Cf, opts: AccessOptions): Promise<Acce
         // Lax permits that top-level redirect while retaining CSRF protection.
         same_site_cookie_attribute: 'lax',
         destinations: [
-          { type: 'public', uri: opts.controlHost },
+          { type: 'public', uri: `${opts.controlHost}/app` },
+          { type: 'public', uri: `${opts.controlHost}/api` },
           { type: 'public', uri: opts.siteWildcard },
         ],
         policies: [{ name: `${opts.appName} owner`, decision: 'allow', include }],
