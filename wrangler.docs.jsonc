@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "inhouse-site",
+  "name": "up-docs",
   "main": "build/worker.bundled.mjs",
   "compatibility_date": "2026-06-12",
   "compatibility_flags": ["nodejs_compat"],
@@ -8,7 +8,7 @@
   "preview_urls": false,
   "observability": { "enabled": true },
   "build": { "command": "bun run build" },
-  "routes": [{ "pattern": "inhouse.coey.dev", "custom_domain": true }],
+  "routes": [{ "pattern": "docs.up.example.com", "custom_domain": true }],
   "vars": {
     "TEAM_DOMAIN": "",
     "POLICY_AUD": "",

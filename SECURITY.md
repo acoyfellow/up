@@ -1,6 +1,6 @@
 # Security
 
-Report vulnerabilities privately through GitHub Security Advisories for `acoyfellow/inhouse`. Do not file public issues for suspected exposure.
+Report vulnerabilities privately through GitHub Security Advisories for `acoyfellow/up`. Do not file public issues for suspected exposure.
 
 ## Trust model
 

@@ -33,7 +33,7 @@
   let siteNameInput = $state<HTMLInputElement>();
 
   const deployUrl =
-    'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/inhouse';
+    'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up';
   const isProduct = $derived(section === 'app');
 
   onMount(() => {
@@ -441,7 +441,7 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
   {/if}
 </main>
 
-<footer><span>Up 0.0.1 · Private by default</span><nav><a href="/tutorial">Setup</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/inhouse">GitHub</a></nav></footer>
+<footer><span>Up 0.0.1 · Private by default</span><nav><a href="/tutorial">Setup</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
 
 <style>
   :global(:root){color-scheme:light;--white:#fff;--canvas:#f7f7f5;--ink:#171717;--muted:#6b6b66;--quiet:#70706a;--line:#deded9;--line-dark:#c8c8c1;--orange:#f6821f;--orange-hover:#e87416;--blue:#2678a4;--green:#16835b;--red:#b83825;--sans:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace}:global(*){box-sizing:border-box}:global(html){background:var(--white)}:global(body){min-width:320px;margin:0;background:var(--white);color:var(--ink);font-family:var(--sans);font-synthesis:none}:global(button),:global(input){font:inherit}:global(a){color:inherit}:global(code),:global(pre){font-family:var(--mono)}:global(::selection){background:#f6821f33}

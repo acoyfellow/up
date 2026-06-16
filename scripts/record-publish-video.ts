@@ -5,7 +5,10 @@ import { promisify } from 'node:util';
 import { openLocalBrowser } from 'unsurf/skills/record';
 
 const exec = promisify(execFile);
-const origin = process.env.INHOUSE_CONTROL_ORIGIN || 'https://app.inhouse.coey.dev';
+const origin =
+  process.env.UP_CONTROL_ORIGIN ||
+  process.env.INHOUSE_CONTROL_ORIGIN ||
+  'https://up.ax.cloudflare.dev';
 const profile = process.env.INHOUSE_VIDEO_PROFILE || `${process.env.HOME}/.inhouse-video-profile`;
 const session = process.env.INHOUSE_VIDEO_SESSION || 'inhouse-video';
 const folder = resolve(process.env.INHOUSE_VIDEO_FOLDER || 'examples/baseline-site');

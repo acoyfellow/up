@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "inhouse-app",
+  "name": "up",
   "main": "build/worker.bundled.mjs",
   "compatibility_date": "2026-06-12",
   "compatibility_flags": ["nodejs_compat"],
@@ -20,5 +20,5 @@
   },
   "durable_objects": { "bindings": [{ "name": "REGISTRY", "class_name": "InhouseRegistry" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InhouseRegistry"] }],
-  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "inhouse-assets" }]
+  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }]
 }

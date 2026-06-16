@@ -100,7 +100,7 @@ function head(path: string, page: Page) {
         applicationCategory: 'DeveloperApplication',
         description: pages['/'].description,
         url: origin,
-        codeRepository: 'https://github.com/acoyfellow/inhouse',
+        codeRepository: 'https://github.com/acoyfellow/up',
         license: 'https://opensource.org/license/mit',
         isAccessibleForFree: true,
         author: { '@type': 'Person', name: 'Jordan Coeyman', url: 'https://coey.dev' },

@@ -9,13 +9,18 @@ if (!accountId || (!allowEmail && !allowDomain)) {
     'Set CLOUDFLARE_ACCOUNT_ID and INHOUSE_ALLOWED_EMAIL or INHOUSE_ALLOWED_DOMAIN (run bun run oauth:connect first)',
   );
 }
-const controlHost = process.env.INHOUSE_APP_DOMAIN || 'app.inhouse.coey.dev';
+const controlHost =
+  process.env.UP_CONTROL_HOST || process.env.INHOUSE_APP_DOMAIN || 'up.example.com';
 const cf = cfFactory(await resolveToken());
 
-await ensureR2Bucket(cf, accountId, process.env.INHOUSE_R2_BUCKET || 'inhouse-assets');
+await ensureR2Bucket(
+  cf,
+  accountId,
+  process.env.UP_R2_BUCKET || process.env.INHOUSE_R2_BUCKET || 'up-assets',
+);
 const result = await ensureAccessApp(cf, {
   accountId,
-  appName: process.env.INHOUSE_APP_NAME || 'Inhouse',
+  appName: process.env.UP_APP_NAME || process.env.INHOUSE_APP_NAME || 'Up',
   controlHost,
   siteWildcard: process.env.INHOUSE_SITE_WILDCARD || `*.${controlHost}`,
   allowEmail,

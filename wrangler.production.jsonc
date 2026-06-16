@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "inhouse-app",
+  "name": "up",
   "main": "build/worker.bundled.mjs",
   "compatibility_date": "2026-06-12",
   "compatibility_flags": ["nodejs_compat"],
@@ -9,20 +9,20 @@
   "observability": { "enabled": true },
   "build": { "command": "bun run build" },
   "routes": [
-    { "pattern": "app.inhouse.coey.dev", "custom_domain": true },
-    { "pattern": "*.inhouse.coey.dev/*", "zone_name": "coey.dev" }
+    { "pattern": "up.example.com", "custom_domain": true },
+    { "pattern": "*.up.example.com/*", "zone_name": "up.example.com" }
   ],
   "vars": {
     "TEAM_DOMAIN": "https://REPLACE.cloudflareaccess.com",
     "POLICY_AUD": "REPLACE",
-    "ADMIN_EMAILS": "jcoeyman@cloudflare.com",
-    "CONTROL_HOST": "app.inhouse.coey.dev",
-    "SITE_DOMAIN": "inhouse.coey.dev",
+    "ADMIN_EMAILS": "admin@example.com",
+    "CONTROL_HOST": "up.example.com",
+    "SITE_DOMAIN": "up.example.com",
     "MAX_SITE_BYTES": "52428800",
     "MAX_FILE_BYTES": "10485760",
     "MAX_FILES": "500"
   },
   "durable_objects": { "bindings": [{ "name": "REGISTRY", "class_name": "InhouseRegistry" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InhouseRegistry"] }],
-  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "inhouse-assets" }]
+  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }]
 }

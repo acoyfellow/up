@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-origin="${INHOUSE_CONTROL_ORIGIN:-https://app.inhouse.coey.dev}"
+origin="${UP_CONTROL_ORIGIN:-${INHOUSE_CONTROL_ORIGIN:-https://up.ax.cloudflare.dev}}"
 profile="${INHOUSE_VIDEO_PROFILE:-$HOME/.inhouse-video-profile}"
 session="${INHOUSE_VIDEO_SESSION:-inhouse-video}"
 
