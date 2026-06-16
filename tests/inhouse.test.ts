@@ -5,6 +5,7 @@ import {
   cleanAssetPath,
   cleanSiteName,
   type Identity,
+  normalizeSiteAccess,
   sha256,
   validateManifest,
 } from '../src/core';
@@ -32,7 +33,10 @@ async function manifest(path: string, body: string, contentType: string) {
   };
 }
 
-async function createDeployment(site = `site-${crypto.randomUUID().slice(0, 8)}`) {
+async function createDeployment(
+  site = `site-${crypto.randomUUID().slice(0, 8)}`,
+  access?: unknown,
+) {
   const html = await manifest(
     'index.html',
     '<!doctype html><h1>private receipt</h1>',
@@ -43,7 +47,7 @@ async function createDeployment(site = `site-${crypto.randomUUID().slice(0, 8)}`
     control(`/api/sites/${site}/deployments`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ manifest: [html.entry, css.entry] }),
+      body: JSON.stringify({ manifest: [html.entry, css.entry], access }),
     }),
     bindings,
     owner,
@@ -107,6 +111,38 @@ describe('input boundaries', () => {
       }),
     ).toThrow('SHA-256');
   });
+  it('validates explicit visibility and reader rules', () => {
+    expect(normalizeSiteAccess(undefined)).toEqual({ visibility: 'company', readers: [] });
+    expect(
+      normalizeSiteAccess({
+        visibility: 'restricted',
+        readers: [
+          { type: 'email', value: 'READER@EXAMPLE.COM' },
+          { type: 'domain', value: '@partner.example' },
+          { type: 'group', value: 'Engineering' },
+        ],
+      }),
+    ).toEqual({
+      visibility: 'restricted',
+      readers: [
+        { type: 'email', value: 'reader@example.com' },
+        { type: 'domain', value: 'partner.example' },
+        { type: 'group', value: 'engineering' },
+      ],
+    });
+    expect(() => normalizeSiteAccess({ visibility: 'restricted', readers: [] })).toThrow(
+      'at least one reader',
+    );
+    expect(() =>
+      normalizeSiteAccess({
+        visibility: 'restricted',
+        readers: [
+          { type: 'email', value: 'same@example.com' },
+          { type: 'email', value: 'same@example.com' },
+        ],
+      }),
+    ).toThrow('unique');
+  });
   it('rejects cross-site mutation requests', async () => {
     const response = await handleAuthenticatedRequest(
       new Request('https://control.example.com/api/sites/test/deployments', {
@@ -162,13 +198,103 @@ describe('real Durable Object and R2 deployment flow', () => {
       bindings,
       owner,
     );
-    expect(await identity.json()).toEqual({ email: owner.email });
+    expect(await identity.json()).toEqual({ email: owner.email, visibility: 'company' });
     const noJwt = await app.fetch(
       new Request(`https://${site}.inhouse.example.com/`),
       bindings,
       createExecutionContext(),
     );
     expect(noJwt.status).toBe(403);
+  });
+  it('serves explicit public sites anonymously without exposing private sites', async () => {
+    const published = await createDeployment(undefined, { visibility: 'public', readers: [] });
+    await upload(published.id, published.html);
+    await upload(published.id, published.css);
+    await handleAuthenticatedRequest(
+      control(`/api/deployments/${published.id}/activate`, { method: 'POST' }),
+      bindings,
+      owner,
+    );
+    const page = await SELF.fetch(`https://${published.site}.inhouse.example.com/`);
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain('private receipt');
+    const viewer = await SELF.fetch(`https://${published.site}.inhouse.example.com/__inhouse/me`);
+    expect(await viewer.json()).toEqual({ email: null, visibility: 'public' });
+
+    const company = await createDeployment();
+    await upload(company.id, company.html);
+    await upload(company.id, company.css);
+    await handleAuthenticatedRequest(
+      control(`/api/deployments/${company.id}/activate`, { method: 'POST' }),
+      bindings,
+      owner,
+    );
+    expect((await SELF.fetch(`https://${company.site}.inhouse.example.com/`)).status).toBe(403);
+  });
+  it('enforces restricted email, domain, and group readers while concealing sites', async () => {
+    const restricted = await createDeployment(undefined, {
+      visibility: 'restricted',
+      readers: [
+        { type: 'email', value: stranger.email },
+        { type: 'domain', value: 'partner.example' },
+        { type: 'group', value: 'engineering' },
+      ],
+    });
+    await upload(restricted.id, restricted.html);
+    await upload(restricted.id, restricted.css);
+    await handleAuthenticatedRequest(
+      control(`/api/deployments/${restricted.id}/activate`, { method: 'POST' }),
+      bindings,
+      owner,
+    );
+    for (const identity of [
+      stranger,
+      { email: 'person@partner.example', role: 'member' as const },
+      { email: 'group-user@example.com', role: 'member' as const, groups: ['Engineering'] },
+    ]) {
+      const page = await handleAuthenticatedRequest(
+        new Request(`https://${restricted.site}.inhouse.example.com/`),
+        bindings,
+        identity,
+      );
+      expect(page.status).toBe(200);
+    }
+    const denied = await handleAuthenticatedRequest(
+      new Request(`https://${restricted.site}.inhouse.example.com/`),
+      bindings,
+      { email: 'denied@example.com', role: 'member' },
+    );
+    expect(denied.status).toBe(404);
+  });
+  it('lets only owners and admins change site visibility', async () => {
+    const created = await createDeployment();
+    const body = JSON.stringify({
+      access: { visibility: 'restricted', readers: [{ type: 'email', value: stranger.email }] },
+    });
+    const strangerResponse = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/access`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body,
+      }),
+      bindings,
+      stranger,
+    );
+    expect(strangerResponse.status).toBe(404);
+    const updated = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/access`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body,
+      }),
+      bindings,
+      owner,
+    );
+    expect(updated.status).toBe(200);
+    expect((await updated.json<{ site: { access: unknown } }>()).site.access).toEqual({
+      visibility: 'restricted',
+      readers: [{ type: 'email', value: stranger.email }],
+    });
   });
   it('conceals deployment writes from strangers but allows an administrator', async () => {
     const first = await createDeployment();

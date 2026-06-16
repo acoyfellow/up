@@ -8,7 +8,10 @@ import {
   cleanSiteName,
   type DeploymentRecord,
   type Identity,
+  mayRead,
   mayWrite,
+  normalizeSiteAccess,
+  type SiteAccess,
   type SiteRecord,
   sha256,
   validateManifest,
@@ -167,7 +170,10 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
   if (request.method === 'GET' && url.pathname === '/api/me') return json(identity);
   if (request.method === 'GET' && url.pathname === '/api/sites') {
     const result = await reg<{ sites: SiteRecord[] }>(env, '/sites');
-    return json({ ...result, siteDomain: env.SITE_DOMAIN || null });
+    return json({
+      sites: result.sites.filter((site) => mayRead(site, identity)),
+      siteDomain: env.SITE_DOMAIN || null,
+    });
   }
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
     const denied = sameOrigin(request);
@@ -177,7 +183,7 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
   if (request.method === 'POST' && create) {
     const siteName = cleanSiteName(create[1] || '');
     if (!siteName) return json({ error: 'Invalid site name' }, 400);
-    const body = await request.json<{ manifest?: unknown }>().catch(() => null);
+    const body = await request.json<{ manifest?: unknown; access?: unknown }>().catch(() => null);
     if (!body) return json({ error: 'Invalid JSON body' }, 400);
     let manifest: AssetManifestEntry[];
     try {
@@ -185,16 +191,43 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'Invalid manifest' }, 400);
     }
+    let access: SiteAccess;
+    try {
+      access = normalizeSiteAccess(body.access);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Invalid site access' }, 400);
+    }
     const id = crypto.randomUUID();
     const result = await reg<{ deployment: DeploymentRecord }>(env, '/deployments', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id, siteName, owner: identity.email, manifest }),
+      body: JSON.stringify({ id, siteName, owner: identity.email, manifest, access }),
     });
     return json(
       { ...result, siteUrl: env.SITE_DOMAIN ? `https://${siteName}.${env.SITE_DOMAIN}` : null },
       201,
     );
+  }
+  const accessRoute = url.pathname.match(/^\/api\/sites\/([^/]+)\/access$/);
+  if (request.method === 'PATCH' && accessRoute) {
+    const siteName = cleanSiteName(accessRoute[1] || '');
+    if (!siteName) return json({ error: 'Invalid site name' }, 400);
+    const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}`);
+    if (!mayWrite(site.owner, identity)) return json({ error: 'Not found' }, 404);
+    const body = await request.json<{ access?: unknown }>().catch(() => null);
+    if (!body) return json({ error: 'Invalid JSON body' }, 400);
+    let access: SiteAccess;
+    try {
+      access = normalizeSiteAccess(body.access);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Invalid site access' }, 400);
+    }
+    const result = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}/access`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ access }),
+    });
+    return json(result);
   }
   const asset = url.pathname.match(/^\/api\/deployments\/([^/]+)\/assets$/);
   if (request.method === 'PUT' && asset) {
@@ -247,21 +280,24 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
 async function serveSite(
   request: Request,
   env: Env,
-  identity: Identity,
+  identity: Identity | undefined,
   name: string,
+  knownSite?: SiteRecord,
 ): Promise<Response> {
   const url = new URL(request.url);
-  if (url.pathname === '/__inhouse/me') return json({ email: identity.email });
   const clean = cleanSiteName(name);
   if (!clean) return new Response('Not found', { status: 404 });
   let site: SiteRecord;
   try {
-    ({ site } = await reg<{ site: SiteRecord }>(env, `/sites/${clean}`));
+    site = knownSite || (await reg<{ site: SiteRecord }>(env, `/sites/${clean}`)).site;
   } catch (error) {
     if (error instanceof RegistryError && error.status === 404)
       return new Response('Not found', { status: 404 });
     throw error;
   }
+  if (!mayRead(site, identity)) return new Response('Not found', { status: 404 });
+  if (url.pathname === '/__inhouse/me')
+    return json({ email: identity?.email || null, visibility: site.access.visibility });
   if (!site.activeDeploymentId) return new Response('Not found', { status: 404 });
   const { deployment } = await reg<{ deployment: DeploymentRecord }>(
     env,
@@ -298,13 +334,26 @@ export async function handleAuthenticatedRequest(request: Request, env: Env, ide
   return new Response('Not found', { status: 404, headers: secure });
 }
 const app = new Hono<{ Bindings: Env }>();
-// Site hostnames are untrusted content origins and must be gated before public documentation routes.
+// Site hostnames are untrusted content origins. Public is an explicit registry
+// state; every other site still requires a verified company identity.
 app.use('*', async (c, next) => {
   const domain = c.env.SITE_DOMAIN?.toLowerCase();
   const host = new URL(c.req.url).hostname.toLowerCase();
   const controlHost = c.env.CONTROL_HOST?.toLowerCase();
   if (!domain || host === domain || host === controlHost || !host.endsWith(`.${domain}`))
     return next();
+  const name = cleanSiteName(host.slice(0, -(domain.length + 1)));
+  if (!name) return new Response('Not found', { status: 404, headers: secure });
+  let site: SiteRecord;
+  try {
+    ({ site } = await reg<{ site: SiteRecord }>(c.env, `/sites/${name}`));
+  } catch (error) {
+    if (error instanceof RegistryError && error.status === 404)
+      return new Response('Not found', { status: 404, headers: secure });
+    throw error;
+  }
+  if (site.access.visibility === 'public')
+    return serveSite(c.req.raw, c.env, undefined, name, site);
   const error = configurationError(c.env);
   if (error) return json({ error }, 503);
   let identity: Identity;
@@ -313,7 +362,7 @@ app.use('*', async (c, next) => {
   } catch {
     return new Response('Authentication required', { status: 403, headers: secure });
   }
-  return handleAuthenticatedRequest(c.req.raw, c.env, identity);
+  return serveSite(c.req.raw, c.env, identity, name, site);
 });
 // @ts-expect-error generated bundle helper has no bindings generic
 attachSvelteRoutes(app, { bundles });

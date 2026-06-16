@@ -1,17 +1,33 @@
 import { DurableObject } from 'cloudflare:workers';
-import type { AssetManifestEntry, DeploymentRecord, SiteRecord } from './core';
+import {
+  type AssetManifestEntry,
+  type DeploymentRecord,
+  normalizeSiteAccess,
+  type SiteAccess,
+  type SiteRecord,
+} from './core';
 
 interface RegistryEnv extends Cloudflare.Env {}
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 function site(row: Record<string, SqlStorageValue>): SiteRecord {
   const active =
     typeof row.active_deployment_id === 'string' ? row.active_deployment_id : undefined;
+  let access: SiteAccess = { visibility: 'company', readers: [] };
+  try {
+    access = normalizeSiteAccess({
+      visibility: String(row.visibility || 'company'),
+      readers: JSON.parse(String(row.readers_json || '[]')),
+    });
+  } catch {
+    // Existing rows created before the access schema are company-private.
+  }
   return {
     name: String(row.name),
     owner: String(row.owner),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     ...(active ? { activeDeploymentId: active } : {}),
+    access,
   };
 }
 function deployment(row: Record<string, SqlStorageValue>): DeploymentRecord {
@@ -28,8 +44,19 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
   constructor(state: DurableObjectState, env: RegistryEnv) {
     super(state, env);
     this.ctx.storage.sql.exec(
-      `CREATE TABLE IF NOT EXISTS sites(name TEXT PRIMARY KEY,owner TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,active_deployment_id TEXT);CREATE TABLE IF NOT EXISTS deployments(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','active','superseded')),created_at TEXT NOT NULL,manifest_json TEXT NOT NULL);CREATE INDEX IF NOT EXISTS deployments_site_created ON deployments(site_name,created_at DESC);`,
+      `CREATE TABLE IF NOT EXISTS sites(name TEXT PRIMARY KEY,owner TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,active_deployment_id TEXT,visibility TEXT NOT NULL DEFAULT 'company',readers_json TEXT NOT NULL DEFAULT '[]');CREATE TABLE IF NOT EXISTS deployments(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','active','superseded')),created_at TEXT NOT NULL,manifest_json TEXT NOT NULL);CREATE INDEX IF NOT EXISTS deployments_site_created ON deployments(site_name,created_at DESC);`,
     );
+    const columns = new Set(
+      [...this.ctx.storage.sql.exec('PRAGMA table_info(sites)')].map((row) => String(row.name)),
+    );
+    if (!columns.has('visibility'))
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE sites ADD COLUMN visibility TEXT NOT NULL DEFAULT 'company'",
+      );
+    if (!columns.has('readers_json'))
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE sites ADD COLUMN readers_json TEXT NOT NULL DEFAULT '[]'",
+      );
   }
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -50,6 +77,7 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
         siteName: string;
         owner: string;
         manifest: AssetManifestEntry[];
+        access?: SiteAccess;
       }>();
       const now = new Date().toISOString();
       const current = [
@@ -57,14 +85,18 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
       ][0];
       if (current && String(current.owner) !== input.owner)
         return json({ error: 'Not found' }, 404);
-      if (!current)
+      if (!current) {
+        const access = normalizeSiteAccess(input.access);
         this.ctx.storage.sql.exec(
-          'INSERT INTO sites(name,owner,created_at,updated_at) VALUES (?,?,?,?)',
+          'INSERT INTO sites(name,owner,created_at,updated_at,visibility,readers_json) VALUES (?,?,?,?,?,?)',
           input.siteName,
           input.owner,
           now,
           now,
+          access.visibility,
+          JSON.stringify(access.readers),
         );
+      }
       this.ctx.storage.sql.exec(
         'INSERT INTO deployments(id,site_name,owner,status,created_at,manifest_json) VALUES (?,?,?,?,?,?)',
         input.id,
@@ -87,6 +119,33 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
         },
         201,
       );
+    }
+    const accessPath = url.pathname.match(/^\/sites\/([^/]+)\/access$/);
+    if (request.method === 'PATCH' && accessPath) {
+      const input = await request.json<{ access?: unknown }>();
+      let access: SiteAccess;
+      try {
+        access = normalizeSiteAccess(input.access);
+      } catch (error) {
+        return json({ error: error instanceof Error ? error.message : 'Invalid site access' }, 400);
+      }
+      const now = new Date().toISOString();
+      const result = this.ctx.storage.sql.exec(
+        'UPDATE sites SET visibility=?,readers_json=?,updated_at=? WHERE name=?',
+        access.visibility,
+        JSON.stringify(access.readers),
+        now,
+        accessPath[1],
+      );
+      return result.rowsWritten
+        ? json({
+            site: site(
+              [
+                ...this.ctx.storage.sql.exec('SELECT * FROM sites WHERE name=?', accessPath[1]),
+              ][0] as Record<string, SqlStorageValue>,
+            ),
+          })
+        : json({ error: 'Not found' }, 404);
     }
     const dp = url.pathname.match(/^\/deployments\/([^/]+)$/);
     if (request.method === 'GET' && dp) {
