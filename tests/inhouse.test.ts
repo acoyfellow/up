@@ -321,6 +321,15 @@ describe('real Durable Object and R2 deployment flow', () => {
   it('loads optional backend code only for site API routes with hard isolation limits', async () => {
     const code = `export default { fetch() { return new Response('dynamic'); } };`;
     const created = await createDeployment(undefined, undefined, code);
+    await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/database`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      }),
+      bindings,
+      owner,
+    );
     await upload(created.id, created.html);
     await upload(created.id, created.css);
     if (!created.worker) throw new Error('worker fixture missing');
@@ -370,7 +379,7 @@ describe('real Durable Object and R2 deployment flow', () => {
     expect(dynamic.headers.get('cache-control')).toBe('private, no-store');
     expect(loaded?.modules['_worker.js']).toBe(code);
     expect(loaded?.globalOutbound).toBeNull();
-    expect(loaded?.env).toEqual({});
+    expect(loaded?.env.UP_DB).toBeTruthy();
     expect(loaded?.limits).toEqual({ cpuMs: 50, subRequests: 5 });
   });
   it('returns a generic failure without leaking dynamic code errors', async () => {
@@ -427,6 +436,59 @@ describe('real Durable Object and R2 deployment flow', () => {
       visibility: 'restricted',
       readers: [{ type: 'email', value: stranger.email }],
     });
+  });
+  it('provisions and destroys an isolated per-site SQLite database', async () => {
+    const created = await createDeployment();
+    const strangerResponse = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/database`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      }),
+      bindings,
+      stranger,
+    );
+    expect(strangerResponse.status).toBe(404);
+    const enabled = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/database`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      }),
+      bindings,
+      owner,
+    );
+    expect(
+      (await enabled.json<{ site: { databaseEnabled: boolean } }>()).site.databaseEnabled,
+    ).toBe(true);
+    const database = bindings.SITE_DATABASE?.get(bindings.SITE_DATABASE.idFromName(created.site));
+    if (!database) throw new Error('SITE_DATABASE binding missing');
+    const query = async (sql: string, params: unknown[] = []) =>
+      database.fetch('https://database.internal/query', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sql, params }),
+      });
+    expect((await query('CREATE TABLE notes(id INTEGER PRIMARY KEY, body TEXT)')).status).toBe(200);
+    expect((await query('INSERT INTO notes(body) VALUES (?)', ['private'])).status).toBe(200);
+    const selected = await query('SELECT body FROM notes');
+    expect(await selected.json()).toMatchObject({ rows: [{ body: 'private' }] });
+    expect((await query("ATTACH DATABASE 'other' AS other")).status).toBe(400);
+    expect((await query('SELECT 1; SELECT 2')).status).toBe(400);
+
+    const disabled = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/database`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
+      }),
+      bindings,
+      owner,
+    );
+    expect(
+      (await disabled.json<{ site: { databaseEnabled: boolean } }>()).site.databaseEnabled,
+    ).toBe(false);
+    expect((await query('SELECT body FROM notes')).status).toBe(400);
   });
   it('conceals deployment writes from strangers but allows an administrator', async () => {
     const first = await createDeployment();

@@ -28,6 +28,7 @@ function site(row: Record<string, SqlStorageValue>): SiteRecord {
     updatedAt: String(row.updated_at),
     ...(active ? { activeDeploymentId: active } : {}),
     access,
+    databaseEnabled: Number(row.database_enabled || 0) === 1,
   };
 }
 function deployment(row: Record<string, SqlStorageValue>): DeploymentRecord {
@@ -44,7 +45,7 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
   constructor(state: DurableObjectState, env: RegistryEnv) {
     super(state, env);
     this.ctx.storage.sql.exec(
-      `CREATE TABLE IF NOT EXISTS sites(name TEXT PRIMARY KEY,owner TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,active_deployment_id TEXT,visibility TEXT NOT NULL DEFAULT 'company',readers_json TEXT NOT NULL DEFAULT '[]');CREATE TABLE IF NOT EXISTS deployments(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','active','superseded')),created_at TEXT NOT NULL,manifest_json TEXT NOT NULL);CREATE INDEX IF NOT EXISTS deployments_site_created ON deployments(site_name,created_at DESC);`,
+      `CREATE TABLE IF NOT EXISTS sites(name TEXT PRIMARY KEY,owner TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,active_deployment_id TEXT,visibility TEXT NOT NULL DEFAULT 'company',readers_json TEXT NOT NULL DEFAULT '[]',database_enabled INTEGER NOT NULL DEFAULT 0);CREATE TABLE IF NOT EXISTS deployments(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','active','superseded')),created_at TEXT NOT NULL,manifest_json TEXT NOT NULL);CREATE INDEX IF NOT EXISTS deployments_site_created ON deployments(site_name,created_at DESC);`,
     );
     const columns = new Set(
       [...this.ctx.storage.sql.exec('PRAGMA table_info(sites)')].map((row) => String(row.name)),
@@ -56,6 +57,10 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
     if (!columns.has('readers_json'))
       this.ctx.storage.sql.exec(
         "ALTER TABLE sites ADD COLUMN readers_json TEXT NOT NULL DEFAULT '[]'",
+      );
+    if (!columns.has('database_enabled'))
+      this.ctx.storage.sql.exec(
+        'ALTER TABLE sites ADD COLUMN database_enabled INTEGER NOT NULL DEFAULT 0',
       );
   }
   async fetch(request: Request): Promise<Response> {
@@ -142,6 +147,27 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
             site: site(
               [
                 ...this.ctx.storage.sql.exec('SELECT * FROM sites WHERE name=?', accessPath[1]),
+              ][0] as Record<string, SqlStorageValue>,
+            ),
+          })
+        : json({ error: 'Not found' }, 404);
+    }
+    const databasePath = url.pathname.match(/^\/sites\/([^/]+)\/database$/);
+    if (request.method === 'PATCH' && databasePath) {
+      const input = await request.json<{ enabled?: unknown }>();
+      if (typeof input.enabled !== 'boolean') return json({ error: 'Invalid database state' }, 400);
+      const now = new Date().toISOString();
+      const result = this.ctx.storage.sql.exec(
+        'UPDATE sites SET database_enabled=?,updated_at=? WHERE name=?',
+        input.enabled ? 1 : 0,
+        now,
+        databasePath[1],
+      );
+      return result.rowsWritten
+        ? json({
+            site: site(
+              [
+                ...this.ctx.storage.sql.exec('SELECT * FROM sites WHERE name=?', databasePath[1]),
               ][0] as Record<string, SqlStorageValue>,
             ),
           })

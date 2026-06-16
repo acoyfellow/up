@@ -123,8 +123,16 @@ const config = {
     MAX_FILE_BYTES: '10485760',
     MAX_FILES: '500',
   },
-  durable_objects: { bindings: [{ name: 'REGISTRY', class_name: 'InhouseRegistry' }] },
-  migrations: [{ tag: 'v1', new_sqlite_classes: ['InhouseRegistry'] }],
+  durable_objects: {
+    bindings: [
+      { name: 'REGISTRY', class_name: 'InhouseRegistry' },
+      { name: 'SITE_DATABASE', class_name: 'SiteDatabase' },
+    ],
+  },
+  migrations: [
+    { tag: 'v1', new_sqlite_classes: ['InhouseRegistry'] },
+    { tag: 'v2', new_sqlite_classes: ['SiteDatabase'] },
+  ],
   r2_buckets: [{ binding: 'ASSETS', bucket_name: bucket }],
   worker_loaders: [{ binding: 'LOADER' }],
 };

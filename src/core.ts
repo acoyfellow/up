@@ -25,6 +25,7 @@ export interface SiteRecord {
   updatedAt: string;
   activeDeploymentId?: string;
   access: SiteAccess;
+  databaseEnabled: boolean;
 }
 export interface DeploymentRecord {
   id: string;

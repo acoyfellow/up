@@ -27,6 +27,7 @@ import {
 } from './session';
 // @ts-expect-error built by esbuild-svelte
 import Site from './site.svelte';
+import { SiteDatabase } from './site-database';
 export interface Env extends AccessConfiguration {
   ASSETS: R2Bucket;
   REGISTRY: DurableObjectNamespace<InhouseRegistry>;
@@ -37,6 +38,7 @@ export interface Env extends AccessConfiguration {
   MAX_FILES?: string;
   LOADER?: WorkerLoader;
   SESSION_SECRET?: string;
+  SITE_DATABASE?: DurableObjectNamespace<SiteDatabase>;
 }
 const origin = 'https://up.ax.cloudflare.dev';
 const pages = {
@@ -174,6 +176,7 @@ export async function runDynamicSiteRequest(
   request: Request,
   env: Env,
   deployment: DeploymentRecord,
+  site: SiteRecord,
 ): Promise<Response | null> {
   const entry = deployment.manifest.find((asset) => asset.path === DYNAMIC_ENTRY);
   if (!entry || !new URL(request.url).pathname.startsWith('/api/')) return null;
@@ -189,7 +192,12 @@ export async function runDynamicSiteRequest(
         compatibilityFlags: ['nodejs_compat'],
         mainModule: DYNAMIC_ENTRY,
         modules: { [DYNAMIC_ENTRY]: await object.text() },
-        env: {},
+        env:
+          site.databaseEnabled && env.SITE_DATABASE
+            ? {
+                UP_DB: env.SITE_DATABASE.get(env.SITE_DATABASE.idFromName(site.name)),
+              }
+            : {},
         globalOutbound: null,
         limits: { cpuMs: 50, subRequests: 5 },
       } satisfies WorkerLoaderWorkerCode;
@@ -279,6 +287,26 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
     });
     return json(result);
   }
+  const databaseRoute = url.pathname.match(/^\/api\/sites\/([^/]+)\/database$/);
+  if (request.method === 'PATCH' && databaseRoute) {
+    const siteName = cleanSiteName(databaseRoute[1] || '');
+    if (!siteName) return json({ error: 'Invalid site name' }, 400);
+    const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}`);
+    if (!mayWrite(site.owner, identity)) return json({ error: 'Not found' }, 404);
+    const body = await request.json<{ enabled?: unknown }>().catch(() => null);
+    if (!body || typeof body.enabled !== 'boolean')
+      return json({ error: 'Invalid database state' }, 400);
+    const result = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}/database`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled: body.enabled }),
+    });
+    if (!body.enabled && env.SITE_DATABASE) {
+      const stub = env.SITE_DATABASE.get(env.SITE_DATABASE.idFromName(siteName));
+      await stub.fetch('https://database.internal/', { method: 'DELETE' });
+    }
+    return json(result);
+  }
   const asset = url.pathname.match(/^\/api\/deployments\/([^/]+)\/assets$/);
   if (request.method === 'PUT' && asset) {
     const path = cleanAssetPath(url.searchParams.get('path') || '');
@@ -353,7 +381,7 @@ async function serveSite(
     env,
     `/deployments/${site.activeDeploymentId}`,
   );
-  const dynamic = await runDynamicSiteRequest(request, env, deployment);
+  const dynamic = await runDynamicSiteRequest(request, env, deployment, site);
   if (dynamic) return dynamic;
   const requested = cleanAssetPath(url.pathname === '/' ? 'index.html' : url.pathname);
   if (!requested) return new Response('Not found', { status: 404 });
@@ -530,5 +558,5 @@ app.notFound(async (c) => {
   return new Response(response.body, { status: 404, headers: response.headers });
 });
 
-export { InhouseRegistry };
+export { InhouseRegistry, SiteDatabase };
 export default app;
