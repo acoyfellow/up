@@ -20,6 +20,7 @@
     "setup": "bun run scripts/setup.ts",
     "access:provision": "bun run scripts/provision-access.ts",
     "test:production": "node scripts/production-e2e.mjs",
+    "test:dynamic-production": "node scripts/dynamic-production-e2e.mjs",
     "video:login": "bash scripts/video-login.sh",
     "video:record": "bun run scripts/record-publish-video.ts",
     "deploy:docs": "bun run check && wrangler deploy -c wrangler.docs.jsonc",
