@@ -31,6 +31,7 @@ function site(row: Record<string, SqlStorageValue>): SiteRecord {
     ...(active ? { activeDeploymentId: active } : {}),
     access,
     databaseEnabled: Number(row.database_enabled || 0) === 1,
+    runtimeEnabled: Number(row.runtime_enabled || 0) === 1,
   };
 }
 function schedule(row: Record<string, SqlStorageValue>): ScheduleRecord {
@@ -65,7 +66,7 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
   constructor(state: DurableObjectState, env: RegistryEnv) {
     super(state, env);
     this.ctx.storage.sql.exec(
-      `CREATE TABLE IF NOT EXISTS sites(name TEXT PRIMARY KEY,owner TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,active_deployment_id TEXT,visibility TEXT NOT NULL DEFAULT 'company',readers_json TEXT NOT NULL DEFAULT '[]',database_enabled INTEGER NOT NULL DEFAULT 0);CREATE TABLE IF NOT EXISTS deployments(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','active','superseded')),created_at TEXT NOT NULL,manifest_json TEXT NOT NULL);CREATE INDEX IF NOT EXISTS deployments_site_created ON deployments(site_name,created_at DESC);CREATE TABLE IF NOT EXISTS schedules(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,path TEXT NOT NULL,cron TEXT NOT NULL,status TEXT NOT NULL,max_runs_per_day INTEGER NOT NULL,retry_limit INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_run_at TEXT NOT NULL,lease_until TEXT,last_run_at TEXT,last_status TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,created_by TEXT NOT NULL);CREATE INDEX IF NOT EXISTS schedules_site ON schedules(site_name,created_at DESC);CREATE TABLE IF NOT EXISTS schedule_usage(schedule_id TEXT NOT NULL,usage_date TEXT NOT NULL,run_count INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(schedule_id,usage_date));CREATE TABLE IF NOT EXISTS audit_log(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,target_id TEXT,occurred_at TEXT NOT NULL,details_json TEXT NOT NULL DEFAULT '{}');CREATE INDEX IF NOT EXISTS audit_site_time ON audit_log(site_name,occurred_at DESC);`,
+      `CREATE TABLE IF NOT EXISTS sites(name TEXT PRIMARY KEY,owner TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,active_deployment_id TEXT,visibility TEXT NOT NULL DEFAULT 'company',readers_json TEXT NOT NULL DEFAULT '[]',database_enabled INTEGER NOT NULL DEFAULT 0,runtime_enabled INTEGER NOT NULL DEFAULT 0);CREATE TABLE IF NOT EXISTS deployments(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','active','superseded')),created_at TEXT NOT NULL,manifest_json TEXT NOT NULL);CREATE INDEX IF NOT EXISTS deployments_site_created ON deployments(site_name,created_at DESC);CREATE TABLE IF NOT EXISTS schedules(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,path TEXT NOT NULL,cron TEXT NOT NULL,status TEXT NOT NULL,max_runs_per_day INTEGER NOT NULL,retry_limit INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_run_at TEXT NOT NULL,lease_until TEXT,last_run_at TEXT,last_status TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,created_by TEXT NOT NULL);CREATE INDEX IF NOT EXISTS schedules_site ON schedules(site_name,created_at DESC);CREATE TABLE IF NOT EXISTS schedule_usage(schedule_id TEXT NOT NULL,usage_date TEXT NOT NULL,run_count INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(schedule_id,usage_date));CREATE TABLE IF NOT EXISTS audit_log(id TEXT PRIMARY KEY,site_name TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,target_id TEXT,occurred_at TEXT NOT NULL,details_json TEXT NOT NULL DEFAULT '{}');CREATE INDEX IF NOT EXISTS audit_site_time ON audit_log(site_name,occurred_at DESC);`,
     );
     const columns = new Set(
       [...this.ctx.storage.sql.exec('PRAGMA table_info(sites)')].map((row) => String(row.name)),
@@ -81,6 +82,10 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
     if (!columns.has('database_enabled'))
       this.ctx.storage.sql.exec(
         'ALTER TABLE sites ADD COLUMN database_enabled INTEGER NOT NULL DEFAULT 0',
+      );
+    if (!columns.has('runtime_enabled'))
+      this.ctx.storage.sql.exec(
+        'ALTER TABLE sites ADD COLUMN runtime_enabled INTEGER NOT NULL DEFAULT 0',
       );
   }
   async fetch(request: Request): Promise<Response> {
@@ -438,8 +443,9 @@ export class InhouseRegistry extends DurableObject<RegistryEnv> {
       );
       this.ctx.storage.sql.exec("UPDATE deployments SET status='active' WHERE id=?", item.id);
       this.ctx.storage.sql.exec(
-        'UPDATE sites SET active_deployment_id=?,updated_at=? WHERE name=?',
+        'UPDATE sites SET active_deployment_id=?,runtime_enabled=?,updated_at=? WHERE name=?',
         item.id,
+        item.manifest.some((asset) => asset.path === '_worker.js') ? 1 : 0,
         now,
         item.siteName,
       );

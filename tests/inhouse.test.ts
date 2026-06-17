@@ -520,9 +520,15 @@ describe('real Durable Object and R2 deployment flow', () => {
     expect((await query('SELECT body FROM notes')).status).toBe(400);
   });
   it('creates, pauses, disables, audits, and deletes bounded schedules', async () => {
-    const created = await createDeployment();
+    const created = await createDeployment(
+      undefined,
+      undefined,
+      `export default { fetch() { return new Response(null, { status: 204 }); } };`,
+    );
     await upload(created.id, created.html);
     await upload(created.id, created.css);
+    if (!created.worker) throw new Error('worker fixture missing');
+    await upload(created.id, created.worker);
     await handleAuthenticatedRequest(
       control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
       bindings,

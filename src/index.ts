@@ -329,6 +329,8 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
       return json(await reg<{ schedules: ScheduleRecord[] }>(env, `/sites/${siteName}/schedules`));
     if (!site.activeDeploymentId)
       return json({ error: 'Publish the site before scheduling it' }, 409);
+    if (!site.runtimeEnabled)
+      return json({ error: 'Schedules require an active _worker.js runtime' }, 409);
     const body = await request.json<unknown>().catch(() => null);
     let normalized: ReturnType<typeof normalizeSchedule>;
     try {

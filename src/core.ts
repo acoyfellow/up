@@ -26,6 +26,7 @@ export interface SiteRecord {
   activeDeploymentId?: string;
   access: SiteAccess;
   databaseEnabled: boolean;
+  runtimeEnabled: boolean;
 }
 export type ScheduleStatus = 'enabled' | 'paused' | 'disabled';
 export interface ScheduleRecord {
