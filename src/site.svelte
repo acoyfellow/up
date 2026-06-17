@@ -1,11 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  type Visibility = 'company' | 'restricted' | 'public';
+  type ReaderRule = { type: 'email' | 'domain' | 'group'; value: string };
   type Site = {
     name: string;
     owner: string;
     updatedAt?: string;
     activeDeploymentId?: string;
+    access?: { visibility: Visibility; readers: ReaderRule[] };
+    databaseEnabled?: boolean;
   };
 
   type PreparedFile = {
@@ -28,6 +32,10 @@
   let siteDomain = $state('up.example.com');
   let dragging = $state(false);
   let copied = $state(false);
+  let visibility = $state<Visibility>('company');
+  let readersText = $state('');
+  let publicConfirmed = $state(false);
+  let databaseRequested = $state(false);
   let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list'>('empty');
   let input = $state<HTMLInputElement>();
   let siteNameInput = $state<HTMLInputElement>();
@@ -135,12 +143,43 @@
     publishing = false;
     publishedUrl = '';
     copied = false;
+    visibility = 'company';
+    readersText = '';
+    publicConfirmed = false;
+    databaseRequested = false;
     if (input) input.value = '';
     view = isProduct && sites.length ? 'list' : 'empty';
   }
 
   const totalBytes = $derived(files.reduce((sum, file) => sum + file.size, 0));
   const hasIndex = $derived(prepared.some((asset) => asset.path === 'index.html'));
+  const hasWorker = $derived(prepared.some((asset) => asset.path === '_worker.js'));
+  const readers = $derived(parseReaders(readersText));
+  const accessReady = $derived(
+    visibility === 'company' ||
+      (visibility === 'restricted' && readers.length > 0) ||
+      (visibility === 'public' && publicConfirmed),
+  );
+
+  function parseReaders(value: string): ReaderRule[] {
+    const seen = new Set<string>();
+    const rules: ReaderRule[] = [];
+    for (const raw of value.split(/[\n,]/)) {
+      const token = raw.trim().toLowerCase();
+      if (!token) continue;
+      const rule: ReaderRule = token.startsWith('group:')
+        ? { type: 'group', value: token.slice(6).trim() }
+        : token.includes('@') && !token.startsWith('@')
+          ? { type: 'email', value: token }
+          : { type: 'domain', value: token.replace(/^@/, '') };
+      const key = `${rule.type}:${rule.value}`;
+      if (rule.value && !seen.has(key)) {
+        seen.add(key);
+        rules.push(rule);
+      }
+    }
+    return rules;
+  }
 
   function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -149,7 +188,8 @@
   }
 
   async function publish() {
-    if (!isProduct || !siteName || !prepared.length || !hasIndex || publishing) return;
+    if (!isProduct || !siteName || !prepared.length || !hasIndex || !accessReady || publishing)
+      return;
     publishing = true;
     view = 'publishing';
     progress = 5;
@@ -164,7 +204,10 @@
       const created = await fetch(`/api/sites/${encodeURIComponent(siteName)}/deployments`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ manifest }),
+        body: JSON.stringify({
+          manifest,
+          access: { visibility, readers: visibility === 'restricted' ? readers : [] },
+        }),
       });
       const creation = await created.json();
       if (!created.ok) throw new Error(creation.error || 'Unable to create deployment');
@@ -193,6 +236,14 @@
       const result = await activated.json();
       if (!activated.ok) throw new Error(result.error || 'Activation failed');
       publishedUrl = result.siteUrl || '';
+      if (databaseRequested && hasWorker) {
+        const database = await fetch(`/api/sites/${encodeURIComponent(siteName)}/database`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ enabled: true }),
+        });
+        if (!database.ok) throw new Error((await database.json()).error || 'Database setup failed');
+      }
       progress = 100;
       status = 'Published';
       view = 'success';
@@ -347,7 +398,7 @@
             {#each sites as site}
               <article>
                 <div><strong>{site.name}</strong><a href={`https://${site.name}.${siteDomain}`} target="_blank" rel="noopener noreferrer"><code>{site.name}.{siteDomain}</code></a></div>
-                <div><span>{site.owner}</span><small>{site.activeDeploymentId ? 'Published' : 'Pending'}</small></div>
+                <div><span>{site.owner}</span><small>{site.access?.visibility || 'company'} · {site.activeDeploymentId ? 'Published' : 'Pending'}</small></div>
               </article>
             {/each}
           </div>
@@ -367,11 +418,29 @@
             <div><input bind:this={siteNameInput} bind:value={siteName} aria-label="Site name" aria-describedby="site-address-help" /><em>.{siteDomain}</em></div>
             <small id="site-address-help">Lowercase letters, numbers, and hyphens. This becomes your private company URL.</small>
           </label>
-          <p class="privacy"><i></i> Private to your organization</p>
+          <details class="publish-options">
+            <summary>Visibility and server capabilities <span aria-hidden="true">＋</span></summary>
+            <fieldset>
+              <legend>Who can open this site?</legend>
+              <label><input type="radio" bind:group={visibility} value="company" /> <span><b>Company</b><small>Anyone authenticated by your organization. Default.</small></span></label>
+              <label><input type="radio" bind:group={visibility} value="restricted" /> <span><b>Restricted</b><small>Only listed employees, domains, or IdP groups.</small></span></label>
+              <label><input type="radio" bind:group={visibility} value="public" /> <span><b>Public</b><small>Anyone on the internet. No Access identity required.</small></span></label>
+            </fieldset>
+            {#if visibility === 'restricted'}
+              <label class="reader-input"><span>Readers</span><textarea bind:value={readersText} rows="3" placeholder="person@example.com, @partner.example, group:engineering"></textarea><small>Separate rules with commas or new lines.</small></label>
+            {:else if visibility === 'public'}
+              <label class="public-confirm"><input type="checkbox" bind:checked={publicConfirmed} /> <span>I understand every uploaded byte and backend response can be reached anonymously.</span></label>
+            {/if}
+            <div class="runtime-option">
+              <div><b>Server runtime</b><small>{hasWorker ? '_worker.js detected — /api/* will run in an isolated Dynamic Worker.' : 'Add _worker.js to enable an isolated backend.'}</small></div>
+              {#if hasWorker}<label><input type="checkbox" bind:checked={databaseRequested} /> Isolated SQLite database</label>{/if}
+            </div>
+          </details>
+          <p class="privacy"><i></i> {visibility === 'public' ? 'Explicitly public' : visibility === 'restricted' ? `${readers.length} reader rule${readers.length === 1 ? '' : 's'}` : 'Private to your organization'}</p>
           <div class="footer-actions">
             <button class="secondary" onclick={reset}>Cancel</button>
             {#if isProduct}
-              <button class="primary" onclick={publish} disabled={!hasIndex || !siteName}>{status === 'Ready to publish' ? 'Publish site' : status}</button>
+              <button class="primary" onclick={publish} disabled={!hasIndex || !siteName || !accessReady}>{status === 'Ready to publish' ? 'Publish site' : status}</button>
             {:else}
               <a class="primary link-button" href={deployUrl}>Deploy Up</a>
             {/if}
@@ -521,6 +590,22 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
   .address em{font-size:.74rem}
   .address>small{color:var(--quiet);font-size:.67rem;line-height:1.5}
   :global(a:focus-visible),:global(button:focus-visible),:global(input:focus-visible){outline:3px solid #16b9e766;outline-offset:3px}
+  .publish-options{margin:22px 0 0;border-block:1px solid var(--line);background:#fbfbf8}
+  .publish-options summary{display:flex;min-height:48px;align-items:center;justify-content:space-between;padding:0 14px;cursor:pointer;font-size:.74rem;font-weight:650;list-style:none}
+  .publish-options summary::-webkit-details-marker{display:none}
+  .publish-options[open] summary span{transform:rotate(45deg)}
+  .publish-options fieldset{display:grid;gap:0;margin:0;padding:0 14px 14px;border:0}
+  .publish-options legend{padding:16px 0 9px;color:var(--quiet);font:500 .62rem var(--mono);text-transform:uppercase}
+  .publish-options fieldset label{display:grid;grid-template-columns:22px 1fr;align-items:start;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
+  .publish-options input{accent-color:var(--orange)}
+  .publish-options fieldset b,.runtime-option b{display:block;font-size:.74rem}
+  .publish-options fieldset small,.reader-input small,.runtime-option small{display:block;margin-top:4px;color:var(--quiet);font-size:.66rem;line-height:1.45}
+  .reader-input{display:grid;gap:7px;padding:0 14px 16px;font-size:.7rem}
+  .reader-input textarea{width:100%;resize:vertical;padding:10px;border:1px solid var(--line-dark);border-radius:4px;background:#fff;font:400 .72rem/1.5 var(--mono)}
+  .public-confirm{display:grid;grid-template-columns:22px 1fr;align-items:start;margin:0 14px 16px;padding:12px;border:1px solid #f0b49b;background:#fff8f5;color:#71351f;font-size:.7rem;line-height:1.45}
+  .runtime-option{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px;border-top:1px solid var(--line)}
+  .runtime-option>div{max-width:460px}
+  .runtime-option>label{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:.68rem}
   .privacy{width:max-content;margin:18px 0 52px;padding:7px 10px;border:1px solid #dce8df;border-radius:999px;background:#f8fcf9;color:#496052}
   .footer-actions{padding-top:22px}
   .steps{margin:50px 0 38px;border-top:1px solid var(--line)}
@@ -656,6 +741,8 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
     .address em{padding:0 16px 12px}
     .footer-actions{grid-template-columns:1fr 1.4fr}
     .footer-actions>*{width:100%}
+    .runtime-option{align-items:flex-start;flex-direction:column}
+    .runtime-option>label{white-space:normal}
     .identity{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .home-hero{min-height:600px;padding:62px 14px 180px}
     .home-hero h1{margin-top:26px;font-size:clamp(3.45rem,16vw,4.5rem)}
