@@ -473,9 +473,13 @@
 
       <section class="feature-grid" aria-label="Product capabilities">
         <article><span>01</span><h3>Choose a folder</h3><p>HTML, CSS, JavaScript, and assets. No framework or build system required.</p></article>
-        <article><span>02</span><h3>Publish atomically</h3><p>Every digest is verified before a deployment becomes visible. Partial updates never leak.</p></article>
-        <article><span>03</span><h3>Share inside</h3><p>Each site receives a sibling hostname and inherits the organization’s Access boundary.</p></article>
-        <article><span>04</span><h3>Stay in control</h3><p>The Worker, Durable Object, R2 bucket, DNS, and Access app remain in your account.</p></article>
+        <article><span>02</span><h3>Choose visibility</h3><p>Company by default; restrict to readers and groups, or explicitly publish to everyone.</p></article>
+        <article><span>03</span><h3>Run backend code</h3><p>A root <code>_worker.js</code> handles <code>/api/*</code> in a network-isolated Dynamic Worker.</p></article>
+        <article><span>04</span><h3>Bind secrets</h3><p>Encrypted write-only capabilities inject credentials only for allowlisted HTTPS hosts.</p></article>
+        <article><span>05</span><h3>Store data</h3><p>Enable an isolated SQLite Durable Object that no other site can address.</p></article>
+        <article><span>06</span><h3>Schedule jobs</h3><p>Bounded UTC jobs include quotas, retries, pause/disable behavior, and audit receipts.</p></article>
+        <article><span>07</span><h3>Publish atomically</h3><p>Every digest is verified before a deployment becomes visible. Partial updates never leak.</p></article>
+        <article><span>08</span><h3>Stay in control</h3><p>The Worker, Durable Objects, R2, DNS, and Access app remain in your account.</p></article>
       </section>
 
       <section class="system-model" aria-labelledby="model-title">
@@ -700,13 +704,14 @@
         <h2>3. Verify before use</h2><p>Publish a folder while authenticated. Open the resulting URL in a clean browser. It must reach Access before any uploaded bytes. <code>workers.dev</code> and Preview URLs stay disabled.</p>
         <p>Prefer to fork and self-host the source? <a href={deployUrl}>Deploy to Cloudflare ↗</a></p>
       {:else if section === 'how-to'}
-        <h1>Operate Up</h1><p class="summary">Keep the publishing plane small and the trust boundary intact.</p><h2>Update a site</h2><p>Publish the same site name. Up activates the replacement only after every asset passes verification.</p><h2>Use a coding agent</h2><pre><code>Build a static site into ./dist.
+        <h1>Operate Up</h1><p class="summary">Keep each capability explicit and the trust boundary intact.</p><h2>Update a site</h2><p>Publish the same site name. Up activates the replacement only after every asset passes verification.</p><h2>Change visibility</h2><p>Open <strong>Manage</strong> beside a site. Choose company, restricted readers, or public. Public is never inferred and always requires explicit confirmation during first publish.</p><h2>Add a backend</h2><pre><code>Build static files into ./dist.
+Add ./dist/_worker.js for /api/* routes.
 Keep secrets out of browser code.
-Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disable the wildcard route or deny the Access application first. Never enable a public Worker hostname as a workaround.</p>
+Publish the folder through Up.</code></pre><p>After publishing, Manage can enable SQLite, write secret capabilities, and create bounded schedules.</p><h2>Respond to exposure</h2><p>Set the site to company/restricted or disable its schedules first. Never expose the control Worker, private R2 bucket, or runtime keys.</p>
       {:else if section === 'reference'}
-        <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create deployment</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomic activation</td></tr></tbody></table><h2>Limits</h2><ul><li>500 files</li><li>10 MiB per file</li><li>50 MiB total</li><li><code>index.html</code> required</li></ul>
+        <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List readable sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create deployment + visibility</td></tr><tr><th><code>PATCH /api/sites/:name/access</code></th><td>Company, restricted, or public</td></tr><tr><th><code>PATCH /api/sites/:name/database</code></th><td>Enable/delete isolated SQLite</td></tr><tr><th><code>GET|PUT|DELETE /api/sites/:name/secrets</code></th><td>Write-only secret capabilities</td></tr><tr><th><code>GET|POST|PATCH|DELETE /api/sites/:name/schedules</code></th><td>Bounded scheduled jobs</td></tr><tr><th><code>GET /api/sites/:name/audit</code></th><td>Capability and run receipts</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomic activation</td></tr></tbody></table><h2>Limits</h2><ul><li>500 files; 10 MiB per file; 50 MiB total</li><li><code>index.html</code> required</li><li><code>_worker.js</code> maximum 1 MiB</li><li>Dynamic request: 50 ms CPU, 5 subrequests, network blocked by default</li><li>100 reader rules; 20 secret hosts; 1,000 database rows per response</li><li>1,440 scheduled attempts/day maximum; 10 retries maximum</li></ul>
       {:else if section === 'explanation'}
-        <h1>The boundary is the product.</h1><p class="summary">One installation gives a company a private place for small web software.</p><h2>Privacy is ambient</h2><p>There is no public mode or privacy checkbox. Every site inherits the organization’s Access identity boundary.</p><h2>Content stays separate</h2><p>Generated JavaScript runs on sibling site hostnames and receives no Worker bindings or secrets. Control mutations require exact-origin requests.</p><h2>Deployment is atomic</h2><p>Files remain pending in private R2 until every manifest digest is verified. Visitors never see a partial update.</p>
+        <h1>The boundary is the product.</h1><p class="summary">One installation gives a company a private place for small web software—with deliberate escape hatches, never accidental ones.</p><h2>Private is the default</h2><p>Company visibility requires identity. Restricted visibility adds application ACLs. Public visibility is explicit registry state and does not inherit private capabilities accidentally.</p><h2>Content stays separate</h2><p>Browser code runs on sibling hostnames. Optional backend code runs in a separate Dynamic Worker isolate with no registry, deployment authority, R2 bucket, encryption keys, or global network.</p><h2>Capabilities are narrow</h2><p>Database and secret bindings are scoped to one site. Secret values are never returned. Scheduled jobs are leased, quota-bound, retried, and audited by trusted code.</p><h2>Deployment is atomic</h2><p>Files remain pending in private R2 until every manifest digest is verified. Visitors never see a partial update.</p>
       {:else if section === 'offline'}
         <h1>You are offline.</h1><p class="summary">The documentation shell is cached. Publishing still requires the network and Access.</p>
       {:else}
@@ -883,6 +888,8 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
   .home-intro>div>p{max-width:680px;margin:34px 0 0;color:var(--muted);font-size:1.02rem;line-height:1.75}
   .feature-grid{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
   .feature-grid article{min-height:250px;padding:29px 27px;border-right:1px solid var(--line)}
+  .feature-grid article:nth-child(4n){border-right:0}
+  .feature-grid article:nth-child(-n+4){border-bottom:1px solid var(--line)}
   .feature-grid article:last-child{border-right:0}
   .feature-grid article>span{color:var(--orange);font:500 .63rem var(--mono)}
   .feature-grid h3{margin:72px 0 13px;font-size:1rem;letter-spacing:-.025em}
@@ -947,8 +954,9 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
     .home-signal{right:-60px;bottom:42px;width:430px}
     .home-intro,.system-model,.read-next{grid-template-columns:1fr;gap:32px;padding:72px 28px}
     .feature-grid{grid-template-columns:1fr 1fr}
-    .feature-grid article:nth-child(2){border-right:0}
-    .feature-grid article:nth-child(-n+2){border-bottom:1px solid var(--line)}
+    .feature-grid article:nth-child(2n){border-right:0}
+    .feature-grid article:nth-child(n){border-bottom:1px solid var(--line)}
+    .feature-grid article:nth-last-child(-n+2){border-bottom:0}
     .docs-map{padding:72px 28px}
     .docs-map-heading{grid-template-columns:1fr;gap:28px}
     .docs-shell{grid-template-columns:1fr;gap:42px}

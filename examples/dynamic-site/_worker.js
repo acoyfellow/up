@@ -12,12 +12,18 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/api/receipt') {
-      await database(env, 'CREATE TABLE IF NOT EXISTS receipts(id INTEGER PRIMARY KEY, kind TEXT, created_at TEXT)');
+      await database(
+        env,
+        'CREATE TABLE IF NOT EXISTS receipts(id INTEGER PRIMARY KEY, kind TEXT, created_at TEXT)',
+      );
       await database(env, 'INSERT INTO receipts(kind,created_at) VALUES (?,?)', [
         request.headers.get('x-up-schedule') ? 'scheduled' : 'interactive',
         new Date().toISOString(),
       ]);
-      const result = await database(env, 'SELECT kind,created_at FROM receipts ORDER BY id DESC LIMIT 10');
+      const result = await database(
+        env,
+        'SELECT kind,created_at FROM receipts ORDER BY id DESC LIMIT 10',
+      );
       return Response.json({
         runtime: 'dynamic-worker',
         outbound: 'blocked-by-default',
