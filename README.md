@@ -40,21 +40,23 @@ The portable deployment fails closed until Access is configured. **Do not make t
 2. Up creates a pending immutable deployment in its Durable Object.
 3. Each uploaded R2 object must match the declared path, size, and SHA-256 digest.
 4. Activation verifies every object, then atomically swaps the active deployment pointer.
-5. Site requests validate the Cloudflare Access JWT before reading private R2.
+5. Site requests enforce explicit visibility: public, company session, or restricted reader rules.
 
 Visitors see either the prior complete deployment or the new complete deployment—never a partial upload.
 
 ## Security invariant
 
-> A URL is never authorization, and a deployment is not done until an isolated unauthenticated request proves uploaded content is unavailable.
+> A URL never grants private authority, and a deployment is not done until an isolated probe proves its declared visibility.
 
-- All control and site reads validate Access signature, issuer, audience, and email.
-- Missing or placeholder Access configuration fails closed.
+- Control routes validate the Access signature, issuer, audience, and email.
+- Company/restricted sites require an HMAC-signed session minted by the Access-protected broker.
+- Public serving requires explicit registry state; absence of identity never implies public.
+- Missing Access or session configuration fails closed for non-public sites.
 - R2 has no public object URLs.
 - Production disables `workers.dev` and Preview URLs.
 - Site creators and configured administrators can mutate a site.
 - Cross-site control mutations are rejected using exact-origin and Fetch Metadata checks.
-- Generated site code runs on sibling hostnames and receives no Worker bindings or secrets.
+- Browser code runs on sibling hostnames. Optional backend code receives only explicitly enabled, site-scoped capability stubs.
 - Site names, deployment IDs, hashes, and object keys grant no authority.
 
 Read [SECURITY.md](SECURITY.md) before attaching a real company hostname.
@@ -92,7 +94,7 @@ bun run test
 bun run dry-run
 ```
 
-The test suite executes the real Worker, SQLite-backed Durable Object, and R2 implementation under Cloudflare’s Workers Vitest pool. It proves manifest validation, digest enforcement, partial-upload rejection, ownership, atomic activation, content serving, and anonymous denial.
+The test suite executes the real Worker, SQLite-backed Durable Objects, R2, session broker, capability stores, scheduler, and Dynamic Worker boundary under Cloudflare’s Workers Vitest pool. It proves visibility rules, digest enforcement, atomic activation, runtime limits, database isolation, encrypted secret metadata, schedule quotas/retries, public serving, and anonymous denial.
 
 For a stable manual publish fixture, choose [`examples/baseline-site`](examples/BASELINE.md). It exercises nested CSS, JavaScript, SVG, a text asset, and the authenticated identity endpoint without external dependencies.
 

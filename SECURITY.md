@@ -4,23 +4,59 @@ Report vulnerabilities privately through GitHub Security Advisories for `acoyfel
 
 ## Trust model
 
-The public documentation contains no customer data and reads no bindings. The control plane and every site request require a valid Cloudflare Access JWT. Up independently verifies its signature, exact issuer, exact audience, and email claim before reading Durable Object or R2 state.
+The product homepage and documentation are public, contain no customer data, and read no private bindings.
 
-Uploaded sites are untrusted active JavaScript. Host them on sibling site hostnames, never on the exact control-plane origin. The control API rejects state-changing requests unless `Origin` is the exact request origin and `Sec-Fetch-Site` is `same-origin` when present.
+The publisher and control APIs require Cloudflare Access at:
+
+```text
+<control-host>/app
+<control-host>/api
+```
+
+Up independently verifies the Access JWT signature, issuer, audience, and email before control-plane reads or mutations. The protected session broker at `/app/__session` converts that identity into an eight-hour HMAC-signed, HttpOnly, Secure, SameSite=Lax sibling-domain session.
+
+Site visibility is registry authority:
+
+- **company** — any valid company session; this is the default
+- **restricted** — owner/admin or a matching email, domain, or trusted IdP group
+- **public** — explicit anonymous serving
+
+Restricted denials return `404`. Public mode is never inferred from a URL or missing identity.
+
+## Untrusted content and code
+
+Uploaded browser code and optional backend code are untrusted. Browser content runs on sibling site hostnames, never the control origin. State-changing control requests require the exact origin and same-site Fetch Metadata.
+
+A root `_worker.js` executes `/api/*` in a separate Dynamic Worker isolate:
+
+- no Up registry, R2 bucket, deployment authority, or encryption keys
+- global outbound network blocked
+- 50 ms CPU and 5 subrequests per invocation
+- 1 MiB code limit
+- no response cookies
+- generic errors without source, stack, or logs
+
+Optional capabilities are narrow:
+
+- **Database:** one site-specific SQLite Durable Object stub; the namespace is never provided.
+- **Secrets:** AES-256-GCM ciphertext in a site-specific Durable Object. Dynamic code cannot read values; it can request an allowlisted HTTPS operation where trusted code injects the bearer credential. Returned text is bounded and direct secret occurrences are redacted.
+- **Schedules:** trusted minute scheduler with atomic leases, UTC quotas, exponential retries, pause/disable states, and bounded audit receipts.
 
 ## Production requirements
 
-- Create Access before attaching production routes.
-- Protect both the control hostname and wildcard site hostname.
-- Set exact `TEAM_DOMAIN` and `POLICY_AUD` values.
-- Set `workers_dev: false` and `preview_urls: false`.
+- Create Access before attaching `/app` and `/api` routes.
+- Do not gate the public documentation or rely on an Access Bypass policy.
+- Keep new sites `company` unless the owner explicitly chooses otherwise.
+- Mint site sessions only through the protected broker and use a cryptographically generated `SESSION_SECRET`.
+- Generate `SECRETS_KEY` as 32 random bytes and store it only as a Worker secret and a mode-600 local recovery file.
 - Keep R2 private and expose no direct object URL.
-- Verify anonymous denial from an isolated browser after every routing or Access change.
-- Never put secrets, credentials, or private data into static browser bundles.
+- Keep `workers_dev: false` and `preview_urls: false`.
+- Verify public reachability only for explicitly public sites.
+- Verify anonymous denial for company/restricted sites after every routing or Access change.
 - Treat site names, deployment IDs, object keys, and URLs as public identifiers—not capabilities.
 
-The portable one-click deployment fails closed until Access is configured. Do not add a development auth bypass or temporarily expose the Worker to finish setup.
+## Installation boundary
 
-## Known boundary
+`bun run setup` provisions or reuses the child zone, DNS, private R2, Access application, Worker Loader, Durable Objects, scheduler, session secret, and encryption key. It reads the generated Access audience and injects it into a gitignored deployment config; an operator never copies the AUD.
 
-A wildcard Access application, DNS record, and production hostname are not provisioned by Deploy to Cloudflare today. Installation is not complete until the operator creates that boundary and verifies it end to end.
+Installation is not complete until authenticated publisher access, a private-site session, an explicit public site, and cookie-free denial for private/restricted content are all verified end to end.
