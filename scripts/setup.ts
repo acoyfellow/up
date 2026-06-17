@@ -147,6 +147,7 @@ const config = {
   ],
   r2_buckets: [{ binding: 'ASSETS', bucket_name: bucket }],
   worker_loaders: [{ binding: 'LOADER' }],
+  triggers: { crons: ['* * * * *'] },
 };
 await writeFile(
   configOut,

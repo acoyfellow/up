@@ -5,11 +5,13 @@ import {
   cleanAssetPath,
   cleanSiteName,
   type Identity,
+  nextScheduleTime,
+  normalizeSchedule,
   normalizeSiteAccess,
   sha256,
   validateManifest,
 } from '../src/core';
-import app, { type Env, handleAuthenticatedRequest } from '../src/index';
+import app, { type Env, handleAuthenticatedRequest, runDueSchedules } from '../src/index';
 import { cleanAllowedHosts, cleanSecretName, decryptSecret, encryptSecret } from '../src/secrets';
 import { createSession, sessionCookie, validReturnUrl, verifySession } from '../src/session';
 
@@ -151,6 +153,31 @@ describe('input boundaries', () => {
         ],
       }),
     ).toThrow('unique');
+  });
+  it('validates bounded schedules and computes the next UTC run', () => {
+    expect(
+      normalizeSchedule(
+        { path: '/api/jobs/daily', cron: '15 9 * * *', maxRunsPerDay: 2, retryLimit: 4 },
+        new Date('2026-06-16T09:15:00Z'),
+      ),
+    ).toMatchObject({
+      path: '/api/jobs/daily',
+      cron: '15 9 * * *',
+      status: 'enabled',
+      maxRunsPerDay: 2,
+      retryLimit: 4,
+      nextRunAt: '2026-06-17T09:15:00.000Z',
+    });
+    expect(nextScheduleTime('*/15 * * * *', new Date('2026-06-16T09:16:00Z')).toISOString()).toBe(
+      '2026-06-16T09:30:00.000Z',
+    );
+    expect(() => normalizeSchedule({ path: '/', cron: '* * * * *' })).toThrow('/api/');
+    expect(() => normalizeSchedule({ path: '/api/run', cron: '* * * * MON' })).toThrow(
+      'minute/hour',
+    );
+    expect(() =>
+      normalizeSchedule({ path: '/api/run', cron: '* * * * *', maxRunsPerDay: 2000 }),
+    ).toThrow('1-1440');
   });
   it('rejects cross-site mutation requests', async () => {
     const response = await handleAuthenticatedRequest(
@@ -491,6 +518,171 @@ describe('real Durable Object and R2 deployment flow', () => {
       (await disabled.json<{ site: { databaseEnabled: boolean } }>()).site.databaseEnabled,
     ).toBe(false);
     expect((await query('SELECT body FROM notes')).status).toBe(400);
+  });
+  it('creates, pauses, disables, audits, and deletes bounded schedules', async () => {
+    const created = await createDeployment();
+    await upload(created.id, created.html);
+    await upload(created.id, created.css);
+    await handleAuthenticatedRequest(
+      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
+      bindings,
+      owner,
+    );
+    const payload = JSON.stringify({
+      path: '/api/jobs/hourly',
+      cron: '0 * * * *',
+      maxRunsPerDay: 12,
+      retryLimit: 2,
+    });
+    const denied = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: payload,
+      }),
+      bindings,
+      stranger,
+    );
+    expect(denied.status).toBe(404);
+    const added = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: payload,
+      }),
+      bindings,
+      owner,
+    );
+    expect(added.status).toBe(201);
+    const item = await added.json<{ schedule: { id: string; status: string } }>();
+    expect(item.schedule.status).toBe('enabled');
+    const paused = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules/${item.schedule.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'paused' }),
+      }),
+      bindings,
+      owner,
+    );
+    expect((await paused.json<{ schedule: { status: string } }>()).schedule.status).toBe('paused');
+    const disabled = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules/${item.schedule.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'disabled' }),
+      }),
+      bindings,
+      owner,
+    );
+    expect((await disabled.json<{ schedule: { status: string } }>()).schedule.status).toBe(
+      'disabled',
+    );
+    const audit = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/audit`),
+      bindings,
+      owner,
+    );
+    const auditBody = await audit.text();
+    expect(auditBody).toContain('schedule.created');
+    expect(auditBody).toContain('schedule.updated');
+    expect(auditBody).not.toContain('secret');
+    const removed = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules/${item.schedule.id}`, {
+        method: 'DELETE',
+      }),
+      bindings,
+      owner,
+    );
+    expect(removed.status).toBe(200);
+    const listed = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules`),
+      bindings,
+      owner,
+    );
+    expect(await listed.json()).toEqual({ schedules: [] });
+  });
+  it('leases due schedules atomically, retries failures, enforces quotas, and audits runs', async () => {
+    const code = `export default { fetch() { return new Response('scheduled'); } };`;
+    const created = await createDeployment(undefined, undefined, code);
+    await upload(created.id, created.html);
+    await upload(created.id, created.css);
+    if (!created.worker) throw new Error('worker fixture missing');
+    await upload(created.id, created.worker);
+    await handleAuthenticatedRequest(
+      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
+      bindings,
+      owner,
+    );
+    const added = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          path: '/api/jobs/run',
+          cron: '* * * * *',
+          maxRunsPerDay: 2,
+          retryLimit: 2,
+        }),
+      }),
+      bindings,
+      owner,
+    );
+    const schedule = await added.json<{ schedule: { nextRunAt: string } }>();
+    let invocations = 0;
+    const loader = {
+      get(_id: string, getCode: () => Promise<WorkerLoaderWorkerCode>) {
+        return {
+          getEntrypoint() {
+            return {
+              async fetch() {
+                await getCode();
+                invocations++;
+                return new Response(null, { status: invocations === 1 ? 500 : 204 });
+              },
+            };
+          },
+        };
+      },
+    } as unknown as WorkerLoader;
+    const runtimeBindings = Object.assign({}, bindings, { LOADER: loader });
+    const firstRun = new Date(schedule.schedule.nextRunAt);
+    expect(await runDueSchedules(runtimeBindings, firstRun)).toBe(1);
+    const afterFailure = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules`),
+      bindings,
+      owner,
+    );
+    const failed = await afterFailure.json<{
+      schedules: Array<{ nextRunAt: string; lastStatus: string; attempts: number }>;
+    }>();
+    expect(failed.schedules[0]).toMatchObject({ lastStatus: 'failed', attempts: 1 });
+    expect(
+      await runDueSchedules(runtimeBindings, new Date(failed.schedules[0]?.nextRunAt || '')),
+    ).toBe(1);
+    const afterSuccess = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/schedules`),
+      bindings,
+      owner,
+    );
+    const succeeded = await afterSuccess.json<{
+      schedules: Array<{ nextRunAt: string; lastStatus: string; attempts: number }>;
+    }>();
+    expect(succeeded.schedules[0]).toMatchObject({ lastStatus: 'success', attempts: 0 });
+    expect(
+      await runDueSchedules(runtimeBindings, new Date(succeeded.schedules[0]?.nextRunAt || '')),
+    ).toBe(0);
+    expect(invocations).toBe(2);
+    const audit = await handleAuthenticatedRequest(
+      control(`/api/sites/${created.site}/audit`),
+      bindings,
+      owner,
+    );
+    const auditText = await audit.text();
+    expect(auditText).toContain('schedule.run_failed');
+    expect(auditText).toContain('schedule.run_succeeded');
+    expect(auditText).toContain('schedule.quota_skipped');
+    expect(auditText).not.toContain(code);
   });
   it('encrypts per-site secret capabilities and never returns plaintext', async () => {
     const key = 'dGVzdC10ZXN0LXNlY3JldHMta2V5LTMyLWJ5dGVzISE';

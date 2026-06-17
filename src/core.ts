@@ -27,6 +27,23 @@ export interface SiteRecord {
   access: SiteAccess;
   databaseEnabled: boolean;
 }
+export type ScheduleStatus = 'enabled' | 'paused' | 'disabled';
+export interface ScheduleRecord {
+  id: string;
+  siteName: string;
+  path: string;
+  cron: string;
+  status: ScheduleStatus;
+  maxRunsPerDay: number;
+  retryLimit: number;
+  attempts: number;
+  nextRunAt: string;
+  lastRunAt?: string;
+  lastStatus?: 'success' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
 export interface DeploymentRecord {
   id: string;
   siteName: string;
@@ -111,6 +128,68 @@ export function validateManifest(
   if (total > limits.maxSiteBytes)
     throw new Error(`Site exceeds ${limits.maxSiteBytes} byte limit`);
   return result.sort((a, b) => a.path.localeCompare(b.path));
+}
+export function normalizeSchedule(
+  input: unknown,
+  now = new Date(),
+): {
+  path: string;
+  cron: string;
+  status: ScheduleStatus;
+  maxRunsPerDay: number;
+  retryLimit: number;
+  nextRunAt: string;
+} {
+  if (!input || typeof input !== 'object') throw new Error('Invalid schedule');
+  const value = input as Record<string, unknown>;
+  const path = typeof value.path === 'string' ? value.path.trim() : '';
+  if (!/^\/api\/[a-zA-Z0-9/_-]{1,200}$/.test(path))
+    throw new Error('Schedule path must be under /api/');
+  const cron = typeof value.cron === 'string' ? value.cron.trim().replace(/\s+/g, ' ') : '';
+  const [minute, hour, day, month, weekday, extra] = cron.split(' ');
+  if (extra || !minute || !hour || day !== '*' || month !== '*' || weekday !== '*')
+    throw new Error('Schedules support minute/hour intervals and daily times');
+  const minuteValid =
+    minute === '*' ||
+    /^\*\/(?:[1-9]|[1-5][0-9]|60)$/.test(minute) ||
+    /^(?:[0-9]|[1-5][0-9])$/.test(minute);
+  const hourValid = hour === '*' || /^(?:[0-9]|1[0-9]|2[0-3])$/.test(hour);
+  if (!minuteValid || !hourValid || (minute.startsWith('*/') && hour !== '*'))
+    throw new Error('Invalid schedule expression');
+  const status = (value.status || 'enabled') as ScheduleStatus;
+  if (!['enabled', 'paused', 'disabled'].includes(status))
+    throw new Error('Invalid schedule status');
+  const maxRunsPerDay = Number(value.maxRunsPerDay ?? 24);
+  const retryLimit = Number(value.retryLimit ?? 3);
+  if (!Number.isSafeInteger(maxRunsPerDay) || maxRunsPerDay < 1 || maxRunsPerDay > 1440)
+    throw new Error('maxRunsPerDay must be 1-1440');
+  if (!Number.isSafeInteger(retryLimit) || retryLimit < 0 || retryLimit > 10)
+    throw new Error('retryLimit must be 0-10');
+  return {
+    path,
+    cron,
+    status,
+    maxRunsPerDay,
+    retryLimit,
+    nextRunAt: nextScheduleTime(cron, now).toISOString(),
+  };
+}
+export function nextScheduleTime(cron: string, from = new Date()): Date {
+  const [minute, hour] = cron.split(' ');
+  const candidate = new Date(from.getTime());
+  candidate.setUTCSeconds(0, 0);
+  candidate.setUTCMinutes(candidate.getUTCMinutes() + 1);
+  for (let count = 0; count < 60 * 24 * 8; count++) {
+    const minuteMatch =
+      minute === '*' ||
+      (minute?.startsWith('*/')
+        ? candidate.getUTCMinutes() % Number(minute.slice(2)) === 0
+        : candidate.getUTCMinutes() === Number(minute));
+    const hourMatch = hour === '*' || candidate.getUTCHours() === Number(hour);
+    if (minuteMatch && hourMatch) return candidate;
+    candidate.setUTCMinutes(candidate.getUTCMinutes() + 1);
+  }
+  throw new Error('Unable to calculate next schedule run');
 }
 export async function sha256(bytes: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes);

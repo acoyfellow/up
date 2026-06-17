@@ -10,7 +10,9 @@ import {
   type Identity,
   mayRead,
   mayWrite,
+  normalizeSchedule,
   normalizeSiteAccess,
+  type ScheduleRecord,
   type SiteAccess,
   type SiteRecord,
   sha256,
@@ -317,6 +319,94 @@ async function api(request: Request, env: Env, identity: Identity): Promise<Resp
     }
     return json(result);
   }
+  const schedulesRoute = url.pathname.match(/^\/api\/sites\/([^/]+)\/schedules$/);
+  if (schedulesRoute && ['GET', 'POST'].includes(request.method)) {
+    const siteName = cleanSiteName(schedulesRoute[1] || '');
+    if (!siteName) return json({ error: 'Invalid site name' }, 400);
+    const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}`);
+    if (!mayWrite(site.owner, identity)) return json({ error: 'Not found' }, 404);
+    if (request.method === 'GET')
+      return json(await reg<{ schedules: ScheduleRecord[] }>(env, `/sites/${siteName}/schedules`));
+    if (!site.activeDeploymentId)
+      return json({ error: 'Publish the site before scheduling it' }, 409);
+    const body = await request.json<unknown>().catch(() => null);
+    let normalized: ReturnType<typeof normalizeSchedule>;
+    try {
+      normalized = normalizeSchedule(body);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Invalid schedule' }, 400);
+    }
+    const now = new Date().toISOString();
+    const schedule: ScheduleRecord = {
+      id: crypto.randomUUID(),
+      siteName,
+      ...normalized,
+      attempts: 0,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: identity.email,
+    };
+    return json(
+      await reg<{ schedule: ScheduleRecord }>(env, `/sites/${siteName}/schedules`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(schedule),
+      }),
+      201,
+    );
+  }
+  const scheduleRoute = url.pathname.match(/^\/api\/sites\/([^/]+)\/schedules\/([^/]+)$/);
+  if (scheduleRoute && ['PATCH', 'DELETE'].includes(request.method)) {
+    const siteName = cleanSiteName(scheduleRoute[1] || '');
+    if (!siteName) return json({ error: 'Invalid site name' }, 400);
+    const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}`);
+    if (!mayWrite(site.owner, identity)) return json({ error: 'Not found' }, 404);
+    const list = await reg<{ schedules: ScheduleRecord[] }>(env, `/sites/${siteName}/schedules`);
+    const existing = list.schedules.find((item) => item.id === scheduleRoute[2]);
+    if (!existing) return json({ error: 'Not found' }, 404);
+    if (request.method === 'DELETE')
+      return json(
+        await reg(env, `/sites/${siteName}/schedules/${existing.id}`, {
+          method: 'DELETE',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ actor: identity.email }),
+        }),
+      );
+    const body = await request.json<Record<string, unknown>>().catch(() => null);
+    if (!body) return json({ error: 'Invalid JSON body' }, 400);
+    let normalized: ReturnType<typeof normalizeSchedule>;
+    try {
+      normalized = normalizeSchedule({
+        path: body.path ?? existing.path,
+        cron: body.cron ?? existing.cron,
+        status: body.status ?? existing.status,
+        maxRunsPerDay: body.maxRunsPerDay ?? existing.maxRunsPerDay,
+        retryLimit: body.retryLimit ?? existing.retryLimit,
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Invalid schedule' }, 400);
+    }
+    return json(
+      await reg<{ schedule: ScheduleRecord }>(env, `/sites/${siteName}/schedules/${existing.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...existing,
+          ...normalized,
+          updatedAt: new Date().toISOString(),
+          actor: identity.email,
+        }),
+      }),
+    );
+  }
+  const auditRoute = url.pathname.match(/^\/api\/sites\/([^/]+)\/audit$/);
+  if (request.method === 'GET' && auditRoute) {
+    const siteName = cleanSiteName(auditRoute[1] || '');
+    if (!siteName) return json({ error: 'Invalid site name' }, 400);
+    const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${siteName}`);
+    if (!mayWrite(site.owner, identity)) return json({ error: 'Not found' }, 404);
+    return json(await reg(env, `/sites/${siteName}/audit`));
+  }
   const secretList = url.pathname.match(/^\/api\/sites\/([^/]+)\/secrets$/);
   if (request.method === 'GET' && secretList) {
     const siteName = cleanSiteName(secretList[1] || '');
@@ -618,5 +708,65 @@ app.notFound(async (c) => {
   return new Response(response.body, { status: 404, headers: response.headers });
 });
 
+export async function runDueSchedules(env: Env, now = new Date()): Promise<number> {
+  const leased = await reg<{ schedules: ScheduleRecord[] }>(env, '/schedules/lease', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ now: now.toISOString(), limit: 50 }),
+  });
+  let completed = 0;
+  for (const schedule of leased.schedules) {
+    let status = 503;
+    try {
+      const { site } = await reg<{ site: SiteRecord }>(env, `/sites/${schedule.siteName}`);
+      if (site.activeDeploymentId && schedule.status === 'enabled') {
+        const { deployment } = await reg<{ deployment: DeploymentRecord }>(
+          env,
+          `/deployments/${site.activeDeploymentId}`,
+        );
+        const request = new Request(
+          `https://${schedule.siteName}.${env.SITE_DOMAIN || 'invalid'}${schedule.path}`,
+          {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-up-schedule': schedule.id,
+            },
+            body: JSON.stringify({
+              scheduleId: schedule.id,
+              scheduledAt: now.toISOString(),
+              attempt: schedule.attempts,
+            }),
+          },
+        );
+        const response = await runDynamicSiteRequest(request, env, deployment, site);
+        status = response?.status || 503;
+      }
+    } catch {
+      status = 502;
+    }
+    await reg(env, `/schedules/${schedule.id}/result`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        now: now.toISOString(),
+        success: status >= 200 && status < 300,
+        status,
+      }),
+    });
+    completed++;
+  }
+  return completed;
+}
+
 export { InhouseRegistry, SiteDatabase, SiteSecrets };
-export default app;
+
+const worker = {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    return app.fetch(request, env, ctx);
+  },
+  scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(runDueSchedules(env, new Date(controller.scheduledTime)));
+  },
+};
+export default worker;

@@ -31,5 +31,6 @@
     { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] }
   ],
   "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }],
-  "worker_loaders": [{ "binding": "LOADER" }]
+  "worker_loaders": [{ "binding": "LOADER" }],
+  "triggers": { "crons": ["* * * * *"] }
 }
