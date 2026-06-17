@@ -121,7 +121,15 @@ A release is done only after all of these are recorded:
 
 ## Status
 
-Up is permanently minimal at `0.0.1`. It supports static folders, organization-wide reading, creator/admin publishing, immutable deployments, and atomic activation. Public sites, arbitrary backend code, per-recipient ACLs, server-side secrets, databases, and scheduled jobs are intentionally out of scope.
+Up `0.0.1` is static and company-private by default, with explicit progressive capabilities:
+
+- **Visibility:** company, restricted email/domain/IdP-group readers, or confirmed public access
+- **Backend:** an optional root `_worker.js` executes `/api/*` in a network-isolated Dynamic Worker
+- **Secrets:** encrypted, write-only bearer capabilities restricted to exact outbound hosts
+- **Data:** an isolated per-site SQLite Durable Object, enabled and deleted by the owner
+- **Schedules:** bounded UTC jobs with daily quotas, retries, pause/disable behavior, and audit receipts
+
+Dynamic code never runs in the Up control isolate and never receives the registry, deployment authority, private R2 bucket, encryption keys, or another site's bindings.
 
 ## License
 

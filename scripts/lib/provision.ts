@@ -124,7 +124,6 @@ export async function ensureAccessApp(cf: Cf, opts: AccessOptions): Promise<Acce
         destinations: [
           { type: 'public', uri: `${opts.controlHost}/app` },
           { type: 'public', uri: `${opts.controlHost}/api` },
-          { type: 'public', uri: opts.siteWildcard },
         ],
         policies: [{ name: `${opts.appName} owner`, decision: 'allow', include }],
       }),
