@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Up dynamic baseline</title>
+    <style>body{max-width:720px;margin:10vh auto;padding:24px;font:16px/1.6 system-ui;color:#101114}code,pre{font-family:ui-monospace,monospace}button{padding:10px 14px;background:#ff6b20;border:0;border-radius:4px;font-weight:700}</style>
+  </head>
+  <body>
+    <p>UP DYNAMIC BASELINE / 0.0.1</p>
+    <h1>Static shell. Isolated backend.</h1>
+    <button id="run">Run backend checks</button>
+    <pre id="receipt">waiting</pre>
+    <script>
+      document.querySelector('#run').onclick = async () => {
+        const response = await fetch('/api/receipt');
+        document.querySelector('#receipt').textContent = JSON.stringify(await response.json(), null, 2);
+      };
+    </script>
+  </body>
+</html>
