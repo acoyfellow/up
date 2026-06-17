@@ -5,15 +5,12 @@ import { promisify } from 'node:util';
 import { openLocalBrowser } from 'unsurf/skills/record';
 
 const exec = promisify(execFile);
-const origin =
-  process.env.UP_CONTROL_ORIGIN ||
-  process.env.INHOUSE_CONTROL_ORIGIN ||
-  'https://up.ax.cloudflare.dev';
-const profile = process.env.INHOUSE_VIDEO_PROFILE || `${process.env.HOME}/.inhouse-video-profile`;
-const session = process.env.INHOUSE_VIDEO_SESSION || 'inhouse-video';
-const folder = resolve(process.env.INHOUSE_VIDEO_FOLDER || 'examples/baseline-site');
-const siteName = process.env.INHOUSE_VIDEO_SITE || 'baseline-video';
-const output = process.env.INHOUSE_VIDEO_OUTPUT || 'artifacts/video/inhouse-publish.webm';
+const origin = process.env.UP_CONTROL_ORIGIN || 'https://up.ax.cloudflare.dev';
+const profile = process.env.UP_VIDEO_PROFILE || `${process.env.HOME}/.up-video-profile`;
+const session = process.env.UP_VIDEO_SESSION || 'up-video';
+const folder = resolve(process.env.UP_VIDEO_FOLDER || 'examples/baseline-site');
+const siteName = process.env.UP_VIDEO_SITE || 'baseline-video';
+const output = process.env.UP_VIDEO_OUTPUT || 'artifacts/video/up-publish.webm';
 
 await mkdir(output.split('/').slice(0, -1).join('/'), { recursive: true });
 
@@ -22,7 +19,7 @@ async function command(...args: string[]): Promise<string> {
     env: {
       ...process.env,
       AGENT_BROWSER_PROFILE: profile,
-      AGENT_BROWSER_HEADED: process.env.INHOUSE_VIDEO_HEADED || 'false',
+      AGENT_BROWSER_HEADED: process.env.UP_VIDEO_HEADED || 'false',
     },
   });
   return result.stdout;
@@ -32,7 +29,7 @@ const browser = await openLocalBrowser({
   session,
   env: {
     AGENT_BROWSER_PROFILE: profile,
-    AGENT_BROWSER_HEADED: process.env.INHOUSE_VIDEO_HEADED || 'false',
+    AGENT_BROWSER_HEADED: process.env.UP_VIDEO_HEADED || 'false',
   },
 });
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-origin="${UP_CONTROL_ORIGIN:-${INHOUSE_CONTROL_ORIGIN:-https://up.ax.cloudflare.dev}}"
-profile="${INHOUSE_VIDEO_PROFILE:-$HOME/.inhouse-video-profile}"
-session="${INHOUSE_VIDEO_SESSION:-inhouse-video}"
+origin="${UP_CONTROL_ORIGIN:-https://up.ax.cloudflare.dev}"
+profile="${UP_VIDEO_PROFILE:-$HOME/.up-video-profile}"
+session="${UP_VIDEO_SESSION:-up-video}"
 
-printf 'Opening isolated Inhouse recording profile.\n'
+printf 'Opening isolated Up recording profile.\n'
 printf 'Profile: %s\n' "$profile"
 printf 'URL: %s/app\n' "$origin"
 

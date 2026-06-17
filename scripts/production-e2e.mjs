@@ -2,12 +2,8 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 
-const control =
-  process.env.UP_CONTROL_ORIGIN ||
-  process.env.INHOUSE_CONTROL_ORIGIN ||
-  'https://up.ax.cloudflare.dev';
-const siteDomain =
-  process.env.UP_SITE_DOMAIN || process.env.INHOUSE_SITE_DOMAIN || 'up.ax.cloudflare.dev';
+const control = process.env.UP_CONTROL_ORIGIN || 'https://up.ax.cloudflare.dev';
+const siteDomain = process.env.UP_SITE_DOMAIN || 'up.ax.cloudflare.dev';
 const accessToken = process.env.CF_ACCESS_TOKEN;
 if (!accessToken)
   throw new Error(`Set CF_ACCESS_TOKEN from cloudflared access token -app ${control}`);
@@ -84,7 +80,7 @@ const authenticated = await fetch(siteUrl, { headers: { 'cf-access-token': acces
 const authenticatedBody = await authenticated.text();
 if (!authenticated.ok || !authenticatedBody.includes('Private by default.'))
   throw new Error(`authenticated site failed: ${authenticated.status}`);
-const me = await fetch(`${siteUrl}/__inhouse/me`, { headers: { 'cf-access-token': accessToken } });
+const me = await fetch(`${siteUrl}/__up/me`, { headers: { 'cf-access-token': accessToken } });
 const identity = await me.json();
 if (!me.ok || !identity.email) throw new Error('authenticated identity endpoint failed');
 const anonymous = await fetch(siteUrl, { redirect: 'manual' });

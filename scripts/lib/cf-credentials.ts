@@ -16,7 +16,7 @@ export const REVOKE_ENDPOINT = 'https://dash.cloudflare.com/oauth2/revoke';
 export const CREDENTIALS_FILE = resolve(process.cwd(), '.cloudflare-oauth.json');
 
 /**
- * Least-privilege scope set Inhouse needs to provision and run a tenant:
+ * Least-privilege scope set Up needs to provision and run a tenant:
  * create the Access org + application, deploy the control Worker and its
  * route, manage the private R2 bucket, and create the app subdomain record.
  */
@@ -66,7 +66,7 @@ async function refresh(stored: StoredCredentials): Promise<StoredCredentials> {
     refresh_token: stored.refresh_token,
     client_id: stored.client_id,
   });
-  const secret = process.env.UP_OAUTH_CLIENT_SECRET || process.env.INHOUSE_OAUTH_CLIENT_SECRET;
+  const secret = process.env.UP_OAUTH_CLIENT_SECRET;
   const headers: Record<string, string> = { 'content-type': 'application/x-www-form-urlencoded' };
   if (secret) headers.authorization = `Basic ${btoa(`${stored.client_id}:${secret}`)}`;
   const response = await fetch(TOKEN_ENDPOINT, { method: 'POST', headers, body });

@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
-const origin = process.env.INHOUSE_ORIGIN || 'http://127.0.0.1:8798';
+const origin = process.env.UP_ORIGIN || 'http://127.0.0.1:8798';
 await mkdir('public/screenshots', { recursive: true });
 const browser = await chromium.launch({ headless: true });
 try {

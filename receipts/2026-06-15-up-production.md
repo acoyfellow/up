@@ -19,7 +19,7 @@ Using the authenticated cmux in-app browser as `jcoeyman@cloudflare.com`:
 3. Published site name `baseline`.
 4. Received the Up success receipt: **“It’s up.”**
 5. Opened `https://baseline.up.ax.cloudflare.dev`.
-6. Verified rendered HTML, CSS, JavaScript, SVG, text asset, and `/__inhouse/me`.
+6. Verified rendered HTML, CSS, JavaScript, SVG, text asset, and `/__up/me`.
 7. Verified `/baseline.txt` returned `UP_BASELINE_OK`.
 
 All deployed responses now use `Cache-Control: private, no-cache`. This prevents stable asset URLs from retaining bytes from a superseded atomic deployment.
@@ -33,7 +33,7 @@ A cookie-free curl request was made for each path:
 - `/assets/site.css`
 - `/assets/site.js`
 - `/assets/mark.svg`
-- `/__inhouse/me`
+- `/__up/me`
 
 Every request completed a valid TLS handshake and returned `302` to Cloudflare Access. No uploaded bytes were available anonymously.
 

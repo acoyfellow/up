@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const origin = process.env.INHOUSE_ORIGIN || 'http://127.0.0.1:8798';
+const origin = process.env.UP_ORIGIN || 'http://127.0.0.1:8798';
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();

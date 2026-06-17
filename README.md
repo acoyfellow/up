@@ -116,7 +116,7 @@ A release is done only after all of these are recorded:
 - public docs and every canonical link checked;
 - authenticated folder publish succeeds;
 - returned site renders HTML and assets;
-- `/__inhouse/me` returns the authenticated Access identity;
+- `/__up/me` returns the authenticated Access identity;
 - a clean isolated browser is challenged by Access and never receives uploaded bytes;
 - update and atomic activation are verified;
 - deployment receipt records git SHA, route exposure, bindings, and the checks above.

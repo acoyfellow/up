@@ -60,7 +60,7 @@
         "description": "Cloudflare Access team domain."
       },
       "POLICY_AUD": {
-        "description": "Audience tag of the Access application protecting Inhouse."
+        "description": "Audience tag of the Access application protecting Up."
       },
       "ADMIN_EMAILS": {
         "description": "Comma-separated administrators."

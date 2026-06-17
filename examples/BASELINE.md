@@ -4,7 +4,7 @@ A deterministic, dependency-free folder for manual and automated Up publishing t
 
 ## Publish
 
-Choose the **`baseline-site` folder itself** in the Inhouse folder picker. Suggested site name:
+Choose the **`baseline-site` folder itself** in the Up folder picker. Suggested site name:
 
 ```text
 baseline

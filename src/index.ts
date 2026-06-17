@@ -19,7 +19,7 @@ import {
   validateManifest,
 } from './core';
 import { publicAssets } from './public.generated';
-import { InhouseRegistry } from './registry';
+import { UpRegistry } from './registry';
 import { cleanAllowedHosts, cleanSecretName, encryptSecret } from './secrets';
 import {
   cookieValue,
@@ -34,7 +34,7 @@ import { SiteDatabase } from './site-database';
 import { SiteSecrets } from './site-secrets';
 export interface Env extends AccessConfiguration {
   ASSETS: R2Bucket;
-  REGISTRY: DurableObjectNamespace<InhouseRegistry>;
+  REGISTRY: DurableObjectNamespace<UpRegistry>;
   CONTROL_HOST?: string;
   SITE_DOMAIN?: string;
   MAX_SITE_BYTES?: string;
@@ -93,8 +93,7 @@ const pages = {
   '/offline': {
     section: 'offline',
     title: 'Up is offline',
-    description:
-      'The cached Inhouse documentation shell is available while the network is offline.',
+    description: 'The cached Up documentation shell is available while the network is offline.',
     eyebrow: 'Offline · cached documentation',
     noindex: true,
   },
@@ -526,7 +525,7 @@ async function serveSite(
     throw error;
   }
   if (!mayRead(site, identity)) return new Response('Not found', { status: 404 });
-  if (url.pathname === '/__inhouse/me')
+  if (url.pathname === '/__up/me')
     return json({ email: identity?.email || null, visibility: site.access.visibility });
   if (!site.activeDeploymentId) return new Response('Not found', { status: 404 });
   const { deployment } = await reg<{ deployment: DeploymentRecord }>(
@@ -761,7 +760,7 @@ export async function runDueSchedules(env: Env, now = new Date()): Promise<numbe
   return completed;
 }
 
-export { InhouseRegistry, SiteDatabase, SiteSecrets };
+export { SiteDatabase, SiteSecrets, UpRegistry };
 
 const worker = {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {

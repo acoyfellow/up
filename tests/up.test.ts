@@ -250,7 +250,7 @@ describe('real Durable Object and R2 deployment flow', () => {
     );
     expect(activated.status).toBe(200);
     const page = await handleAuthenticatedRequest(
-      new Request(`https://${site}.inhouse.example.com/`),
+      new Request(`https://${site}.up.example.com/`),
       bindings,
       owner,
     );
@@ -259,13 +259,13 @@ describe('real Durable Object and R2 deployment flow', () => {
     expect(page.headers.get('x-content-type-options')).toBe('nosniff');
     expect(page.headers.get('cache-control')).toBe('private, no-cache');
     const identity = await handleAuthenticatedRequest(
-      new Request(`https://${site}.inhouse.example.com/__inhouse/me`),
+      new Request(`https://${site}.up.example.com/__up/me`),
       bindings,
       owner,
     );
     expect(await identity.json()).toEqual({ email: owner.email, visibility: 'company' });
     const noJwt = await app.fetch(
-      new Request(`https://${site}.inhouse.example.com/`),
+      new Request(`https://${site}.up.example.com/`),
       bindings,
       createExecutionContext(),
     );
@@ -281,10 +281,10 @@ describe('real Durable Object and R2 deployment flow', () => {
       bindings,
       owner,
     );
-    const page = await SELF.fetch(`https://${published.site}.inhouse.example.com/`);
+    const page = await SELF.fetch(`https://${published.site}.up.example.com/`);
     expect(page.status).toBe(200);
     expect(await page.text()).toContain('private receipt');
-    const viewer = await SELF.fetch(`https://${published.site}.inhouse.example.com/__inhouse/me`);
+    const viewer = await SELF.fetch(`https://${published.site}.up.example.com/__up/me`);
     expect(await viewer.json()).toEqual({ email: null, visibility: 'public' });
 
     const company = await createDeployment();
@@ -295,7 +295,7 @@ describe('real Durable Object and R2 deployment flow', () => {
       bindings,
       owner,
     );
-    const anonymousCompany = await SELF.fetch(`https://${company.site}.inhouse.example.com/`, {
+    const anonymousCompany = await SELF.fetch(`https://${company.site}.up.example.com/`, {
       redirect: 'manual',
     });
     expect({ status: anonymousCompany.status, body: await anonymousCompany.text() }).toEqual({
@@ -306,7 +306,7 @@ describe('real Durable Object and R2 deployment flow', () => {
       owner,
       'test-session-secret-that-is-at-least-32-characters',
     );
-    const authenticated = await SELF.fetch(`https://${company.site}.inhouse.example.com/`, {
+    const authenticated = await SELF.fetch(`https://${company.site}.up.example.com/`, {
       headers: { cookie: `up_session=${session}` },
     });
     expect(authenticated.status).toBe(200);
@@ -333,14 +333,14 @@ describe('real Durable Object and R2 deployment flow', () => {
       { email: 'group-user@example.com', role: 'member' as const, groups: ['Engineering'] },
     ]) {
       const page = await handleAuthenticatedRequest(
-        new Request(`https://${restricted.site}.inhouse.example.com/`),
+        new Request(`https://${restricted.site}.up.example.com/`),
         bindings,
         identity,
       );
       expect(page.status).toBe(200);
     }
     const denied = await handleAuthenticatedRequest(
-      new Request(`https://${restricted.site}.inhouse.example.com/`),
+      new Request(`https://${restricted.site}.up.example.com/`),
       bindings,
       { email: 'denied@example.com', role: 'member' },
     );
@@ -390,14 +390,14 @@ describe('real Durable Object and R2 deployment flow', () => {
     } as unknown as WorkerLoader;
     const runtimeBindings = Object.assign({}, bindings, { LOADER: loader });
     const staticPage = await handleAuthenticatedRequest(
-      new Request(`https://${created.site}.inhouse.example.com/`),
+      new Request(`https://${created.site}.up.example.com/`),
       runtimeBindings,
       owner,
     );
     expect(staticPage.status).toBe(200);
     expect(loads).toBe(0);
     const dynamic = await handleAuthenticatedRequest(
-      new Request(`https://${created.site}.inhouse.example.com/api/hello`),
+      new Request(`https://${created.site}.up.example.com/api/hello`),
       runtimeBindings,
       owner,
     );
@@ -429,7 +429,7 @@ describe('real Durable Object and R2 deployment flow', () => {
       },
     } as unknown as WorkerLoader;
     const response = await handleAuthenticatedRequest(
-      new Request(`https://${created.site}.inhouse.example.com/api/fail`),
+      new Request(`https://${created.site}.up.example.com/api/fail`),
       Object.assign({}, bindings, { LOADER: loader }),
       owner,
     );
@@ -789,7 +789,7 @@ describe('real Durable Object and R2 deployment flow', () => {
       owner,
     );
     const page = await handleAuthenticatedRequest(
-      new Request(`https://${first.site}.inhouse.example.com/`),
+      new Request(`https://${first.site}.up.example.com/`),
       bindings,
       owner,
     );

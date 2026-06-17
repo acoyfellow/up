@@ -62,7 +62,7 @@ function deployment(row: Record<string, SqlStorageValue>): DeploymentRecord {
     manifest: JSON.parse(String(row.manifest_json)) as AssetManifestEntry[],
   };
 }
-export class InhouseRegistry extends DurableObject<RegistryEnv> {
+export class UpRegistry extends DurableObject<RegistryEnv> {
   constructor(state: DurableObjectState, env: RegistryEnv) {
     super(state, env);
     this.ctx.storage.sql.exec(

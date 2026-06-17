@@ -20,15 +20,16 @@
   },
   "durable_objects": {
     "bindings": [
-      { "name": "REGISTRY", "class_name": "InhouseRegistry" },
+      { "name": "REGISTRY", "class_name": "UpRegistry" },
       { "name": "SITE_DATABASE", "class_name": "SiteDatabase" },
       { "name": "SITE_SECRETS", "class_name": "SiteSecrets" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["InhouseRegistry"] },
+    { "tag": "v1", "new_sqlite_classes": ["UpRegistry"] },
     { "tag": "v2", "new_sqlite_classes": ["SiteDatabase"] },
-    { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] }
+    { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] },
+    { "tag": "v4" }
   ],
   "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }],
   "worker_loaders": [{ "binding": "LOADER" }],

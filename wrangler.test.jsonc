@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "inhouse-test",
+  "name": "up-test",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-28",
   "compatibility_flags": ["nodejs_compat"],
@@ -9,7 +9,7 @@
     "POLICY_AUD": "test-audience",
     "ADMIN_EMAILS": "admin@example.com",
     "CONTROL_HOST": "control.example.com",
-    "SITE_DOMAIN": "inhouse.example.com",
+    "SITE_DOMAIN": "up.example.com",
     "MAX_SITE_BYTES": "52428800",
     "MAX_FILE_BYTES": "10485760",
     "MAX_FILES": "500",
@@ -18,15 +18,16 @@
   },
   "durable_objects": {
     "bindings": [
-      { "name": "REGISTRY", "class_name": "InhouseRegistry" },
+      { "name": "REGISTRY", "class_name": "UpRegistry" },
       { "name": "SITE_DATABASE", "class_name": "SiteDatabase" },
       { "name": "SITE_SECRETS", "class_name": "SiteSecrets" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["InhouseRegistry"] },
+    { "tag": "v1", "new_sqlite_classes": ["UpRegistry"] },
     { "tag": "v2", "new_sqlite_classes": ["SiteDatabase"] },
-    { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] }
+    { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] },
+    { "tag": "v4" }
   ],
-  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "inhouse-test-assets" }]
+  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-test-assets" }]
 }

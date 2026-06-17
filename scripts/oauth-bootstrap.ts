@@ -19,17 +19,10 @@ import {
   TOKEN_ENDPOINT,
 } from './lib/cf-credentials';
 
-const clientId = process.env.UP_OAUTH_CLIENT_ID || process.env.INHOUSE_OAUTH_CLIENT_ID;
-const clientSecret = process.env.UP_OAUTH_CLIENT_SECRET || process.env.INHOUSE_OAUTH_CLIENT_SECRET;
-const redirectUri =
-  process.env.UP_OAUTH_REDIRECT ||
-  process.env.INHOUSE_OAUTH_REDIRECT ||
-  'http://localhost:8976/callback';
-const scopes = (
-  process.env.UP_OAUTH_SCOPES ||
-  process.env.INHOUSE_OAUTH_SCOPES ||
-  DEFAULT_SCOPES.join(' ')
-).trim();
+const clientId = process.env.UP_OAUTH_CLIENT_ID;
+const clientSecret = process.env.UP_OAUTH_CLIENT_SECRET;
+const redirectUri = process.env.UP_OAUTH_REDIRECT || 'http://localhost:8976/callback';
+const scopes = (process.env.UP_OAUTH_SCOPES || DEFAULT_SCOPES.join(' ')).trim();
 
 if (!clientId) {
   console.error(
@@ -72,7 +65,7 @@ authorizeUrl.search = new URLSearchParams({
 }).toString();
 
 function openInBrowser(url: string) {
-  if (process.env.UP_OAUTH_NO_OPEN || process.env.INHOUSE_OAUTH_NO_OPEN) return;
+  if (process.env.UP_OAUTH_NO_OPEN) return;
   const opener =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   spawn(opener, [url], { stdio: 'ignore', detached: true }).on('error', () => {});

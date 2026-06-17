@@ -14,7 +14,7 @@
  *   UP_PARENT_ZONE                   create/delegate CONTROL_HOST as a child zone
  *
  * Optional: UP_APP_NAME, UP_R2_BUCKET, UP_TEAM_DOMAIN, UP_CONFIG_OUT,
- * UP_ADMIN_EMAILS, UP_COMPAT_DATE. Legacy INHOUSE_* names remain supported.
+ * UP_ADMIN_EMAILS, UP_COMPAT_DATE.
  */
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -29,7 +29,7 @@ import {
   resaveAccessApp,
 } from './lib/provision';
 
-const setting = (name: string) => process.env[`UP_${name}`] || process.env[`INHOUSE_${name}`];
+const setting = (name: string) => process.env[`UP_${name}`];
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 const controlHost = setting('CONTROL_HOST');
 const configuredZone = setting('ZONE_NAME');
@@ -135,15 +135,16 @@ const config = {
   },
   durable_objects: {
     bindings: [
-      { name: 'REGISTRY', class_name: 'InhouseRegistry' },
+      { name: 'REGISTRY', class_name: 'UpRegistry' },
       { name: 'SITE_DATABASE', class_name: 'SiteDatabase' },
       { name: 'SITE_SECRETS', class_name: 'SiteSecrets' },
     ],
   },
   migrations: [
-    { tag: 'v1', new_sqlite_classes: ['InhouseRegistry'] },
+    { tag: 'v1', new_sqlite_classes: ['UpRegistry'] },
     { tag: 'v2', new_sqlite_classes: ['SiteDatabase'] },
     { tag: 'v3', new_sqlite_classes: ['SiteSecrets'] },
+    { tag: 'v4' },
   ],
   r2_buckets: [{ binding: 'ASSETS', bucket_name: bucket }],
   worker_loaders: [{ binding: 'LOADER' }],

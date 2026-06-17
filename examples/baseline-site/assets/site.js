@@ -7,7 +7,7 @@ javascript.className = 'pass';
 clock.textContent = 'assets verified';
 
 try {
-  const response = await fetch('/__inhouse/me', { headers: { accept: 'application/json' } });
+  const response = await fetch('/__up/me', { headers: { accept: 'application/json' } });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const viewer = await response.json();
   identity.textContent = viewer.email || 'authenticated';

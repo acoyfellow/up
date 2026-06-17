@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible Inhouse defect
+description: Report a reproducible Up defect
 title: "bug: "
 labels: [bug]
 body:

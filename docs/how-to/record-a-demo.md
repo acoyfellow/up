@@ -31,23 +31,23 @@ The script records:
 Output:
 
 ```text
-artifacts/video/inhouse-publish.webm
+artifacts/video/up-publish.webm
 ```
 
 Override values when needed:
 
 ```sh
-INHOUSE_VIDEO_SITE=baseline-take-2 \
-INHOUSE_VIDEO_OUTPUT=artifacts/video/take-2.webm \
+UP_VIDEO_SITE=baseline-take-2 \
+UP_VIDEO_OUTPUT=artifacts/video/take-2.webm \
 bun run video:record
 ```
 
 ## 4. Convert to MP4
 
 ```sh
-ffmpeg -i artifacts/video/inhouse-publish.webm \
+ffmpeg -i artifacts/video/up-publish.webm \
   -c:v libx264 -pix_fmt yuv420p \
-  artifacts/video/inhouse-publish.mp4
+  artifacts/video/up-publish.mp4
 ```
 
 The output directory is gitignored. Review the video locally before sharing it.

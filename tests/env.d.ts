@@ -1,7 +1,7 @@
-import type { Env as InhouseEnv } from '../src/index';
+import type { Env as UpEnv } from '../src/index';
 
 declare global {
   namespace Cloudflare {
-    interface Env extends InhouseEnv {}
+    interface Env extends UpEnv {}
   }
 }
