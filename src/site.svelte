@@ -10,6 +10,19 @@
     activeDeploymentId?: string;
     access?: { visibility: Visibility; readers: ReaderRule[] };
     databaseEnabled?: boolean;
+    runtimeEnabled?: boolean;
+  };
+
+  type SecretSummary = { name: string; allowedHosts: string[]; updatedAt: string };
+  type ScheduleSummary = {
+    id: string;
+    path: string;
+    cron: string;
+    status: 'enabled' | 'paused' | 'disabled';
+    maxRunsPerDay: number;
+    retryLimit: number;
+    nextRunAt: string;
+    lastStatus?: 'success' | 'failed';
   };
 
   type PreparedFile = {
@@ -36,7 +49,18 @@
   let readersText = $state('');
   let publicConfirmed = $state(false);
   let databaseRequested = $state(false);
-  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list'>('empty');
+  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list' | 'manage'>('empty');
+  let managedSite = $state<Site | null>(null);
+  let managedSecrets = $state<SecretSummary[]>([]);
+  let managedSchedules = $state<ScheduleSummary[]>([]);
+  let managedVisibility = $state<Visibility>('company');
+  let managedReaders = $state('');
+  let secretName = $state('');
+  let secretValue = $state('');
+  let secretHosts = $state('');
+  let schedulePath = $state('/api/jobs/run');
+  let scheduleCron = $state('0 * * * *');
+  let manageStatus = $state('');
   let input = $state<HTMLInputElement>();
   let siteNameInput = $state<HTMLInputElement>();
 
@@ -75,6 +99,147 @@
     } catch {
       sites = [];
     }
+  }
+
+  async function openManagement(site: Site) {
+    managedSite = site;
+    managedVisibility = site.access?.visibility || 'company';
+    managedReaders = (site.access?.readers || [])
+      .map((rule) => (rule.type === 'group' ? `group:${rule.value}` : rule.type === 'domain' ? `@${rule.value}` : rule.value))
+      .join(', ');
+    manageStatus = '';
+    view = 'manage';
+    await loadManagement();
+  }
+
+  async function loadManagement() {
+    if (!managedSite) return;
+    const name = encodeURIComponent(managedSite.name);
+    const [secretsResponse, schedulesResponse, sitesResponse] = await Promise.all([
+      fetch(`/api/sites/${name}/secrets`),
+      fetch(`/api/sites/${name}/schedules`),
+      fetch('/api/sites'),
+    ]);
+    if (secretsResponse.ok) managedSecrets = (await secretsResponse.json()).secrets;
+    if (schedulesResponse.ok) managedSchedules = (await schedulesResponse.json()).schedules;
+    if (sitesResponse.ok) {
+      const data = await sitesResponse.json();
+      sites = data.sites;
+      managedSite = sites.find((site) => site.name === managedSite?.name) || managedSite;
+    }
+  }
+
+  async function saveManagedAccess() {
+    if (!managedSite) return;
+    const readers = parseReaders(managedReaders);
+    if (managedVisibility === 'restricted' && !readers.length) {
+      manageStatus = 'Restricted sites require at least one reader.';
+      return;
+    }
+    const response = await fetch(`/api/sites/${encodeURIComponent(managedSite.name)}/access`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        access: {
+          visibility: managedVisibility,
+          readers: managedVisibility === 'restricted' ? readers : [],
+        },
+      }),
+    });
+    const data = await response.json();
+    manageStatus = response.ok ? 'Visibility saved.' : data.error || 'Unable to save visibility.';
+    if (response.ok) await loadManagement();
+  }
+
+  async function toggleManagedDatabase() {
+    if (!managedSite) return;
+    const enabled = !managedSite.databaseEnabled;
+    const response = await fetch(`/api/sites/${encodeURIComponent(managedSite.name)}/database`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    const data = await response.json();
+    manageStatus = response.ok
+      ? enabled
+        ? 'Database enabled.'
+        : 'Database deleted.'
+      : data.error || 'Unable to update database.';
+    if (response.ok) await loadManagement();
+  }
+
+  async function saveSecret() {
+    if (!managedSite || !secretName || !secretValue || !secretHosts) return;
+    const response = await fetch(
+      `/api/sites/${encodeURIComponent(managedSite.name)}/secrets/${encodeURIComponent(secretName)}`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          value: secretValue,
+          allowedHosts: secretHosts.split(/[\n,]/).map((host) => host.trim()).filter(Boolean),
+        }),
+      },
+    );
+    const data = await response.json();
+    manageStatus = response.ok ? 'Secret capability saved.' : data.error || 'Unable to save secret.';
+    if (response.ok) {
+      secretName = '';
+      secretValue = '';
+      secretHosts = '';
+      await loadManagement();
+    }
+  }
+
+  async function deleteSecret(name: string) {
+    if (!managedSite) return;
+    const response = await fetch(
+      `/api/sites/${encodeURIComponent(managedSite.name)}/secrets/${encodeURIComponent(name)}`,
+      { method: 'DELETE' },
+    );
+    manageStatus = response.ok ? 'Secret capability deleted.' : 'Unable to delete secret.';
+    if (response.ok) await loadManagement();
+  }
+
+  async function addSchedule() {
+    if (!managedSite) return;
+    const response = await fetch(`/api/sites/${encodeURIComponent(managedSite.name)}/schedules`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        path: schedulePath,
+        cron: scheduleCron,
+        maxRunsPerDay: 24,
+        retryLimit: 3,
+      }),
+    });
+    const data = await response.json();
+    manageStatus = response.ok ? 'Schedule created.' : data.error || 'Unable to create schedule.';
+    if (response.ok) await loadManagement();
+  }
+
+  async function updateSchedule(item: ScheduleSummary, status: ScheduleSummary['status']) {
+    if (!managedSite) return;
+    const response = await fetch(
+      `/api/sites/${encodeURIComponent(managedSite.name)}/schedules/${item.id}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      },
+    );
+    manageStatus = response.ok ? `Schedule ${status}.` : 'Unable to update schedule.';
+    if (response.ok) await loadManagement();
+  }
+
+  async function deleteSchedule(id: string) {
+    if (!managedSite) return;
+    const response = await fetch(
+      `/api/sites/${encodeURIComponent(managedSite.name)}/schedules/${id}`,
+      { method: 'DELETE' },
+    );
+    manageStatus = response.ok ? 'Schedule deleted.' : 'Unable to delete schedule.';
+    if (response.ok) await loadManagement();
   }
 
   function chooseFolder() {
@@ -398,10 +563,52 @@
             {#each sites as site}
               <article>
                 <div><strong>{site.name}</strong><a href={`https://${site.name}.${siteDomain}`} target="_blank" rel="noopener noreferrer"><code>{site.name}.{siteDomain}</code></a></div>
-                <div><span>{site.owner}</span><small>{site.access?.visibility || 'company'} · {site.activeDeploymentId ? 'Published' : 'Pending'}</small></div>
+                <div><span>{site.owner}</span><small>{site.access?.visibility || 'company'} · {site.activeDeploymentId ? 'Published' : 'Pending'}</small><button class="manage-link" onclick={() => openManagement(site)}>Manage</button></div>
               </article>
             {/each}
           </div>
+        </div>
+      {:else if view === 'manage' && managedSite}
+        <div class="manage-view">
+          <button class="back" onclick={() => (view = 'list')}>← Sites</button>
+          <p class="state-label">Site settings</p>
+          <h1>{managedSite.name}</h1>
+          <a class="managed-url" href={`https://${managedSite.name}.${siteDomain}`} target="_blank" rel="noopener noreferrer">{managedSite.name}.{siteDomain} ↗</a>
+          {#if manageStatus}<p class="manage-status" role="status">{manageStatus}</p>{/if}
+
+          <section class="manage-section">
+            <div class="manage-heading"><div><span>01</span><h2>Visibility</h2></div><p>Company is the default. Public is always explicit.</p></div>
+            <div class="manage-choice">
+              <label><input type="radio" bind:group={managedVisibility} value="company" /> Company</label>
+              <label><input type="radio" bind:group={managedVisibility} value="restricted" /> Restricted</label>
+              <label><input type="radio" bind:group={managedVisibility} value="public" /> Public</label>
+            </div>
+            {#if managedVisibility === 'restricted'}<textarea class="manage-textarea" bind:value={managedReaders} rows="3" placeholder="person@example.com, @partner.example, group:engineering"></textarea>{/if}
+            <button class="secondary small" onclick={saveManagedAccess}>Save visibility</button>
+          </section>
+
+          <section class="manage-section">
+            <div class="manage-heading"><div><span>02</span><h2>Server runtime</h2></div><p>{managedSite.runtimeEnabled ? '_worker.js active' : 'Static only'}</p></div>
+            {#if managedSite.runtimeEnabled}
+              <div class="capability-row"><div><strong>SQLite database</strong><small>{managedSite.databaseEnabled ? 'Enabled · disabling permanently deletes its data.' : 'Disabled'}</small></div><button class="secondary small danger" onclick={toggleManagedDatabase}>{managedSite.databaseEnabled ? 'Delete database' : 'Enable database'}</button></div>
+            {:else}<p class="manage-empty">Publish a root <code>_worker.js</code> to unlock backend capabilities.</p>{/if}
+          </section>
+
+          <section class="manage-section">
+            <div class="manage-heading"><div><span>03</span><h2>Secret capabilities</h2></div><p>Write-only bearer credentials with exact host allowlists.</p></div>
+            {#if managedSite.runtimeEnabled}
+              <div class="manage-form three"><input bind:value={secretName} placeholder="API_TOKEN" aria-label="Secret name" /><input bind:value={secretHosts} placeholder="api.example.com" aria-label="Allowed hosts" /><input bind:value={secretValue} type="password" placeholder="Secret value" aria-label="Secret value" /><button class="primary small" onclick={saveSecret} disabled={!secretName || !secretHosts || !secretValue}>Save secret</button></div>
+              <div class="capability-list">{#each managedSecrets as secret}<article><div><strong>{secret.name}</strong><small>{secret.allowedHosts.join(', ')}</small></div><button class="text-button" onclick={() => deleteSecret(secret.name)}>Delete</button></article>{:else}<p class="manage-empty">No secret capabilities.</p>{/each}</div>
+            {:else}<p class="manage-empty">Secrets require an active server runtime.</p>{/if}
+          </section>
+
+          <section class="manage-section">
+            <div class="manage-heading"><div><span>04</span><h2>Schedules</h2></div><p>UTC · 24 runs/day · 3 retries by default.</p></div>
+            {#if managedSite.runtimeEnabled}
+              <div class="manage-form"><input bind:value={schedulePath} placeholder="/api/jobs/run" aria-label="Schedule path" /><input bind:value={scheduleCron} placeholder="0 * * * *" aria-label="Cron expression" /><button class="primary small" onclick={addSchedule}>Add schedule</button></div>
+              <div class="capability-list">{#each managedSchedules as schedule}<article><div><strong>{schedule.path}</strong><small>{schedule.cron} · {schedule.status} · next {new Date(schedule.nextRunAt).toLocaleString()}</small></div><div class="inline-actions">{#if schedule.status === 'enabled'}<button class="text-button" onclick={() => updateSchedule(schedule, 'paused')}>Pause</button>{:else}<button class="text-button" onclick={() => updateSchedule(schedule, 'enabled')}>Enable</button>{/if}<button class="text-button" onclick={() => updateSchedule(schedule, 'disabled')}>Disable</button><button class="text-button" onclick={() => deleteSchedule(schedule.id)}>Delete</button></div></article>{:else}<p class="manage-empty">No schedules.</p>{/each}</div>
+            {:else}<p class="manage-empty">Schedules require an active server runtime.</p>{/if}
+          </section>
         </div>
       {:else if view === 'selected'}
         <div class="selected-view">
@@ -572,7 +779,7 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
   .choose{gap:36px;min-width:184px;justify-content:space-between}
   .choose span{font-size:1rem}
   .secondary{border-color:var(--line-dark)}
-  .selected-view,.publishing-view,.success-view,.list-view{width:min(100%,780px)}
+  .selected-view,.publishing-view,.success-view,.list-view,.manage-view{width:min(100%,780px);margin:auto}
   .selected-view,.publishing-view,.success-view{position:relative;padding-left:32px;border-left:3px solid var(--orange)}
   .back{margin-bottom:64px;font-family:var(--mono);font-size:.68rem}
   .selected-view h1,.publishing-view h1,.success-view h1,.view-heading h1{font-size:clamp(2.8rem,5vw,4.3rem);font-weight:610;line-height:.98;letter-spacing:-.06em}
@@ -626,6 +833,29 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
   .site-list strong{font-size:.96rem}
   .site-list a{width:max-content;color:var(--muted);text-decoration:none}
   .site-list a:hover{text-decoration:underline;text-underline-offset:3px}
+  .manage-link{justify-self:end;padding:0;border:0;background:none;color:var(--blue);font-size:.67rem;cursor:pointer}
+  .manage-view h1{margin:0;font-size:clamp(3rem,6vw,5rem);font-weight:610;line-height:.95;letter-spacing:-.065em}
+  .managed-url{display:block;margin:18px 0 38px;color:var(--blue);font:500 .76rem var(--mono);text-decoration:none}
+  .manage-status{margin:0 0 20px;padding:10px 12px;border-left:3px solid var(--orange);background:#fff8f4;color:#60351e;font-size:.72rem}
+  .manage-section{padding:30px 0;border-top:1px solid var(--line)}
+  .manage-heading{display:flex;align-items:start;justify-content:space-between;gap:30px;margin-bottom:22px}
+  .manage-heading>div{display:flex;align-items:baseline;gap:14px}
+  .manage-heading span{color:var(--orange);font:500 .6rem var(--mono)}
+  .manage-heading h2{margin:0;font-size:1rem}
+  .manage-heading>p{max-width:330px;margin:0;color:var(--quiet);font-size:.68rem;line-height:1.5;text-align:right}
+  .manage-choice{display:flex;gap:18px;margin-bottom:16px;font-size:.72rem}
+  .manage-choice label{display:flex;align-items:center;gap:6px}
+  .manage-choice input{accent-color:var(--orange)}
+  .manage-textarea{width:100%;margin-bottom:12px;resize:vertical;padding:11px;border:1px solid var(--line-dark);border-radius:4px;font:400 .72rem/1.5 var(--mono)}
+  .capability-row,.capability-list article{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid var(--line)}
+  .capability-row small,.capability-list small{display:block;margin-top:4px;color:var(--quiet);font-size:.65rem}
+  .danger{color:var(--red)}
+  .manage-form{display:grid;grid-template-columns:1fr 150px auto;gap:8px;margin-bottom:18px}
+  .manage-form.three{grid-template-columns:1fr 1fr 1fr auto}
+  .manage-form input{min-width:0;height:38px;padding:0 10px;border:1px solid var(--line-dark);border-radius:4px;font:400 .68rem var(--mono)}
+  .capability-list{border-bottom:1px solid var(--line)}
+  .inline-actions{display:flex;gap:12px}
+  .manage-empty{margin:0;color:var(--quiet);font-size:.72rem}
   .doc{width:min(100%,780px)}
   .doc h1{font-size:clamp(3rem,7vw,5.5rem);font-weight:610;line-height:.95;letter-spacing:-.065em}
   .summary{font-size:1.08rem}
@@ -710,6 +940,8 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
     .file-summary div,.file-summary div:first-child{min-height:58px;flex-direction:row;align-items:center;padding:13px 0;border-right:0;border-bottom:1px solid var(--line)}
     .file-summary div:last-child{border-bottom:0}
     .selected-view,.publishing-view,.success-view{padding-left:20px}
+    .manage-form,.manage-form.three{grid-template-columns:1fr 1fr}
+    .manage-form button{width:100%}
     .home-hero{min-height:640px;padding:78px 28px 190px}
     .home-hero h1{font-size:clamp(4.8rem,15vw,7rem)}
     .home-signal{right:-60px;bottom:42px;width:430px}
@@ -743,6 +975,11 @@ Publish the folder through Up.</code></pre><h2>Respond to exposure</h2><p>Disabl
     .footer-actions>*{width:100%}
     .runtime-option{align-items:flex-start;flex-direction:column}
     .runtime-option>label{white-space:normal}
+    .manage-heading,.capability-row,.capability-list article{align-items:flex-start;flex-direction:column}
+    .manage-heading>p{text-align:left}
+    .manage-choice{align-items:flex-start;flex-direction:column}
+    .manage-form,.manage-form.three{grid-template-columns:1fr}
+    .inline-actions{flex-wrap:wrap}
     .identity{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .home-hero{min-height:600px;padding:62px 14px 180px}
     .home-hero h1{margin-top:26px;font-size:clamp(3.45rem,16vw,4.5rem)}
