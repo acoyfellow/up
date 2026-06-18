@@ -1,5 +1,6 @@
 # Up
 
+- Vision studies: https://up.ax.cloudflare.dev/optimism
 - Setup: https://up.ax.cloudflare.dev/tutorial
 - How-to: https://up.ax.cloudflare.dev/how-to
 - Reference: https://up.ax.cloudflare.dev/reference

@@ -1,5 +1,14 @@
-const CACHE = 'up-shell-v2',
-  SHELL = ['/', '/tutorial', '/how-to', '/reference', '/explanation', '/offline', '/icon.svg'];
+const CACHE = 'up-shell-v3',
+  SHELL = [
+    '/',
+    '/optimism',
+    '/tutorial',
+    '/how-to',
+    '/reference',
+    '/explanation',
+    '/offline',
+    '/icon.svg',
+  ];
 self.addEventListener('install', (e) =>
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))),
 );

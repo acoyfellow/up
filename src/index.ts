@@ -55,6 +55,13 @@ const pages = {
       'Drop a static folder and put it online for your company. Up runs in your Cloudflare account and keeps every site behind Access.',
     eyebrow: 'Private sites · Cloudflare Access · your account',
   },
+  '/optimism': {
+    section: 'optimism',
+    title: 'A Private Boundary With Somewhere to Go — Up Image Studies',
+    description:
+      'Ten optimistic image studies for Up: overwhelming scale, visible boundaries, inhabited destinations, and evidence brought back for others.',
+    eyebrow: 'Vision · every boundary reveals a destination',
+  },
   '/tutorial': {
     section: 'tutorial',
     title: 'Set Up Up on Cloudflare — Tutorial',

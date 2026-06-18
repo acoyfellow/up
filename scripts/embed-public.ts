@@ -11,6 +11,9 @@ const types: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
 };
 async function walk(d: string): Promise<string[]> {
   const es = await readdir(d, { withFileTypes: true });
@@ -30,6 +33,7 @@ const entries = await Promise.all(
         immutable:
           route.startsWith('/icons/') ||
           route.startsWith('/screenshots/') ||
+          route.startsWith('/img/') ||
           route.startsWith('/fonts/'),
       },
     ] as const;
