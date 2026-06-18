@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Optimism from './optimism.svelte';
+  import PaintSwash from './paint-swash.svelte';
 
   type Visibility = 'company' | 'restricted' | 'public';
   type ReaderRule = { type: 'email' | 'domain' | 'group'; value: string };
@@ -441,7 +441,6 @@
     {#if !isProduct}
       <a href="/tutorial">Docs</a>
       <a href="/explanation">How it works</a>
-      <a href="/optimism">Vision</a>
       <a href="/app">Open Up ↗</a>
     {:else}
       <span class="identity"><i aria-hidden="true"></i>{identity}</span>
@@ -462,10 +461,7 @@
             <a class="home-secondary" href="/tutorial">Set up your installation</a>
           </div>
         </div>
-        <a class="home-scene" href="/optimism" aria-label="See ten optimistic image studies for Up">
-          <img src="/img/hero.webp" alt="A person crossing a bridge toward a warm city through an open orange arch" width="1152" height="768" loading="eager" decoding="async" />
-          <span><i aria-hidden="true"></i>UP-01 / Company horizon <b aria-hidden="true">→</b></span>
-        </a>
+        <div class="home-swash"><PaintSwash /></div>
       </section>
 
       <section class="home-intro" aria-labelledby="intro-title">
@@ -517,8 +513,6 @@
         <div><h2 id="next-title">Start with a first publish.</h2><a href="/tutorial">Your first Up site <span aria-hidden="true">→</span></a></div>
       </section>
     </div>
-  {:else if section === 'optimism'}
-    <Optimism />
   {:else if section === 'app'}
     <section class="workspace" aria-label="Up publisher">
       {#if view === 'empty'}
@@ -541,28 +535,7 @@
             <button class="primary choose" onclick={chooseFolder}>Choose a folder <span aria-hidden="true">↗</span></button>
             <small><i aria-hidden="true"></i> Protected by Cloudflare Access</small>
           </div>
-          <div class="brand-stroke" aria-hidden="true">
-            <svg viewBox="0 0 760 390" role="presentation">
-              <defs>
-                <filter id="paint" x="-20%" y="-20%" width="140%" height="140%">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.012 0.09" numOctaves="2" seed="12" result="noise" />
-                  <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" />
-                </filter>
-              </defs>
-              <g fill="none" stroke-linecap="round" filter="url(#paint)">
-                <path class="stroke navy" d="M74 311 C184 268 237 102 410 98 C523 96 594 175 697 64" />
-                <path class="stroke cobalt" d="M52 333 C201 302 249 151 397 126 C515 106 591 183 702 94" />
-                <path class="stroke coral" d="M126 350 C269 327 323 219 445 180 C566 142 642 180 731 122" />
-                <path class="stroke orange" d="M154 363 C304 329 366 240 471 207 C585 171 661 193 742 147" />
-                <path class="stroke cyan" d="M95 325 C225 277 289 177 407 149 C498 128 570 160 639 124" />
-              </g>
-              <g fill="none" stroke-linecap="round" opacity=".52">
-                <path class="bristle blue" d="M64 341 C210 290 269 157 411 127 C520 104 601 170 716 87" />
-                <path class="bristle red" d="M145 373 C296 337 357 250 478 213 C589 180 666 197 747 151" />
-                <path class="bristle white" d="M126 335 C248 293 318 199 430 171" />
-              </g>
-            </svg>
-          </div>
+          <div class="brand-stroke" aria-hidden="true"><PaintSwash /></div>
         </div>
       {:else if view === 'list'}
         <div class="list-view">
@@ -729,7 +702,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   {/if}
 </main>
 
-<footer><span>Up 0.0.1 · Private by default</span><nav><a href="/tutorial">Setup</a><a href="/optimism">Vision</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
+<footer><span>Up 0.0.1 · Private by default</span><nav><a href="/tutorial">Setup</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
 
 <style>
   :global(:root) {
@@ -811,12 +784,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .home-actions .primary { min-width: 136px; justify-content: space-between; gap: 28px; }
   .home-secondary { padding: 10px 0 7px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: .78rem; text-decoration: none; }
   .home-secondary:hover { border-color: var(--ink); color: var(--ink); }
-  .home-scene { position: relative; display: block; margin: 0; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--navy); box-shadow: var(--shadow-lg); text-decoration: none; }
-  .home-scene img { display: block; width: 100%; height: 100%; max-height: 460px; object-fit: cover; transition: transform .5s ease; }
-  .home-scene:hover img { transform: scale(1.018); }
-  .home-scene > span { position: absolute; bottom: 14px; left: 16px; display: flex; align-items: center; gap: 9px; color: #d5e2e9; font: 500 .6rem var(--mono); letter-spacing: .1em; text-transform: uppercase; }
-  .home-scene > span i { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
-  .home-scene > span b { margin-left: 4px; color: var(--orange); font-weight: 500; }
+  .home-swash { height:clamp(300px,38vw,430px); margin-right:-6%; transform:rotate(-2deg); }
   .home-intro, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
   .home-intro h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
   .home-intro > div > p { max-width: 680px; margin: 30px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
@@ -891,17 +859,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .empty-copy small > i, .privacy i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
   .choose { min-width: 184px; justify-content: space-between; gap: 32px; }
   .brand-stroke { position: relative; align-self: stretch; min-height: 480px; margin-right: -24px; pointer-events: none; }
-  .brand-stroke svg { position: absolute; inset: 2% -4% 0 -10%; width: 115%; height: 100%; overflow: visible; transform: rotate(-3deg); }
-  .stroke { stroke-width: 72; }
-  .stroke.navy { stroke: var(--navy); }
-  .stroke.cobalt { stroke: var(--blue); stroke-width: 58; }
-  .stroke.coral { stroke: #ed2347; stroke-width: 66; }
-  .stroke.orange { stroke: var(--orange); stroke-width: 44; }
-  .stroke.cyan { stroke: var(--cyan); stroke-width: 24; }
-  .bristle { stroke-width: 5; }
-  .bristle.blue { stroke: #72d9f2; }
-  .bristle.red { stroke: #ffb068; }
-  .bristle.white { stroke: #fff; stroke-width: 7; }
+  .brand-stroke :global(svg) { position:absolute; inset:2% -4% 0 -10%; width:115%; height:100%; transform:rotate(-3deg); }
   .selected-view, .publishing-view, .success-view, .list-view, .manage-view { width: min(100%, 820px); margin-inline: auto; }
   .selected-view, .publishing-view, .success-view { padding-left: 28px; border-left: 2px solid var(--orange); }
   .back { min-height: 36px; margin: 0 0 44px; padding: 0; border: 0; background: none; color: var(--muted); font: 500 .68rem var(--mono); cursor: pointer; }
@@ -989,8 +947,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
 
   @media (max-width: 900px) {
     .home-hero { grid-template-columns: 1fr; gap: 36px; }
-    .home-scene { order: -1; }
-    .home-scene img { max-height: 320px; }
+    .home-swash { order:-1; height:300px; margin:0 8% -20px; }
     .home-intro, .system-model, .read-next { grid-template-columns: minmax(0, 1fr); gap: 28px; }
     .system-model > div { min-width: 0; }
     .feature-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1006,7 +963,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     .empty-state { grid-template-columns: 1fr; }
     .empty-copy { padding: 58px 28px 0; }
     .brand-stroke { min-height: 310px; margin: -6px -30px -8px 20%; }
-    .brand-stroke svg { inset: -8% -8% 0 -15%; width: 120%; }
+    .brand-stroke :global(svg) { inset: -8% -8% 0 -15%; width: 120%; }
     .manage-form, .manage-form.three { grid-template-columns: 1fr 1fr; }
   }
 
@@ -1017,7 +974,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     .home-hero { padding: 44px 14px 56px; }
     .home-hero h1 { font-size: clamp(2.15rem, 10vw, 2.9rem); }
     .home-actions { align-items: flex-start; flex-direction: column; gap: 12px; }
-    .home-scene img { max-height: 260px; }
+    .home-swash { height:240px; margin:0 -8% -12px 4%; }
     .home-intro, .system-model, .read-next, .docs-map { padding: 56px 14px; }
     .feature-grid { grid-template-columns: 1fr; }
     .feature-grid article:nth-child(n) { min-height: 190px; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -1057,6 +1014,6 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
 
   @media (prefers-reduced-motion: reduce) {
     :global(*) { scroll-behavior: auto !important; transition: none !important; }
-    .brand-stroke svg { transform: none; }
+    .brand-stroke :global(svg) { transform: none; }
   }
 </style>
