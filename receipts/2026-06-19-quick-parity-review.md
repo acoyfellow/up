@@ -60,7 +60,3 @@ The live proof site was `https://lunch-vote.up.ax.cloudflare.dev`.
 An attempted OAuth consent screen requesting `access.write` was canceled before authorization. No OAuth credential was created and Access remained unchanged. The CLI now uses a short-lived Up-issued deploy token after browser authentication through `/app/cli-auth`.
 
 After the user required Temporary Deployments, the recurring loop was replaced and no further production deployment was allowed. Promotion of the review branch requires explicit approval.
-
-## Video
-
-`demo/up-0.0.1.mp4` is a 14-second H.264 proof assembled from real cmux browser frames. It shows identity, voting/database state, file storage, AI summary, and the authenticated site. cmux WKWebView native screencast is unsupported, so timed real frames are encoded with ffmpeg.

@@ -76,8 +76,6 @@ Browser code receives no Cloudflare credentials or resource identifiers.
 
 [`examples/lunch-vote`](examples/lunch-vote) is plain HTML, CSS, and JavaScript. Two authenticated browsers can vote, see realtime updates, upload a menu, and ask Workers AI for a summary. It has no `_worker.js`, credentials, framework, or infrastructure configuration.
 
-Demo video: [watch the 0.0.1 capability proof](demo/up-0.0.1.mp4)
-
 ## Install for a company
 
 Up uses Cloudflare OAuth. The current operator path is:

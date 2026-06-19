@@ -28,7 +28,6 @@
     "access:provision": "bun run scripts/provision-access.ts",
     "test:production": "node scripts/production-e2e.mjs",
     "test:dynamic-production": "node scripts/dynamic-production-e2e.mjs",
-    "video:record": "bun run scripts/record-publish-video.ts",
     "deploy:docs": "bun run check && wrangler deploy -c wrangler.docs.jsonc",
     "deploy:app": "bun run check && wrangler deploy -c wrangler.production.jsonc",
     "deploy:up:safe": "bun run check && bun run release:access:check && wrangler deploy -c wrangler.up.jsonc"
