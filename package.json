@@ -3,8 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "bin": {
+    "up": "./cli/up.ts"
+  },
   "description": "Publish your company's private web from your Cloudflare account.",
   "scripts": {
+    "up": "bun run cli/up.ts",
     "build": "svelte-kit sync && vite build",
     "build:kit": "bun run build",
     "dev": "bun run build && wrangler dev --local --port 8798 -c wrangler.local.jsonc",

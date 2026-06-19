@@ -37,7 +37,6 @@ describe('SvelteKit publisher SSR', () => {
             name: 'quarterly-report',
             owner: 'employee@example.com',
             activeDeploymentId: 'deployment-id',
-            access: { visibility: 'company', readers: [] },
           },
         ],
         productLoaded: true,
@@ -46,7 +45,7 @@ describe('SvelteKit publisher SSR', () => {
 
     expect(result.body).toContain('employee@example.com');
     expect(result.body).toContain('quarterly-report.up.example.com');
-    expect(result.body).toContain('company · Published');
+    expect(result.body).toContain('Company · Published');
     expect(result.body).not.toContain('Publish a site.</h1>');
   });
 });

@@ -4,4 +4,4 @@ export * from './core-backend';
 export { default } from './core-backend';
 export { UpRegistry } from './registry';
 export { SiteDatabase } from './site-database';
-export { SiteSecrets } from './site-secrets';
+export { SiteRealtime } from './site-realtime';

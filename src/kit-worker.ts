@@ -4,7 +4,7 @@ import coreWorker, { type Env, isCoreRequest, runDueSchedules } from './core-bac
 
 export { UpRegistry } from './registry';
 export { SiteDatabase } from './site-database';
-export { SiteSecrets } from './site-secrets';
+export { SiteRealtime } from './site-realtime';
 
 export default {
   fetch(request: Request, env: Env, context: ExecutionContext) {

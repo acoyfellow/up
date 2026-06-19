@@ -3,28 +3,11 @@
   import UpLogo from './lib/UpLogo.svelte';
   import UpMark from './lib/UpMark.svelte';
 
-  type Visibility = 'company' | 'restricted' | 'public';
-  type ReaderRule = { type: 'email' | 'domain' | 'group'; value: string };
   type Site = {
     name: string;
     owner: string;
     updatedAt?: string;
     activeDeploymentId?: string;
-    access?: { visibility: Visibility; readers: ReaderRule[] };
-    databaseEnabled?: boolean;
-    runtimeEnabled?: boolean;
-  };
-
-  type SecretSummary = { name: string; allowedHosts: string[]; updatedAt: string };
-  type ScheduleSummary = {
-    id: string;
-    path: string;
-    cron: string;
-    status: 'enabled' | 'paused' | 'disabled';
-    maxRunsPerDay: number;
-    retryLimit: number;
-    nextRunAt: string;
-    lastStatus?: 'success' | 'failed';
   };
 
   type PreparedFile = {
@@ -71,24 +54,9 @@
   let siteDomain = $state(untrack(() => initialSiteDomain));
   let dragging = $state(false);
   let copied = $state(false);
-  let visibility = $state<Visibility>('company');
-  let readersText = $state('');
-  let publicConfirmed = $state(false);
-  let databaseRequested = $state(false);
-  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list' | 'manage'>(
+  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list'>(
     untrack(() => initialSites.length) ? 'list' : 'empty',
   );
-  let managedSite = $state<Site | null>(null);
-  let managedSecrets = $state<SecretSummary[]>([]);
-  let managedSchedules = $state<ScheduleSummary[]>([]);
-  let managedVisibility = $state<Visibility>('company');
-  let managedReaders = $state('');
-  let secretName = $state('');
-  let secretValue = $state('');
-  let secretHosts = $state('');
-  let schedulePath = $state('/api/jobs/run');
-  let scheduleCron = $state('0 * * * *');
-  let manageStatus = $state('');
   let input = $state<HTMLInputElement>();
   let siteNameInput = $state<HTMLInputElement>();
 
@@ -129,149 +97,6 @@
     } catch {
       sites = [];
     }
-  }
-
-  async function openManagement(site: Site) {
-    managedSite = site;
-    managedVisibility = site.access?.visibility || 'company';
-    managedReaders = (site.access?.readers || [])
-      .map((rule) => (rule.type === 'group' ? `group:${rule.value}` : rule.type === 'domain' ? `@${rule.value}` : rule.value))
-      .join(', ');
-    manageStatus = '';
-    view = 'manage';
-    await loadManagement();
-  }
-
-  async function loadManagement() {
-    if (!managedSite) return;
-    const name = encodeURIComponent(managedSite.name);
-    const [secretsResponse, schedulesResponse, sitesResponse] = await Promise.all([
-      fetch(`/api/sites/${name}/secrets`),
-      fetch(`/api/sites/${name}/schedules`),
-      fetch('/api/sites'),
-    ]);
-    if (secretsResponse.ok)
-      managedSecrets = (await responseJson<{ secrets: SecretSummary[] }>(secretsResponse)).secrets;
-    if (schedulesResponse.ok)
-      managedSchedules = (await responseJson<{ schedules: ScheduleSummary[] }>(schedulesResponse)).schedules;
-    if (sitesResponse.ok) {
-      const data = await responseJson<SitesPayload>(sitesResponse);
-      sites = data.sites;
-      managedSite = sites.find((site) => site.name === managedSite?.name) || managedSite;
-    }
-  }
-
-  async function saveManagedAccess() {
-    if (!managedSite) return;
-    const readers = parseReaders(managedReaders);
-    if (managedVisibility === 'restricted' && !readers.length) {
-      manageStatus = 'Restricted sites require at least one reader.';
-      return;
-    }
-    const response = await fetch(`/api/sites/${encodeURIComponent(managedSite.name)}/access`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        access: {
-          visibility: managedVisibility,
-          readers: managedVisibility === 'restricted' ? readers : [],
-        },
-      }),
-    });
-    const data = await responseJson<ErrorPayload>(response);
-    manageStatus = response.ok ? 'Visibility saved.' : data.error || 'Unable to save visibility.';
-    if (response.ok) await loadManagement();
-  }
-
-  async function toggleManagedDatabase() {
-    if (!managedSite) return;
-    const enabled = !managedSite.databaseEnabled;
-    const response = await fetch(`/api/sites/${encodeURIComponent(managedSite.name)}/database`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
-    const data = await responseJson<ErrorPayload>(response);
-    manageStatus = response.ok
-      ? enabled
-        ? 'Database enabled.'
-        : 'Database deleted.'
-      : data.error || 'Unable to update database.';
-    if (response.ok) await loadManagement();
-  }
-
-  async function saveSecret() {
-    if (!managedSite || !secretName || !secretValue || !secretHosts) return;
-    const response = await fetch(
-      `/api/sites/${encodeURIComponent(managedSite.name)}/secrets/${encodeURIComponent(secretName)}`,
-      {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          value: secretValue,
-          allowedHosts: secretHosts.split(/[\n,]/).map((host) => host.trim()).filter(Boolean),
-        }),
-      },
-    );
-    const data = await responseJson<ErrorPayload>(response);
-    manageStatus = response.ok ? 'Secret capability saved.' : data.error || 'Unable to save secret.';
-    if (response.ok) {
-      secretName = '';
-      secretValue = '';
-      secretHosts = '';
-      await loadManagement();
-    }
-  }
-
-  async function deleteSecret(name: string) {
-    if (!managedSite) return;
-    const response = await fetch(
-      `/api/sites/${encodeURIComponent(managedSite.name)}/secrets/${encodeURIComponent(name)}`,
-      { method: 'DELETE' },
-    );
-    manageStatus = response.ok ? 'Secret capability deleted.' : 'Unable to delete secret.';
-    if (response.ok) await loadManagement();
-  }
-
-  async function addSchedule() {
-    if (!managedSite) return;
-    const response = await fetch(`/api/sites/${encodeURIComponent(managedSite.name)}/schedules`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        path: schedulePath,
-        cron: scheduleCron,
-        maxRunsPerDay: 24,
-        retryLimit: 3,
-      }),
-    });
-    const data = await responseJson<ErrorPayload>(response);
-    manageStatus = response.ok ? 'Schedule created.' : data.error || 'Unable to create schedule.';
-    if (response.ok) await loadManagement();
-  }
-
-  async function updateSchedule(item: ScheduleSummary, status: ScheduleSummary['status']) {
-    if (!managedSite) return;
-    const response = await fetch(
-      `/api/sites/${encodeURIComponent(managedSite.name)}/schedules/${item.id}`,
-      {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status }),
-      },
-    );
-    manageStatus = response.ok ? `Schedule ${status}.` : 'Unable to update schedule.';
-    if (response.ok) await loadManagement();
-  }
-
-  async function deleteSchedule(id: string) {
-    if (!managedSite) return;
-    const response = await fetch(
-      `/api/sites/${encodeURIComponent(managedSite.name)}/schedules/${id}`,
-      { method: 'DELETE' },
-    );
-    manageStatus = response.ok ? 'Schedule deleted.' : 'Unable to delete schedule.';
-    if (response.ok) await loadManagement();
   }
 
   function chooseFolder() {
@@ -340,43 +165,12 @@
     publishing = false;
     publishedUrl = '';
     copied = false;
-    visibility = 'company';
-    readersText = '';
-    publicConfirmed = false;
-    databaseRequested = false;
     if (input) input.value = '';
     view = isProduct && sites.length ? 'list' : 'empty';
   }
 
   const totalBytes = $derived(files.reduce((sum, file) => sum + file.size, 0));
   const hasIndex = $derived(prepared.some((asset) => asset.path === 'index.html'));
-  const hasWorker = $derived(prepared.some((asset) => asset.path === '_worker.js'));
-  const readers = $derived(parseReaders(readersText));
-  const accessReady = $derived(
-    visibility === 'company' ||
-      (visibility === 'restricted' && readers.length > 0) ||
-      (visibility === 'public' && publicConfirmed),
-  );
-
-  function parseReaders(value: string): ReaderRule[] {
-    const seen = new Set<string>();
-    const rules: ReaderRule[] = [];
-    for (const raw of value.split(/[\n,]/)) {
-      const token = raw.trim().toLowerCase();
-      if (!token) continue;
-      const rule: ReaderRule = token.startsWith('group:')
-        ? { type: 'group', value: token.slice(6).trim() }
-        : token.includes('@') && !token.startsWith('@')
-          ? { type: 'email', value: token }
-          : { type: 'domain', value: token.replace(/^@/, '') };
-      const key = `${rule.type}:${rule.value}`;
-      if (rule.value && !seen.has(key)) {
-        seen.add(key);
-        rules.push(rule);
-      }
-    }
-    return rules;
-  }
 
   function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -385,8 +179,7 @@
   }
 
   async function publish() {
-    if (!isProduct || !siteName || !prepared.length || !hasIndex || !accessReady || publishing)
-      return;
+    if (!isProduct || !siteName || !prepared.length || !hasIndex || publishing) return;
     publishing = true;
     view = 'publishing';
     progress = 5;
@@ -403,7 +196,7 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           manifest,
-          access: { visibility, readers: visibility === 'restricted' ? readers : [] },
+          access: { visibility: 'company', readers: [] },
         }),
       });
       const creation = await responseJson<DeploymentPayload>(created);
@@ -434,15 +227,6 @@
       const result = await responseJson<ActivationPayload>(activated);
       if (!activated.ok) throw new Error(result.error || 'Activation failed');
       publishedUrl = result.siteUrl || '';
-      if (databaseRequested && hasWorker) {
-        const database = await fetch(`/api/sites/${encodeURIComponent(siteName)}/database`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ enabled: true }),
-        });
-        if (!database.ok)
-          throw new Error((await responseJson<ErrorPayload>(database)).error || 'Database setup failed');
-      }
       progress = 100;
       status = 'Published';
       view = 'success';
@@ -522,12 +306,12 @@
       </section>
 
       <section class="feature-grid" aria-label="Product capabilities">
-        <article><span>01</span><h3>Choose a folder</h3><p>HTML, CSS, JavaScript, and assets. No framework or build system required.</p></article>
-        <article><span>02</span><h3>Choose visibility</h3><p>Company by default; restrict to readers and groups, or explicitly publish to everyone.</p></article>
-        <article><span>03</span><h3>Run backend code</h3><p>A root <code>_worker.js</code> handles <code>/api/*</code> in a network-isolated Dynamic Worker.</p></article>
-        <article><span>04</span><h3>Bind secrets</h3><p>Encrypted write-only capabilities inject credentials only for allowlisted HTTPS hosts.</p></article>
-        <article><span>05</span><h3>Store data</h3><p>Enable an isolated SQLite Durable Object that no other site can address.</p></article>
-        <article><span>06</span><h3>Schedule jobs</h3><p>Bounded UTC jobs include quotas, retries, pause/disable behavior, and audit receipts.</p></article>
+        <article><span>01</span><h3>Publish a folder</h3><p>HTML, CSS, JavaScript, and assets. No framework or build system required.</p></article>
+        <article><span>02</span><h3>Know the viewer</h3><p><code>up.identity</code> returns the employee identity already verified by Access.</p></article>
+        <article><span>03</span><h3>Store records</h3><p><code>up.db</code> provides site-scoped document collections backed by SQLite.</p></article>
+        <article><span>04</span><h3>Share files</h3><p><code>up.files</code> stores bounded site files in private R2 without credentials.</p></article>
+        <article><span>05</span><h3>Call AI</h3><p><code>up.ai</code> uses the installation’s fixed Workers AI policy.</p></article>
+        <article><span>06</span><h3>Update live</h3><p><code>up.realtime</code> connects authenticated browsers through site-scoped rooms.</p></article>
         <article><span>07</span><h3>Publish atomically</h3><p>Every digest is verified before a deployment becomes visible. Partial updates never leak.</p></article>
         <article><span>08</span><h3>Stay in control</h3><p>The Worker, Durable Objects, R2, DNS, and Access app remain in your account.</p></article>
       </section>
@@ -599,52 +383,10 @@
             {#each sites as site}
               <article>
                 <div><strong>{site.name}</strong><a href={`https://${site.name}.${siteDomain}`} target="_blank" rel="noopener noreferrer"><code>{site.name}.{siteDomain}</code></a></div>
-                <div><span>{site.owner}</span><small>{site.access?.visibility || 'company'} · {site.activeDeploymentId ? 'Published' : 'Pending'}</small><button class="manage-link" onclick={() => openManagement(site)}>Manage</button></div>
+                <div><span>{site.owner}</span><small>Company · {site.activeDeploymentId ? 'Published' : 'Pending'}</small></div>
               </article>
             {/each}
           </div>
-        </div>
-      {:else if view === 'manage' && managedSite}
-        <div class="manage-view">
-          <button class="back" onclick={() => (view = 'list')}>← Sites</button>
-          <p class="state-label">Site settings</p>
-          <h1>{managedSite.name}</h1>
-          <a class="managed-url" href={`https://${managedSite.name}.${siteDomain}`} target="_blank" rel="noopener noreferrer">{managedSite.name}.{siteDomain} ↗</a>
-          {#if manageStatus}<p class="manage-status" role="status">{manageStatus}</p>{/if}
-
-          <section class="manage-section">
-            <div class="manage-heading"><div><span>01</span><h2>Visibility</h2></div><p>Company is the default. Public is always explicit.</p></div>
-            <div class="manage-choice">
-              <label><input type="radio" bind:group={managedVisibility} value="company" /> Company</label>
-              <label><input type="radio" bind:group={managedVisibility} value="restricted" /> Restricted</label>
-              <label><input type="radio" bind:group={managedVisibility} value="public" /> Public</label>
-            </div>
-            {#if managedVisibility === 'restricted'}<textarea class="manage-textarea" bind:value={managedReaders} rows="3" placeholder="person@example.com, @partner.example, group:engineering"></textarea>{/if}
-            <button class="secondary small" onclick={saveManagedAccess}>Save visibility</button>
-          </section>
-
-          <section class="manage-section">
-            <div class="manage-heading"><div><span>02</span><h2>Server runtime</h2></div><p>{managedSite.runtimeEnabled ? '_worker.js active' : 'Static only'}</p></div>
-            {#if managedSite.runtimeEnabled}
-              <div class="capability-row"><div><strong>SQLite database</strong><small>{managedSite.databaseEnabled ? 'Enabled · disabling permanently deletes its data.' : 'Disabled'}</small></div><button class="secondary small danger" onclick={toggleManagedDatabase}>{managedSite.databaseEnabled ? 'Delete database' : 'Enable database'}</button></div>
-            {:else}<p class="manage-empty">Publish a root <code>_worker.js</code> to unlock backend capabilities.</p>{/if}
-          </section>
-
-          <section class="manage-section">
-            <div class="manage-heading"><div><span>03</span><h2>Secret capabilities</h2></div><p>Write-only bearer credentials with exact host allowlists.</p></div>
-            {#if managedSite.runtimeEnabled}
-              <div class="manage-form three"><input bind:value={secretName} placeholder="API_TOKEN" aria-label="Secret name" /><input bind:value={secretHosts} placeholder="api.example.com" aria-label="Allowed hosts" /><input bind:value={secretValue} type="password" placeholder="Secret value" aria-label="Secret value" /><button class="primary small" onclick={saveSecret} disabled={!secretName || !secretHosts || !secretValue}>Save secret</button></div>
-              <div class="capability-list">{#each managedSecrets as secret}<article><div><strong>{secret.name}</strong><small>{secret.allowedHosts.join(', ')}</small></div><button class="text-button" onclick={() => deleteSecret(secret.name)}>Delete</button></article>{:else}<p class="manage-empty">No secret capabilities.</p>{/each}</div>
-            {:else}<p class="manage-empty">Secrets require an active server runtime.</p>{/if}
-          </section>
-
-          <section class="manage-section">
-            <div class="manage-heading"><div><span>04</span><h2>Schedules</h2></div><p>UTC · 24 runs/day · 3 retries by default.</p></div>
-            {#if managedSite.runtimeEnabled}
-              <div class="manage-form"><input bind:value={schedulePath} placeholder="/api/jobs/run" aria-label="Schedule path" /><input bind:value={scheduleCron} placeholder="0 * * * *" aria-label="Cron expression" /><button class="primary small" onclick={addSchedule}>Add schedule</button></div>
-              <div class="capability-list">{#each managedSchedules as schedule}<article><div><strong>{schedule.path}</strong><small>{schedule.cron} · {schedule.status} · next {new Date(schedule.nextRunAt).toLocaleString()}</small></div><div class="inline-actions">{#if schedule.status === 'enabled'}<button class="text-button" onclick={() => updateSchedule(schedule, 'paused')}>Pause</button>{:else}<button class="text-button" onclick={() => updateSchedule(schedule, 'enabled')}>Enable</button>{/if}<button class="text-button" onclick={() => updateSchedule(schedule, 'disabled')}>Disable</button><button class="text-button" onclick={() => deleteSchedule(schedule.id)}>Delete</button></div></article>{:else}<p class="manage-empty">No schedules.</p>{/each}</div>
-            {:else}<p class="manage-empty">Schedules require an active server runtime.</p>{/if}
-          </section>
         </div>
       {:else if view === 'selected'}
         <div class="selected-view">
@@ -661,29 +403,11 @@
             <div><input bind:this={siteNameInput} bind:value={siteName} aria-label="Site name" aria-describedby="site-address-help" /><em>.{siteDomain}</em></div>
             <small id="site-address-help">Lowercase letters, numbers, and hyphens. This becomes your private company URL.</small>
           </label>
-          <details class="publish-options">
-            <summary>Visibility and server capabilities <span aria-hidden="true">＋</span></summary>
-            <fieldset>
-              <legend>Who can open this site?</legend>
-              <label><input type="radio" bind:group={visibility} value="company" /> <span><b>Company</b><small>Anyone authenticated by your organization. Default.</small></span></label>
-              <label><input type="radio" bind:group={visibility} value="restricted" /> <span><b>Restricted</b><small>Only listed employees, domains, or IdP groups.</small></span></label>
-              <label><input type="radio" bind:group={visibility} value="public" /> <span><b>Public</b><small>Anyone on the internet. No Access identity required.</small></span></label>
-            </fieldset>
-            {#if visibility === 'restricted'}
-              <label class="reader-input"><span>Readers</span><textarea bind:value={readersText} rows="3" placeholder="person@example.com, @partner.example, group:engineering"></textarea><small>Separate rules with commas or new lines.</small></label>
-            {:else if visibility === 'public'}
-              <label class="public-confirm"><input type="checkbox" bind:checked={publicConfirmed} /> <span>I understand every uploaded byte and backend response can be reached anonymously.</span></label>
-            {/if}
-            <div class="runtime-option">
-              <div><b>Server runtime</b><small>{hasWorker ? '_worker.js detected — /api/* will run in an isolated Dynamic Worker.' : 'Add _worker.js to enable an isolated backend.'}</small></div>
-              {#if hasWorker}<label><input type="checkbox" bind:checked={databaseRequested} /> Isolated SQLite database</label>{/if}
-            </div>
-          </details>
-          <p class="privacy"><i></i> {visibility === 'public' ? 'Explicitly public' : visibility === 'restricted' ? `${readers.length} reader rule${readers.length === 1 ? '' : 's'}` : 'Private to your organization'}</p>
+          <p class="privacy"><i></i> Anyone authenticated by your organization can open this site.</p>
           <div class="footer-actions">
             <button class="secondary" onclick={reset}>Cancel</button>
             {#if isProduct}
-              <button class="primary" onclick={publish} disabled={!hasIndex || !siteName || !accessReady}>{status === 'Ready to publish' ? 'Publish site' : status}</button>
+              <button class="primary" onclick={publish} disabled={!hasIndex || !siteName}>{status === 'Ready to publish' ? 'Publish site' : status}</button>
             {:else}
               <a class="primary link-button" href={deployUrl}>Deploy Up</a>
             {/if}
@@ -736,14 +460,14 @@
         <h2>3. Verify before use</h2><p>Publish a folder while authenticated. Open the resulting URL in a clean browser. It must reach Access before any uploaded bytes. <code>workers.dev</code> and Preview URLs stay disabled.</p>
         <p>Prefer to fork and self-host the source? <a href={deployUrl}>Deploy to Cloudflare ↗</a></p>
       {:else if section === 'how-to'}
-        <h1>Operate Up</h1><p class="summary">Keep each capability explicit and the trust boundary intact.</p><h2>Update a site</h2><p>Publish the same site name. Up activates the replacement only after every asset passes verification.</p><h2>Change visibility</h2><p>Open <strong>Manage</strong> beside a site. Choose company, restricted readers, or public. Public is never inferred and always requires explicit confirmation during first publish.</p><h2>Add a backend</h2><pre><code>Build static files into ./dist.
-Add ./dist/_worker.js for /api/* routes.
-Keep secrets out of browser code.
-Publish the folder through Up.</code></pre><p>After publishing, Manage can enable SQLite, write secret capabilities, and create bounded schedules.</p><h2>Respond to exposure</h2><p>Set the site to company/restricted or disable its schedules first. Never expose the control Worker, private R2 bucket, or runtime keys.</p>
+        <h1>Operate Up</h1><p class="summary">Publish the same folder from the browser, CLI, or an agent.</p><h2>Update a site</h2><p>Publish the same name. Up activates the replacement only after every new asset passes verification.</p><h2>Initialize an agent</h2><pre><code>up init
+# Ask the agent to read .up/SKILL.md
+# Build into ./dist
+up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import <code>/_up/client.js</code>. Identity, document collections, files, AI, and realtime are available without credentials or per-site infrastructure.</p><h2>Respond to exposure</h2><p>Disable the wildcard route or Access application first. Never enable <code>workers.dev</code> as a workaround.</p>
       {:else if section === 'reference'}
-        <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List readable sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create deployment + visibility</td></tr><tr><th><code>PATCH /api/sites/:name/access</code></th><td>Company, restricted, or public</td></tr><tr><th><code>PATCH /api/sites/:name/database</code></th><td>Enable/delete isolated SQLite</td></tr><tr><th><code>GET|PUT|DELETE /api/sites/:name/secrets</code></th><td>Write-only secret capabilities</td></tr><tr><th><code>GET|POST|PATCH|DELETE /api/sites/:name/schedules</code></th><td>Bounded scheduled jobs</td></tr><tr><th><code>GET /api/sites/:name/audit</code></th><td>Capability and run receipts</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomic activation</td></tr></tbody></table><h2>Limits</h2><ul><li>500 files; 10 MiB per file; 50 MiB total</li><li><code>index.html</code> required</li><li><code>_worker.js</code> maximum 1 MiB</li><li>Dynamic request: 50 ms CPU, 5 subrequests, network blocked by default</li><li>100 reader rules; 20 secret hosts; 1,000 database rows per response</li><li>1,440 scheduled attempts/day maximum; 10 retries maximum</li></ul>
+        <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List company sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create a pending company deployment</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store one asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomically activate a deployment</td></tr><tr><th><code>GET /_up/identity</code></th><td>Current verified employee</td></tr><tr><th><code>/_up/db/*</code></th><td>Site document collections</td></tr><tr><th><code>/_up/files/*</code></th><td>Site file storage</td></tr><tr><th><code>POST /_up/ai/chat</code></th><td>Bounded Workers AI request</td></tr><tr><th><code>GET /_up/realtime/:channel</code></th><td>Authenticated WebSocket channel</td></tr></tbody></table><h2>Limits</h2><ul><li>500 deployment files; 10 MiB each; 50 MiB total</li><li><code>index.html</code> required</li><li>64 KiB per database document; 100 documents per page</li><li>10 MiB per site file; 1,000 listed files</li><li>24 AI messages; 20,000 input characters; 512 output tokens</li><li>16 KiB per realtime message</li></ul>
       {:else if section === 'explanation'}
-        <h1>A URL does not grant access.</h1><p class="summary">Up checks identity before serving a company or restricted site. Anonymous access begins only after an owner explicitly changes that site to public.</p><h2>Private sites require identity</h2><p>Company visibility accepts identities from the installation’s Access policy. Restricted visibility also checks the site’s email, domain, and group rules. Missing identity returns no uploaded content.</p><h2>Uploaded code runs elsewhere</h2><p>Browser code runs on sibling hostnames instead of the control origin. An optional <code>_worker.js</code> runs in a separate Dynamic Worker without the registry, deployment authority, R2 bucket, encryption keys, or unrestricted network access.</p><h2>Capabilities belong to one site</h2><p>Database and secret bindings address one site. Secret values are never returned. Scheduled jobs use leases, daily quotas, bounded retries, and audit receipts.</p><h2>A deployment appears all at once</h2><p>Files remain pending in private R2 until every manifest digest passes verification. Activation then changes one deployment pointer, so visitors receive either the previous complete version or the next one.</p>
+        <h1>A URL does not grant access.</h1><p class="summary">Up verifies a company session before returning a site or any of its capabilities.</p><h2>One company boundary</h2><p>Cloudflare Access authenticates employees. Up converts that identity into a scoped sibling-domain session. Missing identity returns no uploaded content.</p><h2>The hostname selects one site</h2><p>Database collections, uploaded files, AI requests, and realtime channels are resolved from the current site hostname. Browser code cannot supply another site’s resource ID.</p><h2>Credentials stay on the server</h2><p>The browser receives a fixed same-origin API. R2, Durable Object, and Workers AI credentials never enter site code.</p><h2>A deployment appears all at once</h2><p>Files remain pending in private R2 until every manifest digest passes verification. Activation changes one pointer, so visitors receive either the previous complete version or the next one.</p>
       {:else if section === 'offline'}
         <h1>You are offline.</h1><p class="summary">The documentation shell is cached. Publishing still requires the network and Access.</p>
       {:else}
@@ -921,7 +645,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .empty-state::before { position: absolute; inset: 18px; border: 1px solid transparent; content: ""; pointer-events: none; transition: border-color .15s ease, background .15s ease; }
   .empty-state.dragging::before { border-color: var(--orange); background: #f6821f0a; }
   .empty-copy { position: relative; z-index: 1; align-self: center; padding: 48px 0 52px 32px; }
-  .empty-state h1, .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1, .manage-view h1 { margin: 0; font-weight: 640; line-height: 1.04; letter-spacing: -.03em; }
+  .empty-state h1, .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { margin: 0; font-weight: 640; line-height: 1.04; letter-spacing: -.03em; }
   .empty-state h1 { font-size: clamp(2.6rem, 5vw, 3.7rem); line-height: 1.0; }
   .empty-copy > p:not(.state-label) { max-width: 390px; margin: 24px 0 32px; color: var(--muted); font-size: .98rem; line-height: 1.64; }
   .empty-copy small { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--quiet); font-size: .69rem; }
@@ -929,10 +653,10 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .choose { min-width: 184px; justify-content: space-between; gap: 32px; }
   .brand-stroke { position:relative; align-self:stretch; min-height:480px; margin-right:-24px; overflow:hidden; pointer-events:none; }
   .brand-stroke img { position:absolute; inset:0; width:140%; height:100%; object-fit:cover; object-position:72% 58%; }
-  .selected-view, .publishing-view, .success-view, .list-view, .manage-view { width: min(100%, 820px); margin-inline: auto; }
+  .selected-view, .publishing-view, .success-view, .list-view { width: min(100%, 820px); margin-inline: auto; }
   .selected-view, .publishing-view, .success-view { padding-left: 28px; border-left: 2px solid var(--orange); }
   .back { min-height: 36px; margin: 0 0 44px; padding: 0; border: 0; background: none; color: var(--muted); font: 500 .68rem var(--mono); cursor: pointer; }
-  .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1, .manage-view h1 { font-size: clamp(1.85rem, 3.4vw, 2.6rem); }
+  .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { font-size: clamp(1.85rem, 3.4vw, 2.6rem); }
   .view-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 38px; }
   .file-summary { display: grid; grid-template-columns: repeat(3, 1fr); margin: 40px 0; border-block: 1px solid var(--line); }
   .file-summary div { display: flex; min-height: 80px; flex-direction: column; justify-content: space-between; padding: 14px 16px; border-right: 1px solid var(--line); }
@@ -950,22 +674,6 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .address > small { color: var(--quiet); font-size: .66rem; line-height: 1.45; }
   .privacy { display: flex; width: max-content; align-items: center; gap: 8px; margin: 16px 0 38px; padding: 7px 10px; border: 1px solid #dce8df; border-radius: 999px; background: #f8fcf9; color: #496052; font-size: .7rem; }
   .footer-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 18px; border-top: 1px solid var(--line); }
-  .publish-options { margin-top: 22px; border-block: 1px solid var(--line); background: #fbfbf8; }
-  .publish-options summary { display: flex; min-height: 46px; align-items: center; justify-content: space-between; padding: 0 13px; cursor: pointer; font-size: .72rem; font-weight: 650; list-style: none; }
-  .publish-options summary::-webkit-details-marker { display: none; }
-  .publish-options[open] summary span { transform: rotate(45deg); }
-  .publish-options fieldset { display: grid; margin: 0; padding: 0 13px 13px; border: 0; }
-  .publish-options legend { padding: 14px 0 8px; color: var(--quiet); font: 500 .61rem var(--mono); text-transform: uppercase; }
-  .publish-options fieldset label { display: grid; grid-template-columns: 22px 1fr; padding: 10px 0; border-top: 1px solid var(--line); cursor: pointer; }
-  .publish-options input, .manage-choice input { accent-color: var(--orange); }
-  .publish-options fieldset b, .runtime-option b { display: block; font-size: .72rem; }
-  .publish-options fieldset small, .reader-input small, .runtime-option small { display: block; margin-top: 3px; color: var(--quiet); font-size: .64rem; line-height: 1.45; }
-  .reader-input { display: grid; gap: 7px; padding: 0 13px 14px; font-size: .68rem; }
-  .reader-input textarea, .manage-textarea { width: 100%; resize: vertical; padding: 10px; border: 1px solid var(--line-strong); border-radius: 4px; background: #fff; font: 400 .71rem/1.5 var(--mono); }
-  .public-confirm { display: grid; grid-template-columns: 22px 1fr; margin: 0 13px 14px; padding: 11px; border: 1px solid #efb49b; background: #fff8f5; color: #71351f; font-size: .68rem; line-height: 1.45; }
-  .runtime-option { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px; border-top: 1px solid var(--line); }
-  .runtime-option > div { max-width: 480px; }
-  .runtime-option > label { display: flex; align-items: center; gap: 7px; font-size: .67rem; }
   .steps { margin: 40px 0 30px; border-top: 1px solid var(--line); }
   .steps div { position: relative; display: flex; justify-content: space-between; padding: 13px 0 13px 25px; border-bottom: 1px solid var(--line); font-size: .76rem; }
   .steps div::before { position: absolute; top: 50%; left: 1px; width: 7px; height: 7px; border: 2px solid var(--line-strong); border-radius: 50%; background: #fff; content: ""; transform: translateY(-50%); }
@@ -977,7 +685,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .state-label.success { color: var(--green); }
   .success-view { position: relative; }
   .success-view::after { position: absolute; top: -15px; right: 0; width: 116px; height: 8px; background: linear-gradient(90deg, var(--navy) 0 32%, var(--cyan) 32% 52%, var(--orange) 52%); content: ""; transform: skewX(-26deg); }
-  .published-url, .managed-url { display: block; margin: 24px 0 28px; color: var(--blue); font: 500 .82rem var(--mono); text-decoration: none; word-break: break-all; }
+  .published-url { display: block; margin: 24px 0 28px; color: var(--blue); font: 500 .82rem var(--mono); text-decoration: none; word-break: break-all; }
   .success-actions { display: flex; align-items: center; gap: 22px; }
   .receipt { margin: 48px 0 30px; border-top: 1px solid var(--line); }
   .receipt div { display: flex; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid var(--line); }
@@ -991,28 +699,6 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .site-list code, .site-list span, .site-list small { color: var(--muted); font-size: .66rem; }
   .site-list a { width: max-content; max-width: 100%; color: var(--muted); text-decoration: none; }
   .site-list a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .manage-link { justify-self: end; padding: 0; border: 0; background: none; color: var(--blue); font-size: .67rem; cursor: pointer; }
-
-  /* Management */
-  .manage-status { margin: 0 0 18px; padding: 10px 12px; border-left: 2px solid var(--orange); background: #fff8f4; color: #60351e; font-size: .71rem; }
-  .manage-section { padding: 28px 0; border-top: 1px solid var(--line); }
-  .manage-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; margin-bottom: 20px; }
-  .manage-heading > div { display: flex; align-items: baseline; gap: 13px; }
-  .manage-heading span { color: var(--orange); font: 500 .59rem var(--mono); }
-  .manage-heading h2 { margin: 0; font-size: .98rem; }
-  .manage-heading > p { max-width: 330px; margin: 0; color: var(--quiet); font-size: .67rem; line-height: 1.5; text-align: right; }
-  .manage-choice { display: flex; gap: 18px; margin-bottom: 14px; font-size: .71rem; }
-  .manage-choice label { display: flex; align-items: center; gap: 6px; }
-  .manage-textarea { margin-bottom: 11px; }
-  .capability-row, .capability-list article { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 0; border-top: 1px solid var(--line); }
-  .capability-row small, .capability-list small { display: block; margin-top: 4px; color: var(--quiet); font-size: .64rem; }
-  .danger { color: var(--red); }
-  .manage-form { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; gap: 8px; margin-bottom: 16px; }
-  .manage-form.three { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
-  .manage-form input { min-width: 0; height: 38px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 4px; font: 400 .67rem var(--mono); }
-  .capability-list { border-bottom: 1px solid var(--line); }
-  .inline-actions { display: flex; gap: 12px; }
-  .manage-empty { margin: 0; color: var(--quiet); font-size: .71rem; }
 
   @media (max-width: 900px) {
     .home-hero { min-height:0; align-items:flex-end; padding-top:460px; padding-bottom:56px; }
@@ -1037,7 +723,6 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     .empty-copy { padding: 58px 28px 0; }
     .brand-stroke { min-height:310px; margin:-6px -30px -8px 12%; }
     .brand-stroke img { width:155%; object-position:72% 62%; }
-    .manage-form, .manage-form.three { grid-template-columns: 1fr 1fr; }
   }
 
   @media (max-width: 600px) {
@@ -1074,23 +759,16 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     .brand-stroke { min-height:260px; margin:0 -34px 0 2%; }
     .brand-stroke img { width:180%; object-position:72% 64%; }
     .selected-view, .publishing-view, .success-view { padding-left: 18px; }
-    .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1, .manage-view h1 { font-size: 2.7rem; }
+    .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { font-size: 2.7rem; }
     .file-summary { grid-template-columns: 1fr; }
     .file-summary div, .file-summary div:first-child { min-height: 56px; flex-direction: row; align-items: center; padding: 12px 0; border-right: 0; border-bottom: 1px solid var(--line); }
     .file-summary div:last-child { border-bottom: 0; }
     .address > div { display: grid; }
     .address em { padding: 0 14px 11px; }
-    .runtime-option, .manage-heading, .capability-row, .capability-list article { align-items: flex-start; flex-direction: column; }
     .footer-actions { display: grid; grid-template-columns: 1fr 1.35fr; }
     .footer-actions > * { width: 100%; }
     .site-list article { grid-template-columns: 1fr; }
     .site-list article > div:last-child { justify-items: start; text-align: left; }
-    .manage-link { justify-self: start; }
-    .manage-heading > p { text-align: left; }
-    .manage-choice { align-items: flex-start; flex-direction: column; }
-    .manage-form, .manage-form.three { grid-template-columns: 1fr; }
-    .manage-form button { width: 100%; }
-    .inline-actions { flex-wrap: wrap; }
     footer nav a:first-child { display: none; }
   }
 

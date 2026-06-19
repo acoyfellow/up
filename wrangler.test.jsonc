@@ -18,16 +18,49 @@
   },
   "durable_objects": {
     "bindings": [
-      { "name": "REGISTRY", "class_name": "UpRegistry" },
-      { "name": "SITE_DATABASE", "class_name": "SiteDatabase" },
-      { "name": "SITE_SECRETS", "class_name": "SiteSecrets" }
+      {
+        "name": "REGISTRY",
+        "class_name": "UpRegistry"
+      },
+      {
+        "name": "SITE_DATABASE",
+        "class_name": "SiteDatabase"
+      },
+      {
+        "name": "SITE_REALTIME",
+        "class_name": "SiteRealtime"
+      }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["UpRegistry"] },
-    { "tag": "v2", "new_sqlite_classes": ["SiteDatabase"] },
-    { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] },
-    { "tag": "v4" }
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["UpRegistry"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["SiteDatabase"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["SiteSecrets"]
+    },
+    {
+      "tag": "v4"
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": ["SiteRealtime"]
+    },
+    {
+      "tag": "v6",
+      "deleted_classes": ["SiteSecrets"]
+    }
   ],
-  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-test-assets" }]
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "up-test-assets"
+    }
+  ]
 }

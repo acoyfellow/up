@@ -6,8 +6,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
-  "observability": { "enabled": true },
-  "build": { "command": "bun run build" },
+  "observability": {
+    "enabled": true
+  },
+  "build": {
+    "command": "bun run build"
+  },
   "assets": {
     "binding": "STATIC_ASSETS",
     "directory": ".svelte-kit/cloudflare",
@@ -25,18 +29,52 @@
   },
   "durable_objects": {
     "bindings": [
-      { "name": "REGISTRY", "class_name": "UpRegistry" },
-      { "name": "SITE_DATABASE", "class_name": "SiteDatabase" },
-      { "name": "SITE_SECRETS", "class_name": "SiteSecrets" }
+      {
+        "name": "REGISTRY",
+        "class_name": "UpRegistry"
+      },
+      {
+        "name": "SITE_DATABASE",
+        "class_name": "SiteDatabase"
+      },
+      {
+        "name": "SITE_REALTIME",
+        "class_name": "SiteRealtime"
+      }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["UpRegistry"] },
-    { "tag": "v2", "new_sqlite_classes": ["SiteDatabase"] },
-    { "tag": "v3", "new_sqlite_classes": ["SiteSecrets"] },
-    { "tag": "v4" }
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["UpRegistry"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["SiteDatabase"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["SiteSecrets"]
+    },
+    {
+      "tag": "v4"
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": ["SiteRealtime"]
+    },
+    {
+      "tag": "v6",
+      "deleted_classes": ["SiteSecrets"]
+    }
   ],
-  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "up-assets" }],
-  "worker_loaders": [{ "binding": "LOADER" }],
-  "triggers": { "crons": ["* * * * *"] }
+  "ai": {
+    "binding": "AI"
+  },
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "up-assets"
+    }
+  ]
 }
