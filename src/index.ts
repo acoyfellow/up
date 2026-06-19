@@ -50,9 +50,9 @@ const origin = 'https://up.ax.cloudflare.dev';
 const pages = {
   '/': {
     section: 'home',
-    title: 'Up — Put Your Company’s Private Web Online',
+    title: 'Up — Your Company’s Private Web',
     description:
-      'Drop a static folder and put it online for your company. Up runs in your Cloudflare account and keeps every site behind Access.',
+      'Publish a folder to a company-private URL. Up runs in your Cloudflare account behind the identity system your organization already trusts.',
     eyebrow: 'Private sites · Cloudflare Access · your account',
   },
   '/tutorial': {
@@ -85,9 +85,9 @@ const pages = {
   },
   '/app': {
     section: 'app',
-    title: 'Put a Private Site Up — Up',
+    title: 'Publish a Private Site — Up',
     description: 'Publish a static folder to your authenticated Up installation on Cloudflare.',
-    eyebrow: 'Control plane · authenticated employees',
+    eyebrow: 'Control plane · authenticated publisher',
     noindex: true,
   },
   '/offline': {

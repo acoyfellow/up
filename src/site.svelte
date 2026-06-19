@@ -455,11 +455,12 @@
         <div class="home-hero-copy">
           <div class="home-kicker"><span>Cloudflare-native</span><i aria-hidden="true"></i><span>Private by default</span></div>
           <h1 id="home-title">Your company’s<br /><span class="accent">private web.</span></h1>
-          <p class="home-tagline">Drop a static folder. Get a company-only URL behind the identity system your organization already trusts.</p>
+          <p class="home-tagline">Publish a folder to a company-private URL behind the identity system your organization already trusts.</p>
           <div class="home-actions">
             <a class="primary link-button" href="/app">Open Up <span aria-hidden="true">→</span></a>
-            <a class="home-secondary" href="/tutorial">Set up your installation</a>
+            <a class="home-secondary" href="/tutorial">Install your own</a>
           </div>
+          <p class="hosted-note"><i aria-hidden="true"></i>Cloudflare’s hosted installation is currently available to Cloudflare employees.</p>
         </div>
         <div class="home-swash"><PaintSwash /></div>
       </section>
@@ -530,8 +531,8 @@
         >
           <div class="empty-copy">
             <p class="state-label">{isProduct ? 'Private workspace' : 'Ready to publish'}</p>
-            <h1>Put it up.</h1>
-            <p>Drop a static folder. Up gives it a company-only URL.</p>
+            <h1>Publish a site.</h1>
+            <p>Choose a static folder. Up gives it a company-private URL.</p>
             <button class="primary choose" onclick={chooseFolder}>Choose a folder <span aria-hidden="true">↗</span></button>
             <small><i aria-hidden="true"></i> Protected by Cloudflare Access</small>
           </div>
@@ -654,7 +655,7 @@
       {:else if view === 'success'}
         <div class="success-view" role="status" aria-live="polite">
           <p class="state-label success">Published securely</p>
-          <h1>It’s up.</h1>
+          <h1>Published.</h1>
           <a class="published-url" href={publishedUrl} target="_blank" rel="noopener noreferrer">{publishedUrl}</a>
           <div class="success-actions"><button class="secondary" onclick={copyLink}>{copied ? 'Copied' : 'Copy link'}</button><a class="text-link" href={publishedUrl} target="_blank" rel="noopener noreferrer">Open site ↗</a></div>
           <dl class="receipt"><div><dt>Access</dt><dd>Your organization</dd></div><div><dt>Published by</dt><dd>{identity}</dd></div><div><dt>Files</dt><dd>{files.length}</dd></div></dl>
@@ -784,6 +785,8 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .home-actions .primary { min-width: 136px; justify-content: space-between; gap: 28px; }
   .home-secondary { padding: 10px 0 7px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: .78rem; text-decoration: none; }
   .home-secondary:hover { border-color: var(--ink); color: var(--ink); }
+  .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
+  .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
   .home-swash { height:clamp(300px,38vw,430px); margin-right:-6%; transform:rotate(-2deg); }
   .home-intro, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
   .home-intro h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }

@@ -15,6 +15,7 @@
     "dry-run": "bun run build && wrangler deploy --dry-run --outdir dist",
     "site:audit": "bun run scripts/audit-site.ts",
     "public:check": "bash scripts/check-public.sh",
+    "release:access:check": "bun run scripts/check-access-release.ts",
     "check": "bun run build && bun run typecheck && bun run baseline:check && bun run test && biome check .",
     "oauth:connect": "bun run scripts/oauth-bootstrap.ts",
     "setup": "bun run scripts/setup.ts",
@@ -24,7 +25,8 @@
     "video:login": "bash scripts/video-login.sh",
     "video:record": "bun run scripts/record-publish-video.ts",
     "deploy:docs": "bun run check && wrangler deploy -c wrangler.docs.jsonc",
-    "deploy:app": "bun run check && wrangler deploy -c wrangler.production.jsonc"
+    "deploy:app": "bun run check && wrangler deploy -c wrangler.production.jsonc",
+    "deploy:up:safe": "bun run check && bun run release:access:check && wrangler deploy -c wrangler.up.jsonc"
   },
   "dependencies": {
     "hono": "^4.12.19",

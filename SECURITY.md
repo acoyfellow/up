@@ -55,6 +55,8 @@ Optional capabilities are narrow:
 - Verify anonymous denial for company/restricted sites after every routing or Access change.
 - Treat site names, deployment IDs, object keys, and URLs as public identifiers—not capabilities.
 
+Before restoring the AX reference installation, export a fresh read-only Access application snapshot and run `bun run release:access:check` with `UP_ACCESS_APPLICATION_FILE`, `UP_EXPECTED_ACCESS_APP_ID`, `UP_EXPECTED_ACCESS_IDP`, `UP_EXPECTED_EMAIL_DOMAIN`, and `UP_CONTROL_HOST`. The guard fails if it finds an Everyone or Bypass policy, an unreviewed IdP, missing `/app` or `/api` destinations, or weakened cookie settings. `bun run deploy:up:safe` runs this guard before deployment and never modifies Access.
+
 ## Installation boundary
 
 `bun run setup` provisions or reuses the child zone, DNS, private R2, Access application, Worker Loader, Durable Objects, scheduler, session secret, and encryption key. It reads the generated Access audience and injects it into a gitignored deployment config; an operator never copies the AUD.

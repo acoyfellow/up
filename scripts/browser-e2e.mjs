@@ -9,6 +9,14 @@ try {
     throw Error('product front door missing');
   if (!(await page.getByRole('link', { name: 'Open Up', exact: true }).isVisible()))
     throw Error('publisher CTA missing');
+  if (!(await page.getByRole('link', { name: 'Install your own', exact: true }).isVisible()))
+    throw Error('installation CTA missing');
+  if (
+    !(await page
+      .getByText('Cloudflare’s hosted installation is currently available to Cloudflare employees.')
+      .isVisible())
+  )
+    throw Error('hosted installation qualifier missing');
   for (const name of ['Tutorial', 'How-to guides', 'Reference', 'Explanation']) {
     if (!(await page.getByRole('link', { name }).first().isVisible()))
       throw Error(`Diátaxis entry missing: ${name}`);
