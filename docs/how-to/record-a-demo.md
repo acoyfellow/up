@@ -1,53 +1,32 @@
-# Record an authenticated publish demo
+# Record the capability demo
 
-The video workflow uses a dedicated Chrome profile. It never imports cookies from a normal browser and never records credentials.
-
-## 1. Prepare the real installation
-
-The control plane must be deployed at `https://app.up.ax.cloudflare.dev`, protected by Cloudflare Access, and the invited test user must have permission to publish.
-
-## 2. Authenticate the isolated profile
-
-```sh
-bun run video:login
-```
-
-Complete Cloudflare login in the opened window. This ceremony is intentionally outside the recording.
-
-## 3. Record the baseline flow
+The checked-in demo is assembled from real screenshots captured through cmux while it drives the authenticated Up site. No browser credentials are imported, and no login screen is recorded.
 
 ```sh
 bun run video:record
 ```
 
-The script records:
+The script:
 
-1. authenticated Up shell;
-2. upload of `examples/baseline-site`;
-3. deterministic site name `baseline-video`;
-4. real manifest upload and activation;
-5. published receipt.
+1. opens `lunch-vote.up.ax.cloudflare.dev` in a cmux browser surface;
+2. records an authenticated vote;
+3. stores a menu through `up.files`;
+4. requests a summary through `up.ai`;
+5. verifies the browser reported no errors;
+6. encodes the timed frames with ffmpeg.
 
 Output:
 
 ```text
-artifacts/video/up-publish.webm
+demo/up-0.0.1.mp4
 ```
 
-Override values when needed:
+Override the site or output when needed:
 
 ```sh
-UP_VIDEO_SITE=baseline-take-2 \
-UP_VIDEO_OUTPUT=artifacts/video/take-2.webm \
+UP_VIDEO_SITE_URL=https://another-site.up.example.com/ \
+UP_VIDEO_OUTPUT=demo/another.mp4 \
 bun run video:record
 ```
 
-## 4. Convert to MP4
-
-```sh
-ffmpeg -i artifacts/video/up-publish.webm \
-  -c:v libx264 -pix_fmt yuv420p \
-  artifacts/video/up-publish.mp4
-```
-
-The output directory is gitignored. Review the video locally before sharing it.
+cmux’s WKWebView does not currently expose native screencast capture. The script therefore samples real browser frames rather than simulating the UI or using a second browser automation profile.

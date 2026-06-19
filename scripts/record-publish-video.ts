@@ -1,73 +1,82 @@
 import { execFile } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { openLocalBrowser } from 'unsurf/skills/record';
 
 const exec = promisify(execFile);
-const origin = process.env.UP_CONTROL_ORIGIN || 'https://up.ax.cloudflare.dev';
-const profile = process.env.UP_VIDEO_PROFILE || `${process.env.HOME}/.up-video-profile`;
-const session = process.env.UP_VIDEO_SESSION || 'up-video';
-const folder = resolve(process.env.UP_VIDEO_FOLDER || 'examples/baseline-site');
-const siteName = process.env.UP_VIDEO_SITE || 'baseline-video';
-const output = process.env.UP_VIDEO_OUTPUT || 'artifacts/video/up-publish.webm';
+const origin = process.env.UP_VIDEO_SITE_URL || 'https://lunch-vote.up.ax.cloudflare.dev/';
+const output = resolve(process.env.UP_VIDEO_OUTPUT || 'demo/up-0.0.1.mp4');
+const scenes = resolve('.tmp-up-video-scenes');
+await rm(scenes, { recursive: true, force: true });
+await mkdir(scenes, { recursive: true });
 
-await mkdir(output.split('/').slice(0, -1).join('/'), { recursive: true });
-
-async function command(...args: string[]): Promise<string> {
-  const result = await exec('agent-browser', ['--session', session, ...args], {
-    env: {
-      ...process.env,
-      AGENT_BROWSER_PROFILE: profile,
-      AGENT_BROWSER_HEADED: process.env.UP_VIDEO_HEADED || 'false',
-    },
-  });
-  return result.stdout;
+async function cmux(...args: string[]): Promise<string> {
+  const result = await exec('cmux', ['browser', ...args]);
+  return result.stdout.trim();
 }
 
-const browser = await openLocalBrowser({
-  session,
-  env: {
-    AGENT_BROWSER_PROFILE: profile,
-    AGENT_BROWSER_HEADED: process.env.UP_VIDEO_HEADED || 'false',
-  },
-});
+const opened = await cmux('open', origin, '--focus', 'false');
+const surface = opened.match(/surface=(surface:\d+)/)?.[1];
+if (!surface) throw new Error(`Unable to open cmux browser: ${opened}`);
+await new Promise((resolveWait) => setTimeout(resolveWait, 5_000));
+if ((await cmux(surface, 'get', 'url')) !== origin)
+  throw new Error('cmux browser did not reach the authenticated Up site');
 
-let recording = false;
-try {
-  await browser.goto(`${origin}/app`);
-  await browser.wait(1_000);
-
-  const currentUrl = await command('get', 'url');
-  if (!currentUrl.trim().startsWith(origin)) {
-    throw new Error(
-      `Recording profile is not authenticated. Run bun run video:login first. Current URL: ${currentUrl.trim()}`,
-    );
-  }
-
-  await browser.startRecording(output);
-  recording = true;
-  await browser.wait(800);
-
-  // A webkitdirectory input only accepts a directory path, and the bound
-  // Svelte handler listens for a real change event, so dispatch one.
-  await command('upload', 'input[type="file"]', folder);
-  await command(
-    'eval',
-    'document.querySelector(\'input[type="file"]\').dispatchEvent(new Event("change",{bubbles:true}))',
-  );
-  await browser.wait({ selector: '.selected-view', timeoutMs: 15_000 });
-  await browser.wait(1_400);
-  await browser.fill('input[aria-label="Site name"]', siteName);
-  await browser.wait(700);
-
-  await browser.click('.selected-view button.primary');
-  await browser.wait({ selector: '.publishing-view', timeoutMs: 10_000 });
-  await browser.wait({ selector: '.success-view', timeoutMs: 120_000 });
-  await browser.wait(2_500);
-} finally {
-  if (recording) await browser.stopRecording();
-  await browser.close();
+async function shot(name: string): Promise<string> {
+  const path = `${scenes}/${name}.png`;
+  await cmux(surface, 'screenshot', '--out', path);
+  return path;
 }
 
+const images: string[] = [];
+images.push(await shot('01-initial'));
+await cmux(surface, 'click', '--selector', '[data-choice="Salad"]');
+await new Promise((resolveWait) => setTimeout(resolveWait, 1_500));
+images.push(await shot('02-voted'));
+await cmux(
+  surface,
+  'eval',
+  '--script',
+  `(async()=>{const response=await fetch('/_up/files/menus%2Fdemo-menu.txt',{method:'PUT',headers:{'content-type':'text/plain'},body:'Tacos, Pizza, Salad'});const saved=await response.json();const link=document.querySelector('#menu-link');link.href=saved.url;link.textContent='Open demo-menu.txt ↗';link.hidden=false;const item=document.createElement('li');item.textContent='Shared demo-menu.txt through up.files';document.querySelector('#activity').prepend(item);return JSON.stringify(saved)})()`,
+);
+await new Promise((resolveWait) => setTimeout(resolveWait, 900));
+images.push(await shot('03-file'));
+await cmux(surface, 'click', '--selector', '#summarize');
+await new Promise((resolveWait) => setTimeout(resolveWait, 10_000));
+images.push(await shot('04-ai'));
+const errors = await cmux(surface, 'errors', 'list');
+if (!errors.includes('No browser errors')) throw new Error(errors);
+
+const durations = [2.2, 2.5, 2.8, 3.5];
+const concat = images.flatMap((image, index) => [
+  `file '${image.replaceAll("'", "'\\''")}'`,
+  `duration ${durations[index]}`,
+]);
+concat.push(`file '${images.at(-1)?.replaceAll("'", "'\\''")}'`);
+const manifest = `${scenes}/frames.txt`;
+await writeFile(manifest, `${concat.join('\n')}\n`);
+await exec('ffmpeg', [
+  '-hide_banner',
+  '-loglevel',
+  'error',
+  '-y',
+  '-f',
+  'concat',
+  '-safe',
+  '0',
+  '-i',
+  manifest,
+  '-vf',
+  'scale=720:-2:flags=lanczos,fps=30,format=yuv420p',
+  '-c:v',
+  'libx264',
+  '-preset',
+  'slow',
+  '-crf',
+  '24',
+  '-movflags',
+  '+faststart',
+  output,
+]);
+await rm(scenes, { recursive: true, force: true });
 console.log(`Wrote ${output}`);

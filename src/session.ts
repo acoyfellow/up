@@ -122,8 +122,7 @@ export async function exchangeCliAuthorization(
   secret: string,
 ): Promise<string | null> {
   const payload = await verifyPayload(authorization, secret);
-  if (!payload || payload.kind !== 'cli-auth' || !payload.challenge || verifier.length < 43)
-    return null;
+  if (payload?.kind !== 'cli-auth' || !payload.challenge || verifier.length < 43) return null;
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier)));
   if (base64Url(digest) !== payload.challenge) return null;
   return signPayload(
@@ -143,7 +142,7 @@ export async function verifyCliSession(
   secret: string,
 ): Promise<Identity | null> {
   const payload = await verifyPayload(value, secret);
-  if (!payload || payload.kind !== 'cli-session') return null;
+  if (payload?.kind !== 'cli-session') return null;
   return { email: payload.email, role: payload.role, groups: payload.groups };
 }
 
