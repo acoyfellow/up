@@ -647,14 +647,15 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .doc th { width: 54%; font-weight: 550; }
   .doc td { color: var(--muted); }
   .example-list { border-top: 1px solid var(--line-strong); }
-  .example-row { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--line); }
-  .example-thumb { display: block; align-self: start; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--paper); aspect-ratio: 16 / 9; }
+  .example-row { display: grid; grid-template-columns: clamp(128px, 22%, 168px) minmax(0, 1fr); align-items: start; gap: clamp(18px, 3vw, 28px); padding: 24px 0; border-bottom: 1px solid var(--line); }
+  .example-thumb { display: block; width: 100%; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--paper); aspect-ratio: 16 / 9; }
   .example-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .2s ease; }
   .example-thumb:hover img { transform: scale(1.03); }
+  .example-row > div { min-width: 0; }
   .example-row h2 { margin: 6px 0 8px; padding: 0; border: 0; font-size: 1.05rem; }
-  .example-row p { margin: 0; }
-  .example-row .example-number { color: var(--orange); font: 500 .55rem var(--mono); letter-spacing: .04em; }
-  .example-row nav { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
+  .example-row p { max-width: 520px; margin: 0; }
+  .example-row .example-number { overflow-wrap: anywhere; color: var(--orange); font: 500 .55rem/1.45 var(--mono); letter-spacing: .04em; }
+  .example-row nav { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
   .example-row nav a { color: var(--blue); font-size: .68rem; text-decoration: none; }
   .example-row nav a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
@@ -736,9 +737,11 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .feature-grid article:nth-last-child(-n+2) { border-bottom: 0; }
     .docs-map-heading { grid-template-columns: 1fr; gap: 26px; }
     .docs-shell { grid-template-columns: 1fr; gap: 40px; }
-    .docs-nav { position: static; min-height: 0; padding: 0; border-right: 0; border-bottom: 1px solid var(--line); }
-    .docs-nav nav { grid-template-columns: 1fr 1fr; }
-    .docs-nav nav a:nth-child(odd) { border-right: 1px solid var(--line); }
+    .docs-nav { position: static; min-height: 0; padding: 0 0 12px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--line); }
+    .docs-nav > p { margin-bottom: 12px; }
+    .docs-nav nav { display: flex; overflow-x: auto; border-block: 1px solid var(--line); scrollbar-width: thin; }
+    .docs-nav nav a, .docs-nav nav a.subpage { min-width: max-content; flex: 0 0 auto; grid-template-columns: 24px auto; padding: 0 15px; border-right: 1px solid var(--line); border-bottom: 0; }
+    .docs-nav nav a:last-child { border-right: 0; }
     .docs-nav > div { display: none; }
     .empty-state { grid-template-columns: 1fr; }
     .empty-copy { padding: 58px 28px 0; }
@@ -771,11 +774,12 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .docs-quadrants a:nth-child(n) { min-height: 208px; border-right: 0; border-bottom: 1px solid var(--line); }
     .docs-quadrants a:last-child { border-bottom: 0; }
     .read-next > div { align-items: flex-start; flex-direction: column; }
-    .docs-nav nav { grid-template-columns: 1fr; }
-    .docs-nav nav a:nth-child(odd) { border-right: 0; }
-    .doc h1 { font-size: 3rem; }
-    .example-row { grid-template-columns: 112px minmax(0, 1fr); gap: 16px; }
-    .example-row nav { display: grid; gap: 8px; }
+    .doc h1 { font-size: clamp(2.2rem, 13vw, 3rem); }
+    .doc .summary { margin-bottom: 36px; padding-bottom: 28px; font-size: .94rem; }
+    .example-row { grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 20px 0; }
+    .example-row h2 { margin-top: 4px; }
+    .example-row p { font-size: .76rem; line-height: 1.6; }
+    .example-row nav { display: grid; gap: 7px; margin-top: 12px; }
     .empty-state { min-height: 570px; }
     .empty-copy { padding: 48px 14px 0; }
     .empty-state h1 { font-size: clamp(2.2rem, 12vw, 3rem); }
