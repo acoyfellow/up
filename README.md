@@ -72,9 +72,13 @@ Browser code receives no Cloudflare credentials or resource identifiers.
 | `up.ai` | Workers AI with a fixed model and limits |
 | `up.realtime` | site-and-channel Durable Object WebSockets |
 
-## Complete example
+## Showcase
 
-[`examples/lunch-vote`](examples/lunch-vote) is plain HTML, CSS, and JavaScript. Two authenticated browsers can vote, see realtime updates, upload a menu, and ask Workers AI for a summary. It has no `_worker.js`, credentials, framework, or infrastructure configuration.
+[![Lunch Vote running on Up](public/demos/lunch-vote.jpg)](https://lunch-vote.up.ax.cloudflare.dev)
+
+**[Lunch Vote ↗](https://lunch-vote.up.ax.cloudflare.dev)** is a live, employee-protected app using all five fixed APIs. Its [`three-file source`](examples/lunch-vote) is plain HTML, CSS, and JavaScript with no `_worker.js`, credentials, framework, or infrastructure configuration.
+
+The AX live demo requires a Cloudflare employee identity. Other installations keep their demos behind their own organization’s Access policy.
 
 ## Install for a company
 

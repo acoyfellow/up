@@ -256,6 +256,7 @@
   <a class="wordmark" href="/" aria-label="Up home"><UpLogo decorative /></a>
   <nav aria-label="Primary">
     {#if !isProduct}
+      <a href="/#demos">Demos</a>
       <a href="/tutorial">Docs</a>
       <a href="/explanation">How it works</a>
       <a href="/app">Open Up ↗</a>
@@ -316,8 +317,28 @@
         <article><span>08</span><h3>Stay in control</h3><p>The Worker, Durable Objects, R2, DNS, and Access app remain in your account.</p></article>
       </section>
 
+      <section class="demo-showcase" id="demos" aria-labelledby="demos-title">
+        <div class="demo-heading">
+          <div><p class="section-index">02 / BUILT WITH UP</p><h2 id="demos-title">Small apps. Real capabilities.</h2></div>
+          <p>Each demo is a folder published through Up. Live sites remain behind the company’s Access boundary.</p>
+        </div>
+        <article class="demo-card">
+          <a class="demo-preview" href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer" aria-label="Open the Lunch Vote live demo">
+            <img src="/demos/lunch-vote.jpg" alt="Lunch Vote showing authenticated voting and a connected realtime room" width="1200" height="675" loading="lazy" />
+            <span>Open live demo <i aria-hidden="true">↗</i></span>
+          </a>
+          <div class="demo-copy">
+            <div><span class="demo-status"><i aria-hidden="true"></i>Cloudflare employees</span><span>01</span></div>
+            <h3>Lunch Vote</h3>
+            <p>Vote with coworkers, watch every open browser update, share a menu file, and ask Workers AI to summarize the result.</p>
+            <ul aria-label="Capabilities used"><li>Identity</li><li>Database</li><li>Files</li><li>AI</li><li>Realtime</li></ul>
+            <div class="demo-links"><a href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer">Open site ↗</a><a href="https://github.com/acoyfellow/up/tree/feat/quick-parity-0.0.1/examples/lunch-vote" target="_blank" rel="noopener noreferrer">View three-file source ↗</a></div>
+          </div>
+        </article>
+      </section>
+
       <section class="system-model" aria-labelledby="model-title">
-        <p class="section-index">02 / SYSTEM</p>
+        <p class="section-index">03 / SYSTEM</p>
         <div>
           <h2 id="model-title">Folder to private URL.</h2>
           <div class="model-flow" aria-label="Folder to private URL workflow">
@@ -332,7 +353,7 @@
       </section>
 
       <section class="docs-map" aria-labelledby="docs-title">
-        <div class="docs-map-heading"><div><p class="section-index">03 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
+        <div class="docs-map-heading"><div><p class="section-index">04 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
         <div class="docs-quadrants">
           <a href="/tutorial"><span>LEARNING</span><strong>Tutorial</strong><p>Connect Cloudflare and publish a first private site.</p><i aria-hidden="true">01 →</i></a>
           <a href="/how-to"><span>GOALS</span><strong>How-to guides</strong><p>Update, operate, verify, and respond safely.</p><i aria-hidden="true">02 →</i></a>
@@ -579,7 +600,7 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
   .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
   .home-intro, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
-  .home-intro h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
+  .home-intro h2, .system-model h2, .demo-showcase h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
   .home-intro > div > p { max-width: 680px; margin: 30px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
   .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
   .feature-grid article { min-height: 228px; padding: 26px; border-right: 1px solid var(--line); }
@@ -589,6 +610,27 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .feature-grid h3 { margin: 26px 0 10px; font-size: .98rem; letter-spacing: -.018em; }
   .feature-grid p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.62; }
   .feature-grid code { font-size: .7rem; }
+  .demo-showcase { padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); scroll-margin-top: 32px; }
+  .demo-heading { display: grid; grid-template-columns: 1.25fr .75fr; align-items: end; gap: 48px; margin-bottom: 38px; }
+  .demo-heading .section-index { margin-bottom: 18px; }
+  .demo-heading > p { max-width: 370px; margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.7; }
+  .demo-card { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .55fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: #fff; }
+  .demo-preview { position: relative; display: block; min-height: 360px; overflow: hidden; border-right: 1px solid var(--line); background: var(--paper); }
+  .demo-preview img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
+  .demo-preview:hover img { transform: scale(1.012); }
+  .demo-preview > span { position: absolute; right: 16px; bottom: 16px; display: flex; min-height: 38px; align-items: center; gap: 28px; padding: 0 13px; border: 1px solid #ffffff70; border-radius: 4px; background: #0b1118e8; color: #fff; font-size: .7rem; font-weight: 620; }
+  .demo-preview > span i { color: var(--orange); font-style: normal; }
+  .demo-copy { display: flex; min-width: 0; flex-direction: column; padding: 26px; }
+  .demo-copy > div:first-child { display: flex; align-items: center; justify-content: space-between; color: var(--quiet); font: 500 .6rem var(--mono); }
+  .demo-status { display: inline-flex; align-items: center; gap: 7px; }
+  .demo-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .demo-copy h3 { margin: 32px 0 11px; font-size: 1.4rem; letter-spacing: -.025em; }
+  .demo-copy p { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.68; }
+  .demo-copy ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 24px 0 30px; padding: 0; list-style: none; }
+  .demo-copy li { padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--paper); color: var(--muted); font: 500 .59rem var(--mono); }
+  .demo-links { display: grid; gap: 10px; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--line); }
+  .demo-links a { width: max-content; max-width: 100%; color: var(--blue); font-size: .69rem; text-decoration: none; }
+  .demo-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .model-flow { display: flex; align-items: center; gap: 10px; margin: 38px 0; padding: 18px 0; overflow-x: auto; border-block: 1px solid var(--line); white-space: nowrap; }
   .model-flow span { padding: 8px 11px; border: 1px solid var(--line); border-radius: 3px; background: #fff; font: 500 .68rem var(--mono); }
   .model-flow i { color: var(--orange); font-style: normal; }
@@ -713,7 +755,9 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .feature-grid article:nth-child(2n) { border-right: 0; }
     .feature-grid article:nth-child(n) { border-bottom: 1px solid var(--line); }
     .feature-grid article:nth-last-child(-n+2) { border-bottom: 0; }
-    .docs-map-heading { grid-template-columns: 1fr; gap: 26px; }
+    .demo-heading, .docs-map-heading { grid-template-columns: 1fr; gap: 26px; }
+    .demo-card { grid-template-columns: 1fr; }
+    .demo-preview { min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); aspect-ratio: 16 / 9; }
     .docs-shell { grid-template-columns: 1fr; gap: 40px; }
     .docs-nav { position: static; min-height: 0; padding: 0; border-right: 0; border-bottom: 1px solid var(--line); }
     .docs-nav nav { grid-template-columns: 1fr 1fr; }
@@ -738,7 +782,11 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .home-art img { object-position:62% 78%; }
     .ambient-mark { top:-28px; right:-26px; width:200px; opacity:.09; }
     .paint-pattern { top:92px; right:-16px; width:200px; gap:14px; opacity:.6; }
-    .home-intro, .system-model, .read-next, .docs-map { padding: 56px 14px; }
+    .home-intro, .system-model, .read-next, .demo-showcase, .docs-map { padding: 56px 14px; }
+    .demo-card { grid-template-columns: 1fr; }
+    .demo-preview { min-height: 0; aspect-ratio: 16 / 9; }
+    .demo-copy { padding: 22px; }
+    .demo-copy h3 { margin-top: 24px; }
     .model-flow { display:grid; grid-template-columns:minmax(0,1fr); justify-items:stretch; overflow:visible; white-space:normal; }
     .model-flow span { text-align:center; }
     .model-flow i { justify-self:center; transform:rotate(90deg); }
