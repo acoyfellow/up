@@ -4,7 +4,10 @@ const origin = process.env.UP_ORIGIN || 'http://127.0.0.1:8798';
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
+  const browserErrors = [];
+  page.on('pageerror', (error) => browserErrors.push(error.message));
   await page.goto(origin, { waitUntil: 'networkidle' });
+  if (browserErrors.length) throw Error(`browser hydration failed: ${browserErrors.join('; ')}`);
   if (!(await page.getByRole('heading', { name: 'Your company’s private web.' }).isVisible()))
     throw Error('product front door missing');
   if (!(await page.getByRole('link', { name: 'Open Up', exact: true }).isVisible()))
