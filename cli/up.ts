@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
-import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import http from 'node:http';
 import { join, relative, resolve } from 'node:path';
 
 const DEFAULT_ORIGIN = 'https://up.ax.cloudflare.dev';
@@ -22,12 +23,60 @@ function option(name: string): string | undefined {
   return index >= 0 ? args[index + 1] : undefined;
 }
 
-function accessToken(origin: string): string {
-  if (process.env.UP_ACCESS_TOKEN) return process.env.UP_ACCESS_TOKEN;
-  return execFileSync('cloudflared', ['access', 'token', '-app', origin], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
-  }).trim();
+async function cliToken(origin: string): Promise<string> {
+  if (process.env.UP_CLI_TOKEN) return process.env.UP_CLI_TOKEN;
+  const verifier = randomBytes(48).toString('base64url');
+  const digest = createHash('sha256').update(verifier).digest('base64url');
+  const state = randomBytes(24).toString('base64url');
+  const authorization = await new Promise<{ code: string; state: string }>((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const url = new URL(request.url || '/', `http://${request.headers.host}`);
+      const code = url.searchParams.get('code');
+      const returnedState = url.searchParams.get('state');
+      if (!code || !returnedState) {
+        response.writeHead(400, { 'content-type': 'text/plain' });
+        response.end('Up CLI authentication failed.');
+        return;
+      }
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(
+        '<!doctype html><title>Up CLI connected</title><h1>Up CLI connected.</h1><p>You can close this window.</p>',
+      );
+      server.close();
+      resolve({ code, state: returnedState });
+    });
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string')
+        return reject(new Error('Unable to open callback'));
+      const redirect = `http://127.0.0.1:${address.port}/callback`;
+      const url = new URL('/app/cli-auth', origin);
+      url.searchParams.set('redirect_uri', redirect);
+      url.searchParams.set('state', state);
+      url.searchParams.set('challenge', digest);
+      console.log(`Opening Up in your browser…\n${url}`);
+      const child = spawn('open', [url.toString()], { detached: true, stdio: 'ignore' });
+      child.unref();
+    });
+    setTimeout(
+      () => {
+        server.close();
+        reject(new Error('CLI authentication timed out'));
+      },
+      5 * 60 * 1000,
+    ).unref();
+  });
+  if (authorization.state !== state) throw new Error('CLI authentication state mismatch');
+  const response = await fetch(`${origin}/cli/exchange`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ code: authorization.code, verifier }),
+  });
+  const body = (await response.json()) as { token?: string; error?: string };
+  if (!response.ok || !body.token)
+    throw new Error(body.error || 'Unable to exchange CLI authorization');
+  return body.token;
 }
 
 async function files(root: string): Promise<string[]> {
@@ -87,8 +136,8 @@ async function deploy(): Promise<void> {
   const paths = await files(root);
   if (!paths.some((path) => relative(root, path) === 'index.html'))
     throw new Error('index.html is required');
-  const token = accessToken(origin);
-  const authHeaders = { 'cf-access-token': token };
+  const token = await cliToken(origin);
+  const authHeaders = { authorization: `Bearer ${token}` };
   const prepared = await Promise.all(
     paths.map(async (path) => {
       const bytes = await readFile(path);
@@ -107,7 +156,7 @@ async function deploy(): Promise<void> {
     sha256: file.sha256,
   }));
   console.log(`Authenticated · ${prepared.length} files ready`);
-  const create = await fetch(`${origin}/api/sites/${encodeURIComponent(name)}/deployments`, {
+  const create = await fetch(`${origin}/cli/sites/${encodeURIComponent(name)}/deployments`, {
     method: 'POST',
     headers: {
       ...authHeaders,
@@ -127,7 +176,7 @@ async function deploy(): Promise<void> {
       `\rUploading ${index + 1}/${prepared.length} ${file.relative}                    `,
     );
     const response = await fetch(
-      `${origin}/api/deployments/${created.deployment.id}/assets?path=${encodeURIComponent(file.relative)}`,
+      `${origin}/cli/deployments/${created.deployment.id}/assets?path=${encodeURIComponent(file.relative)}`,
       {
         method: 'PUT',
         headers: {
@@ -142,7 +191,7 @@ async function deploy(): Promise<void> {
     if (!response.ok)
       throw new Error(((await response.json()) as { error?: string }).error || 'Upload failed');
   }
-  const activate = await fetch(`${origin}/api/deployments/${created.deployment.id}/activate`, {
+  const activate = await fetch(`${origin}/cli/deployments/${created.deployment.id}/activate`, {
     method: 'POST',
     headers: { ...authHeaders, origin, 'sec-fetch-site': 'same-origin' },
   });

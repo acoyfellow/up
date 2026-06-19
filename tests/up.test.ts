@@ -9,7 +9,16 @@ import {
   validateManifest,
 } from '../src/core';
 import app, { type Env, handleAuthenticatedRequest, isCoreRequest } from '../src/core-backend';
-import { createSession, sessionCookie, validReturnUrl, verifySession } from '../src/session';
+import {
+  createCliAuthorization,
+  createSession,
+  exchangeCliAuthorization,
+  sessionCookie,
+  validCliRedirect,
+  validReturnUrl,
+  verifyCliSession,
+  verifySession,
+} from '../src/session';
 
 const owner: Identity = { email: 'owner@example.com', role: 'member' };
 const bindings = env as unknown as Env;
@@ -156,6 +165,24 @@ describe('Access-backed site sessions', () => {
     expect(await verifySession(`${token}x`, secret)).toBeNull();
     expect(await verifySession(await createSession(owner, secret, -1), secret)).toBeNull();
   });
+  it('exchanges a short-lived PKCE authorization for a deploy-only CLI session', async () => {
+    const verifier = 'v'.repeat(48);
+    const digest = new Uint8Array(
+      await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)),
+    );
+    const challenge = btoa(String.fromCharCode(...digest))
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '');
+    const code = await createCliAuthorization(owner, challenge, secret);
+    expect(await verifyCliSession(code, secret)).toBeNull();
+    expect(await exchangeCliAuthorization(code, 'wrong-verifier'.repeat(4), secret)).toBeNull();
+    const token = await exchangeCliAuthorization(code, verifier, secret);
+    expect(await verifyCliSession(token || undefined, secret)).toEqual({ ...owner, groups: [] });
+    expect(validCliRedirect('http://127.0.0.1:49152/callback')?.pathname).toBe('/callback');
+    expect(validCliRedirect('https://evil.example/callback')).toBeNull();
+  });
+
   it('scopes cookies and return URLs to sibling site hosts', async () => {
     const token = await createSession(owner, secret);
     expect(sessionCookie(token, 'up.example.com')).toContain(

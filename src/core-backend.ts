@@ -15,9 +15,13 @@ import {
 import type { UpRegistry } from './registry';
 import {
   cookieValue,
+  createCliAuthorization,
   createSession,
+  exchangeCliAuthorization,
   sessionCookie,
+  validCliRedirect,
   validReturnUrl,
+  verifyCliSession,
   verifySession,
 } from './session';
 import type { SiteDatabase } from './site-database';
@@ -245,7 +249,9 @@ export function isCoreRequest(request: Request, env: Env): boolean {
   return (
     Boolean(domain && host !== domain && host !== controlHost && host.endsWith(`.${domain}`)) ||
     url.pathname.startsWith('/api/') ||
-    url.pathname === '/app/__session'
+    url.pathname.startsWith('/cli/') ||
+    url.pathname === '/app/__session' ||
+    url.pathname === '/app/cli-auth'
   );
 }
 
@@ -322,6 +328,68 @@ app.get('/app/__session', async (context) => {
       'set-cookie': sessionCookie(value, context.env.SITE_DOMAIN),
     },
   });
+});
+
+app.get('/app/cli-auth', async (context) => {
+  const configError = configurationError(context.env);
+  if (configError) return json({ error: configError }, 503);
+  if (!context.env.SESSION_SECRET)
+    return json({ error: 'CLI authentication is not configured' }, 503);
+  let identity: Identity;
+  try {
+    identity = await verifyAccessIdentity(context.req.raw, context.env);
+  } catch {
+    return json({ error: 'Authentication required' }, 403);
+  }
+  const redirect = validCliRedirect(context.req.query('redirect_uri') || null);
+  const state = context.req.query('state') || '';
+  const challenge = context.req.query('challenge') || '';
+  if (!redirect || !/^[A-Za-z0-9_-]{24,128}$/.test(state) || !/^[A-Za-z0-9_-]{43}$/.test(challenge))
+    return json({ error: 'Invalid CLI authentication request' }, 400);
+  const code = await createCliAuthorization(identity, challenge, context.env.SESSION_SECRET);
+  redirect.searchParams.set('code', code);
+  redirect.searchParams.set('state', state);
+  return new Response(null, { status: 302, headers: { ...secure, location: redirect.toString() } });
+});
+
+app.post('/cli/exchange', async (context) => {
+  if (!context.env.SESSION_SECRET)
+    return json({ error: 'CLI authentication is not configured' }, 503);
+  const input = await context.req.json<{ code?: unknown; verifier?: unknown }>().catch(() => null);
+  if (!input || typeof input.code !== 'string' || typeof input.verifier !== 'string')
+    return json({ error: 'Invalid exchange request' }, 400);
+  const token = await exchangeCliAuthorization(
+    input.code,
+    input.verifier,
+    context.env.SESSION_SECRET,
+  );
+  return token
+    ? json({ token, expiresIn: 900 })
+    : json({ error: 'Invalid authorization code' }, 403);
+});
+
+app.all('/cli/*', async (context) => {
+  if (!context.env.SESSION_SECRET)
+    return json({ error: 'CLI authentication is not configured' }, 503);
+  const bearer = context.req.header('authorization')?.match(/^Bearer (.+)$/)?.[1];
+  const identity = await verifyCliSession(bearer, context.env.SESSION_SECRET);
+  if (!identity) return json({ error: 'CLI authentication required' }, 401);
+  const url = new URL(context.req.url);
+  url.pathname = `/api/${url.pathname.slice('/cli/'.length)}`;
+  const headers = new Headers(context.req.raw.headers);
+  headers.set('origin', url.origin);
+  headers.set('sec-fetch-site', 'same-origin');
+  headers.delete('authorization');
+  try {
+    return await controlApi(
+      new Request(url, { method: context.req.method, headers, body: context.req.raw.body }),
+      context.env,
+      identity,
+    );
+  } catch (error) {
+    if (error instanceof RegistryError) return json({ error: error.message }, error.status);
+    return json({ error: 'Request failed' }, 500);
+  }
 });
 
 app.get('/api/health', (context) =>
