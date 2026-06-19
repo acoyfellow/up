@@ -1,8 +1,8 @@
-# Explanation: why the trust boundary is the product
+# Explanation: how Up decides who can open a site
 
-Shopify Quick demonstrated that a folder, a URL, and a company trust boundary can change how employees build and share. Up turns that mechanism into an OSS Cloudflare-native product and adds explicit capabilities without weakening the default.
+A site name and URL are public identifiers. They do not authorize a request. Up serves company and restricted sites only after it verifies an identity; anonymous access begins only when the owner explicitly changes a site to public.
 
-An installation belongs to the customer’s account. Cloudflare Access protects the publisher and mints company identity through Up's session broker. Private R2 holds immutable assets. A Durable Object serializes deployment authority. Every site declares one visibility state: company, restricted readers, or public.
+An installation belongs to the customer’s account. Cloudflare Access protects the publisher and supplies company identity to Up's session broker. Private R2 holds immutable assets. A Durable Object serializes deployment authority. Every site declares one visibility state: company, restricted readers, or public.
 
 The control plane, browser content, and backend code are separate trust zones:
 

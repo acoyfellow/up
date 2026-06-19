@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import PaintSwash from './paint-swash.svelte';
+  import UpLogo from './lib/UpLogo.svelte';
+  import UpMark from './lib/UpMark.svelte';
 
   type Visibility = 'company' | 'restricted' | 'public';
   type ReaderRule = { type: 'email' | 'domain' | 'group'; value: string };
@@ -468,7 +469,7 @@
 </svelte:head>
 
 <header class:product={isProduct}>
-  <a class="wordmark" href="/" aria-label="Up home"><i aria-hidden="true"></i>up</a>
+  <a class="wordmark" href="/" aria-label="Up home"><UpLogo decorative /></a>
   <nav aria-label="Primary">
     {#if !isProduct}
       <a href="/tutorial">Docs</a>
@@ -480,7 +481,7 @@
   </nav>
 </header>
 
-<main class:product={isProduct}>
+<main class:product={isProduct} class:home={section === 'home'}>
   {#if section === 'home'}
     <div class="home-shell">
       <section class="home-hero" aria-labelledby="home-title">
@@ -494,7 +495,22 @@
           </div>
           <p class="hosted-note"><i aria-hidden="true"></i>Cloudflare’s hosted installation is currently available to Cloudflare employees.</p>
         </div>
-        <div class="home-swash"><PaintSwash /></div>
+        <picture class="home-art" aria-hidden="true">
+          <source srcset="/images/up-hero-paint.webp" type="image/webp" />
+          <img src="/images/up-hero-paint.jpg" alt="" width="1536" height="1024" fetchpriority="high" />
+        </picture>
+        <div class="ambient-mark" aria-hidden="true">
+          <UpMark size={360} />
+        </div>
+        <div class="paint-pattern" aria-hidden="true">
+          {#each Array(8) as _, index}
+            <UpMark
+              size={42}
+              primary={index % 2 ? '#ffffff' : '#71b8d8'}
+              satellite={index % 2 ? '#71b8d8' : '#ffffff'}
+            />
+          {/each}
+        </div>
       </section>
 
       <section class="home-intro" aria-labelledby="intro-title">
@@ -568,7 +584,10 @@
             <button class="primary choose" onclick={chooseFolder}>Choose a folder <span aria-hidden="true">↗</span></button>
             <small><i aria-hidden="true"></i> Protected by Cloudflare Access</small>
           </div>
-          <div class="brand-stroke" aria-hidden="true"><PaintSwash /></div>
+          <picture class="brand-stroke" aria-hidden="true">
+            <source srcset="/images/up-hero-paint.webp" type="image/webp" />
+            <img src="/images/up-hero-paint.jpg" alt="" width="1536" height="1024" />
+          </picture>
         </div>
       {:else if view === 'list'}
         <div class="list-view">
@@ -724,7 +743,7 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
       {:else if section === 'reference'}
         <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List readable sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create deployment + visibility</td></tr><tr><th><code>PATCH /api/sites/:name/access</code></th><td>Company, restricted, or public</td></tr><tr><th><code>PATCH /api/sites/:name/database</code></th><td>Enable/delete isolated SQLite</td></tr><tr><th><code>GET|PUT|DELETE /api/sites/:name/secrets</code></th><td>Write-only secret capabilities</td></tr><tr><th><code>GET|POST|PATCH|DELETE /api/sites/:name/schedules</code></th><td>Bounded scheduled jobs</td></tr><tr><th><code>GET /api/sites/:name/audit</code></th><td>Capability and run receipts</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomic activation</td></tr></tbody></table><h2>Limits</h2><ul><li>500 files; 10 MiB per file; 50 MiB total</li><li><code>index.html</code> required</li><li><code>_worker.js</code> maximum 1 MiB</li><li>Dynamic request: 50 ms CPU, 5 subrequests, network blocked by default</li><li>100 reader rules; 20 secret hosts; 1,000 database rows per response</li><li>1,440 scheduled attempts/day maximum; 10 retries maximum</li></ul>
       {:else if section === 'explanation'}
-        <h1>The boundary is the product.</h1><p class="summary">One installation gives a company a private place for small web software—with deliberate escape hatches, never accidental ones.</p><h2>Private is the default</h2><p>Company visibility requires identity. Restricted visibility adds application ACLs. Public visibility is explicit registry state and does not inherit private capabilities accidentally.</p><h2>Content stays separate</h2><p>Browser code runs on sibling hostnames. Optional backend code runs in a separate Dynamic Worker isolate with no registry, deployment authority, R2 bucket, encryption keys, or global network.</p><h2>Capabilities are narrow</h2><p>Database and secret bindings are scoped to one site. Secret values are never returned. Scheduled jobs are leased, quota-bound, retried, and audited by trusted code.</p><h2>Deployment is atomic</h2><p>Files remain pending in private R2 until every manifest digest is verified. Visitors never see a partial update.</p>
+        <h1>A URL does not grant access.</h1><p class="summary">Up checks identity before serving a company or restricted site. Anonymous access begins only after an owner explicitly changes that site to public.</p><h2>Private sites require identity</h2><p>Company visibility accepts identities from the installation’s Access policy. Restricted visibility also checks the site’s email, domain, and group rules. Missing identity returns no uploaded content.</p><h2>Uploaded code runs elsewhere</h2><p>Browser code runs on sibling hostnames instead of the control origin. An optional <code>_worker.js</code> runs in a separate Dynamic Worker without the registry, deployment authority, R2 bucket, encryption keys, or unrestricted network access.</p><h2>Capabilities belong to one site</h2><p>Database and secret bindings address one site. Secret values are never returned. Scheduled jobs use leases, daily quotas, bounded retries, and audit receipts.</p><h2>A deployment appears all at once</h2><p>Files remain pending in private R2 until every manifest digest passes verification. Activation then changes one deployment pointer, so visitors receive either the previous complete version or the next one.</p>
       {:else if section === 'offline'}
         <h1>You are offline.</h1><p class="summary">The documentation shell is cached. Publishing still requires the network and Access.</p>
       {:else}
@@ -770,8 +789,8 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     --shadow-lg: 0 24px 70px #2a3c4924;
   }
   :global(*) { box-sizing: border-box; }
-  :global(html) { background: var(--white); scroll-behavior: smooth; }
-  :global(body) { min-width: 320px; margin: 0; background: linear-gradient(180deg, #fff 0%, #fcfdfe 64%, var(--paper) 100%); color: var(--ink); font-family: var(--sans); font-synthesis: none; }
+  :global(html) { max-width:100%; overflow-x:clip; background:var(--white); scroll-behavior:smooth; }
+  :global(body) { max-width:100%; min-width:320px; margin:0; overflow-x:clip; background:linear-gradient(180deg,#fff 0%,#fcfdfe 64%,var(--paper) 100%); color:var(--ink); font-family:var(--sans); font-synthesis:none; }
   :global(button), :global(input), :global(textarea), :global(select) { font: inherit; }
   :global(a) { color: inherit; }
   :global(code), :global(pre) { font-family: var(--mono); }
@@ -779,15 +798,16 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   :global(a:focus-visible), :global(button:focus-visible), :global(input:focus-visible), :global(textarea:focus-visible), :global(summary:focus-visible) { outline: 3px solid #71b8d8aa; outline-offset: 3px; }
 
   header, main, footer { width: min(100%, var(--page)); margin-inline: auto; padding-inline: var(--gutter); }
-  header { display: flex; height: 72px; align-items: center; border-bottom: 1px solid var(--line); }
-  .wordmark { display: inline-flex; align-items: center; gap: 9px; font-size: 1.05rem; font-weight: 760; letter-spacing: -.045em; text-decoration: none; }
-  .wordmark > i { width: 11px; height: 11px; border-radius: 50%; background: var(--orange); box-shadow: 7px -5px 0 -3px var(--cyan); }
+  header { position:relative; display:flex; height:72px; align-items:center; }
+  header::after { position:absolute; right:50%; bottom:0; width:100vw; height:1px; background:var(--line); content:""; transform:translateX(50%); pointer-events:none; }
+  .wordmark { display:inline-flex; align-items:center; text-decoration:none; }
   header nav { display: flex; align-items: center; gap: clamp(16px, 3vw, 30px); margin-left: auto; color: var(--muted); font-size: .76rem; }
   header nav a { text-decoration: none; transition: color .15s ease; }
   header nav a:hover { color: var(--ink); }
   .identity { display: inline-flex; max-width: min(310px, 60vw); min-height: 36px; align-items: center; gap: 8px; padding: 0 13px; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); font: 500 .66rem var(--mono); text-overflow: ellipsis; white-space: nowrap; }
   .identity > i { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
-  main { min-height: calc(100vh - 140px); padding-top: clamp(40px, 6vw, 72px); padding-bottom: clamp(72px, 9vw, 112px); }
+  main { min-height:calc(100vh - 140px); padding-top:clamp(40px,6vw,72px); padding-bottom:clamp(72px,9vw,112px); overflow-x:clip; }
+  main.home { width:100%; padding:0 0 clamp(72px,9vw,112px); overflow-x:clip; }
   footer { display: flex; min-height: 68px; align-items: center; border-top: 1px solid var(--line); color: var(--quiet); font: 500 .63rem var(--mono); }
   footer nav { display: flex; gap: 22px; margin-left: auto; }
   footer a { text-decoration: none; }
@@ -805,9 +825,24 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .section-index::before { width: 24px; height: 1px; flex: 0 0 auto; background: var(--orange); content: ""; }
 
   /* Product front door */
-  .home-shell { width: min(100%, 1120px); margin-inline: auto; border-top: 1px solid var(--line); }
-  .home-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .82fr); align-items: center; gap: clamp(36px, 5vw, 72px); padding: clamp(54px, 7vw, 88px) var(--gutter) clamp(60px, 7vw, 92px); border-bottom: 1px solid var(--line); }
-  .home-hero-copy { min-width: 0; }
+  .home-shell { width:100%; }
+  .home-shell > :not(.home-hero) { width:min(calc(100% - 2 * var(--gutter)),1120px); margin-inline:auto; }
+  .home-hero { position:relative; display:flex; width:100%; min-height:clamp(620px,52vw,760px); align-items:center; margin:0; padding:clamp(70px,8vw,112px) max(var(--gutter),calc((100% - 1120px) / 2 + var(--gutter))); overflow:clip; border-bottom:1px solid var(--line); isolation:isolate; }
+  .home-hero-copy { position:relative; z-index:2; width:min(46%,520px); min-width:0; }
+  .home-art { position:absolute; z-index:-2; inset:0; display:block; overflow:hidden; pointer-events:none; }
+  .home-art img { width:100%; height:100%; object-fit:cover; object-position:center 58%; }
+  .ambient-mark { position:absolute; z-index:-1; top:-54px; right:-34px; width:420px; opacity:.12; mix-blend-mode:multiply; pointer-events:none; }
+  .ambient-mark :global(svg) { width:100% !important; height:auto !important; }
+  .paint-pattern { position:absolute; z-index:1; right:clamp(22px,5vw,84px); bottom:clamp(48px,7vw,104px); display:grid; width:clamp(280px,34vw,500px); grid-template-columns:repeat(4,1fr); justify-items:center; gap:clamp(18px,2.5vw,34px); opacity:.54; transform:rotate(-18deg); pointer-events:none; }
+  .paint-pattern :global(svg) { mix-blend-mode:screen; }
+  .paint-pattern :global(svg:nth-child(1)) { transform:translate(-18px,14px) rotate(-9deg) scale(.82); }
+  .paint-pattern :global(svg:nth-child(2)) { transform:translate(8px,-12px) rotate(7deg) scale(1.08); }
+  .paint-pattern :global(svg:nth-child(3)) { transform:translate(-5px,20px) rotate(-14deg) scale(.68); }
+  .paint-pattern :global(svg:nth-child(4)) { transform:translate(20px,-2px) rotate(12deg) scale(1.2); }
+  .paint-pattern :global(svg:nth-child(5)) { transform:translate(-10px,-8px) rotate(5deg) scale(1.12); }
+  .paint-pattern :global(svg:nth-child(6)) { transform:translate(14px,17px) rotate(-11deg) scale(.76); }
+  .paint-pattern :global(svg:nth-child(7)) { transform:translate(-22px,7px) rotate(15deg) scale(1.24); }
+  .paint-pattern :global(svg:nth-child(8)) { transform:translate(11px,-15px) rotate(-5deg) scale(.9); }
   .home-kicker { display: flex; align-items: center; gap: 10px; color: var(--quiet); font: 500 .66rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }
   .home-kicker i { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); }
   .home-hero h1 { max-width: 580px; margin: 22px 0 20px; font-size: clamp(2.6rem, 5.2vw, 4rem); font-weight: 640; line-height: 1.02; letter-spacing: -.032em; }
@@ -819,7 +854,6 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .home-secondary:hover { border-color: var(--ink); color: var(--ink); }
   .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
   .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
-  .home-swash { height:clamp(300px,38vw,430px); margin-right:-6%; transform:rotate(-2deg); }
   .home-intro, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
   .home-intro h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
   .home-intro > div > p { max-width: 680px; margin: 30px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
@@ -893,8 +927,8 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .empty-copy small { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--quiet); font-size: .69rem; }
   .empty-copy small > i, .privacy i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
   .choose { min-width: 184px; justify-content: space-between; gap: 32px; }
-  .brand-stroke { position: relative; align-self: stretch; min-height: 480px; margin-right: -24px; pointer-events: none; }
-  .brand-stroke :global(svg) { position:absolute; inset:2% -4% 0 -10%; width:115%; height:100%; transform:rotate(-3deg); }
+  .brand-stroke { position:relative; align-self:stretch; min-height:480px; margin-right:-24px; overflow:hidden; pointer-events:none; }
+  .brand-stroke img { position:absolute; inset:0; width:140%; height:100%; object-fit:cover; object-position:72% 58%; }
   .selected-view, .publishing-view, .success-view, .list-view, .manage-view { width: min(100%, 820px); margin-inline: auto; }
   .selected-view, .publishing-view, .success-view { padding-left: 28px; border-left: 2px solid var(--orange); }
   .back { min-height: 36px; margin: 0 0 44px; padding: 0; border: 0; background: none; color: var(--muted); font: 500 .68rem var(--mono); cursor: pointer; }
@@ -981,8 +1015,12 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
   .manage-empty { margin: 0; color: var(--quiet); font-size: .71rem; }
 
   @media (max-width: 900px) {
-    .home-hero { grid-template-columns: 1fr; gap: 36px; }
-    .home-swash { order:-1; height:300px; margin:0 8% -20px; }
+    .home-hero { min-height:0; align-items:flex-end; padding-top:460px; padding-bottom:56px; }
+    .home-hero-copy { width:min(100%,600px); }
+    .home-art { top:0; right:auto; bottom:auto; left:-18%; width:138%; height:440px; }
+    .home-art img { object-position:64% 72%; }
+    .ambient-mark { top:-32px; right:-24px; width:300px; opacity:.1; }
+    .paint-pattern { top:170px; right:-18px; bottom:auto; width:300px; grid-template-columns:repeat(2,1fr); gap:24px; opacity:.58; }
     .home-intro, .system-model, .read-next { grid-template-columns: minmax(0, 1fr); gap: 28px; }
     .system-model > div { min-width: 0; }
     .feature-grid { grid-template-columns: repeat(2, 1fr); }
@@ -997,8 +1035,8 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     .docs-nav > div { display: none; }
     .empty-state { grid-template-columns: 1fr; }
     .empty-copy { padding: 58px 28px 0; }
-    .brand-stroke { min-height: 310px; margin: -6px -30px -8px 20%; }
-    .brand-stroke :global(svg) { inset: -8% -8% 0 -15%; width: 120%; }
+    .brand-stroke { min-height:310px; margin:-6px -30px -8px 12%; }
+    .brand-stroke img { width:155%; object-position:72% 62%; }
     .manage-form, .manage-form.three { grid-template-columns: 1fr 1fr; }
   }
 
@@ -1006,11 +1044,19 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     header, main, footer { padding-inline: 18px; }
     header nav a:not(:last-child) { display: none; }
     main { padding-top: 34px; padding-bottom: 64px; }
-    .home-hero { padding: 44px 14px 56px; }
+    main.home { padding-inline:0; }
+    .home-shell > :not(.home-hero) { width:calc(100% - 36px); }
+    .home-hero { min-height:0; padding:295px 32px 48px; }
     .home-hero h1 { font-size: clamp(2.15rem, 10vw, 2.9rem); }
     .home-actions { align-items: flex-start; flex-direction: column; gap: 12px; }
-    .home-swash { height:240px; margin:0 -8% -12px 4%; }
+    .home-art { top:0; right:auto; left:-30%; width:165%; height:285px; }
+    .home-art img { object-position:62% 78%; }
+    .ambient-mark { top:-28px; right:-26px; width:200px; opacity:.09; }
+    .paint-pattern { top:92px; right:-16px; width:200px; gap:14px; opacity:.6; }
     .home-intro, .system-model, .read-next, .docs-map { padding: 56px 14px; }
+    .model-flow { display:grid; grid-template-columns:minmax(0,1fr); justify-items:stretch; overflow:visible; white-space:normal; }
+    .model-flow span { text-align:center; }
+    .model-flow i { justify-self:center; transform:rotate(90deg); }
     .feature-grid { grid-template-columns: 1fr; }
     .feature-grid article:nth-child(n) { min-height: 190px; border-right: 0; border-bottom: 1px solid var(--line); }
     .feature-grid article:last-child { border-bottom: 0; }
@@ -1025,7 +1071,8 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
     .empty-state { min-height: 570px; }
     .empty-copy { padding: 48px 14px 0; }
     .empty-state h1 { font-size: clamp(2.2rem, 12vw, 3rem); }
-    .brand-stroke { min-height: 260px; margin: 0 -34px 0 10%; }
+    .brand-stroke { min-height:260px; margin:0 -34px 0 2%; }
+    .brand-stroke img { width:180%; object-position:72% 64%; }
     .selected-view, .publishing-view, .success-view { padding-left: 18px; }
     .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1, .manage-view h1 { font-size: 2.7rem; }
     .file-summary { grid-template-columns: 1fr; }
@@ -1049,6 +1096,5 @@ Publish the folder through Up.</code></pre><p>After publishing, Manage can enabl
 
   @media (prefers-reduced-motion: reduce) {
     :global(*) { scroll-behavior: auto !important; transition: none !important; }
-    .brand-stroke :global(svg) { transform: none; }
   }
 </style>

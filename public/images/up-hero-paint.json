@@ -1,0 +1,23 @@
+{
+  "asset": "Up hero paint background",
+  "generatedAt": "2026-06-19",
+  "service": "img.ax.cloudflare.dev",
+  "modelAlias": "flux2-klein",
+  "resolvedModel": "@cf/black-forest-labs/flux-2-klein-9b",
+  "seed": 19044,
+  "steps": 28,
+  "guidance": 4.5,
+  "width": 1536,
+  "height": 1024,
+  "prompt": "Extreme-wide website hero background, photographed straight-on. Pure neutral white primed canvas fills the scene. One enormous real loaded-brush gesture enters from below the lower center, arcs gently upward across the lower-right half, and exits beyond the far right edge. The left 45 percent stays calm, clean white negative space for editorial typography. The gesture is physically painted as five distinct adjacent ribbons, all clearly visible and separate: near-black ink navy #0b1118 along the upper edge; deep cobalt #2678a4; a narrower pale atmospheric cyan #71b8d8; saturated coral red #ed2347; and signal orange #f6821f along the lower edge. No missing color. No rainbow blending. Real acrylic impasto with raised pigment ridges, loaded-brush grooves, dry broken bristle edges, slight pressure changes, tiny white canvas gaps, and subtle natural studio-light sheen. Broad, confident, directional, optimistic, useful, human. Oversized asymmetrical crop. The paint must feel like a background field extending beyond the viewport, not an illustration centered in a box. Keep all of the left copy area empty. No text, letters, logo, icons, UI, people, hands, brushes, devices, architecture, scenery, space imagery, border, frame, mockup, card, drop shadow, colored backdrop, or digital gradient.",
+  "negative": "vector art, SVG look, smooth digital ribbon, CGI, glossy plastic, watercolor, pastel, peach, missing navy, missing coral, missing orange, blended rainbow, centered swatch, square icon, framed artwork, poster, text, logo, person, hand, brush, object, dark background, cream paper, splatter on left side",
+  "outputs": [
+    { "path": "/images/up-hero-paint.webp", "format": "webp", "quality": 88 },
+    {
+      "path": "/images/up-hero-paint.jpg",
+      "format": "jpeg",
+      "quality": 90,
+      "chromaSubsampling": "4:4:4"
+    }
+  ]
+}
