@@ -256,7 +256,6 @@
   <a class="wordmark" href="/" aria-label="Up home"><UpLogo decorative /></a>
   <nav aria-label="Primary">
     {#if !isProduct}
-      <a href="/#demos">Demos</a>
       <a href="/tutorial">Docs</a>
       <a href="/explanation">How it works</a>
       <a href="/app">Open Up ↗</a>
@@ -317,28 +316,8 @@
         <article><span>08</span><h3>Stay in control</h3><p>The Worker, Durable Objects, R2, DNS, and Access app remain in your account.</p></article>
       </section>
 
-      <section class="demo-showcase" id="demos" aria-labelledby="demos-title">
-        <div class="demo-heading">
-          <div><p class="section-index">02 / BUILT WITH UP</p><h2 id="demos-title">Small apps. Real capabilities.</h2></div>
-          <p>Each demo is a folder published through Up. Live sites remain behind the company’s Access boundary.</p>
-        </div>
-        <article class="demo-card">
-          <a class="demo-preview" href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer" aria-label="Open the Lunch Vote live demo">
-            <img src="/demos/lunch-vote.jpg" alt="Lunch Vote showing authenticated voting and a connected realtime room" width="1200" height="675" loading="lazy" />
-            <span>Open live demo <i aria-hidden="true">↗</i></span>
-          </a>
-          <div class="demo-copy">
-            <div><span class="demo-status"><i aria-hidden="true"></i>Cloudflare employees</span><span>01</span></div>
-            <h3>Lunch Vote</h3>
-            <p>Vote with coworkers, watch every open browser update, share a menu file, and ask Workers AI to summarize the result.</p>
-            <ul aria-label="Capabilities used"><li>Identity</li><li>Database</li><li>Files</li><li>AI</li><li>Realtime</li></ul>
-            <div class="demo-links"><a href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer">Open site ↗</a><a href="https://github.com/acoyfellow/up/tree/feat/quick-parity-0.0.1/examples/lunch-vote" target="_blank" rel="noopener noreferrer">View three-file source ↗</a></div>
-          </div>
-        </article>
-      </section>
-
       <section class="system-model" aria-labelledby="model-title">
-        <p class="section-index">03 / SYSTEM</p>
+        <p class="section-index">02 / SYSTEM</p>
         <div>
           <h2 id="model-title">Folder to private URL.</h2>
           <div class="model-flow" aria-label="Folder to private URL workflow">
@@ -353,7 +332,7 @@
       </section>
 
       <section class="docs-map" aria-labelledby="docs-title">
-        <div class="docs-map-heading"><div><p class="section-index">04 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
+        <div class="docs-map-heading"><div><p class="section-index">03 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
         <div class="docs-quadrants">
           <a href="/tutorial"><span>LEARNING</span><strong>Tutorial</strong><p>Connect Cloudflare and publish a first private site.</p><i aria-hidden="true">01 →</i></a>
           <a href="/how-to"><span>GOALS</span><strong>How-to guides</strong><p>Update, operate, verify, and respond safely.</p><i aria-hidden="true">02 →</i></a>
@@ -467,6 +446,7 @@
         <nav>
           <a class:active={section === 'tutorial'} href="/tutorial"><span>01</span>Tutorial</a>
           <a class:active={section === 'how-to'} href="/how-to"><span>02</span>How-to guides</a>
+          <a class:active={section === 'examples'} class="subpage" href="/examples"><span>↳</span>Examples</a>
           <a class:active={section === 'reference'} href="/reference"><span>03</span>Reference</a>
           <a class:active={section === 'explanation'} href="/explanation"><span>04</span>Explanation</a>
         </nav>
@@ -484,7 +464,15 @@
         <h1>Operate Up</h1><p class="summary">Publish the same folder from the browser, CLI, or an agent.</p><h2>Update a site</h2><p>Publish the same name. Up activates the replacement only after every new asset passes verification.</p><h2>Initialize an agent</h2><pre><code>up init
 # Ask the agent to read .up/SKILL.md
 # Build into ./dist
-up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import <code>/_up/client.js</code>. Identity, document collections, files, AI, and realtime are available without credentials or per-site infrastructure.</p><h2>Respond to exposure</h2><p>Disable the wildcard route or Access application first. Never enable <code>workers.dev</code> as a workaround.</p>
+up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import <code>/_up/client.js</code>. Identity, document collections, files, AI, and realtime are available without credentials or per-site infrastructure.</p><p><a href="/examples">Browse apps built with Up →</a></p><h2>Respond to exposure</h2><p>Disable the wildcard route or Access application first. Never enable <code>workers.dev</code> as a workaround.</p>
+      {:else if section === 'examples'}
+        <h1>Apps built with Up</h1><p class="summary">Small company-private apps and the folders that power them. Live AX examples require a Cloudflare employee identity.</p>
+        <div class="example-list">
+          <article class="example-row">
+            <a class="example-thumb" href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer" aria-label="Open the Lunch Vote live example"><img src="/demos/lunch-vote.jpg" alt="Lunch Vote interface" width="1200" height="675" /></a>
+            <div><p class="example-number">01 · IDENTITY / DB / FILES / AI / REALTIME</p><h2>Lunch Vote</h2><p>Vote with coworkers, see realtime updates, share a menu file, and ask Workers AI to summarize the result.</p><nav aria-label="Lunch Vote links"><a href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer">Open live example ↗</a><a href="https://github.com/acoyfellow/up/tree/feat/quick-parity-0.0.1/examples/lunch-vote" target="_blank" rel="noopener noreferrer">View source ↗</a></nav></div>
+          </article>
+        </div>
       {:else if section === 'reference'}
         <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List company sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create a pending company deployment</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store one asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomically activate a deployment</td></tr><tr><th><code>GET /_up/identity</code></th><td>Current verified employee</td></tr><tr><th><code>/_up/db/*</code></th><td>Site document collections</td></tr><tr><th><code>/_up/files/*</code></th><td>Site file storage</td></tr><tr><th><code>POST /_up/ai/chat</code></th><td>Bounded Workers AI request</td></tr><tr><th><code>GET /_up/realtime/:channel</code></th><td>Authenticated WebSocket channel</td></tr></tbody></table><h2>Limits</h2><ul><li>500 deployment files; 10 MiB each; 50 MiB total</li><li><code>index.html</code> required</li><li>64 KiB per database document; 100 documents per page</li><li>10 MiB per site file; 1,000 listed files</li><li>24 AI messages; 20,000 input characters; 512 output tokens</li><li>16 KiB per realtime message</li></ul>
       {:else if section === 'explanation'}
@@ -600,7 +588,7 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
   .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
   .home-intro, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
-  .home-intro h2, .system-model h2, .demo-showcase h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
+  .home-intro h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
   .home-intro > div > p { max-width: 680px; margin: 30px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
   .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
   .feature-grid article { min-height: 228px; padding: 26px; border-right: 1px solid var(--line); }
@@ -610,27 +598,6 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .feature-grid h3 { margin: 26px 0 10px; font-size: .98rem; letter-spacing: -.018em; }
   .feature-grid p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.62; }
   .feature-grid code { font-size: .7rem; }
-  .demo-showcase { padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); scroll-margin-top: 32px; }
-  .demo-heading { display: grid; grid-template-columns: 1.25fr .75fr; align-items: end; gap: 48px; margin-bottom: 38px; }
-  .demo-heading .section-index { margin-bottom: 18px; }
-  .demo-heading > p { max-width: 370px; margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.7; }
-  .demo-card { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .55fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: #fff; }
-  .demo-preview { position: relative; display: block; min-height: 360px; overflow: hidden; border-right: 1px solid var(--line); background: var(--paper); }
-  .demo-preview img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
-  .demo-preview:hover img { transform: scale(1.012); }
-  .demo-preview > span { position: absolute; right: 16px; bottom: 16px; display: flex; min-height: 38px; align-items: center; gap: 28px; padding: 0 13px; border: 1px solid #ffffff70; border-radius: 4px; background: #0b1118e8; color: #fff; font-size: .7rem; font-weight: 620; }
-  .demo-preview > span i { color: var(--orange); font-style: normal; }
-  .demo-copy { display: flex; min-width: 0; flex-direction: column; padding: 26px; }
-  .demo-copy > div:first-child { display: flex; align-items: center; justify-content: space-between; color: var(--quiet); font: 500 .6rem var(--mono); }
-  .demo-status { display: inline-flex; align-items: center; gap: 7px; }
-  .demo-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
-  .demo-copy h3 { margin: 32px 0 11px; font-size: 1.4rem; letter-spacing: -.025em; }
-  .demo-copy p { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.68; }
-  .demo-copy ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 24px 0 30px; padding: 0; list-style: none; }
-  .demo-copy li { padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--paper); color: var(--muted); font: 500 .59rem var(--mono); }
-  .demo-links { display: grid; gap: 10px; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--line); }
-  .demo-links a { width: max-content; max-width: 100%; color: var(--blue); font-size: .69rem; text-decoration: none; }
-  .demo-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .model-flow { display: flex; align-items: center; gap: 10px; margin: 38px 0; padding: 18px 0; overflow-x: auto; border-block: 1px solid var(--line); white-space: nowrap; }
   .model-flow span { padding: 8px 11px; border: 1px solid var(--line); border-radius: 3px; background: #fff; font: 500 .68rem var(--mono); }
   .model-flow i { color: var(--orange); font-style: normal; }
@@ -664,6 +631,7 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .docs-nav nav a span { color: var(--quiet); font: 500 .57rem var(--mono); }
   .docs-nav nav a:hover, .docs-nav nav a.active { background: var(--paper); color: var(--ink); }
   .docs-nav nav a.active { box-shadow: inset 2px 0 var(--orange); }
+  .docs-nav nav a.subpage { min-height: 36px; padding-left: 18px; font-size: .69rem; }
   .docs-nav > div { display: grid; gap: 8px; margin-top: 28px; padding: 14px 8px; border-top: 1px solid var(--line); font: 500 .61rem var(--mono); }
   .docs-nav > div span { color: var(--quiet); }
   .docs-nav > div a { color: var(--blue); text-decoration: none; }
@@ -678,6 +646,17 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .doc th, .doc td { padding: 14px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: .74rem; }
   .doc th { width: 54%; font-weight: 550; }
   .doc td { color: var(--muted); }
+  .example-list { border-top: 1px solid var(--line-strong); }
+  .example-row { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--line); }
+  .example-thumb { display: block; align-self: start; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--paper); aspect-ratio: 16 / 9; }
+  .example-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .2s ease; }
+  .example-thumb:hover img { transform: scale(1.03); }
+  .example-row h2 { margin: 6px 0 8px; padding: 0; border: 0; font-size: 1.05rem; }
+  .example-row p { margin: 0; }
+  .example-row .example-number { color: var(--orange); font: 500 .55rem var(--mono); letter-spacing: .04em; }
+  .example-row nav { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
+  .example-row nav a { color: var(--blue); font-size: .68rem; text-decoration: none; }
+  .example-row nav a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
   /* Publisher */
   main.product { padding-top: clamp(36px, 5vw, 56px); }
@@ -755,9 +734,7 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .feature-grid article:nth-child(2n) { border-right: 0; }
     .feature-grid article:nth-child(n) { border-bottom: 1px solid var(--line); }
     .feature-grid article:nth-last-child(-n+2) { border-bottom: 0; }
-    .demo-heading, .docs-map-heading { grid-template-columns: 1fr; gap: 26px; }
-    .demo-card { grid-template-columns: 1fr; }
-    .demo-preview { min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); aspect-ratio: 16 / 9; }
+    .docs-map-heading { grid-template-columns: 1fr; gap: 26px; }
     .docs-shell { grid-template-columns: 1fr; gap: 40px; }
     .docs-nav { position: static; min-height: 0; padding: 0; border-right: 0; border-bottom: 1px solid var(--line); }
     .docs-nav nav { grid-template-columns: 1fr 1fr; }
@@ -782,11 +759,7 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .home-art img { object-position:62% 78%; }
     .ambient-mark { top:-28px; right:-26px; width:200px; opacity:.09; }
     .paint-pattern { top:92px; right:-16px; width:200px; gap:14px; opacity:.6; }
-    .home-intro, .system-model, .read-next, .demo-showcase, .docs-map { padding: 56px 14px; }
-    .demo-card { grid-template-columns: 1fr; }
-    .demo-preview { min-height: 0; aspect-ratio: 16 / 9; }
-    .demo-copy { padding: 22px; }
-    .demo-copy h3 { margin-top: 24px; }
+    .home-intro, .system-model, .read-next, .docs-map { padding: 56px 14px; }
     .model-flow { display:grid; grid-template-columns:minmax(0,1fr); justify-items:stretch; overflow:visible; white-space:normal; }
     .model-flow span { text-align:center; }
     .model-flow i { justify-self:center; transform:rotate(90deg); }
@@ -801,6 +774,8 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .docs-nav nav { grid-template-columns: 1fr; }
     .docs-nav nav a:nth-child(odd) { border-right: 0; }
     .doc h1 { font-size: 3rem; }
+    .example-row { grid-template-columns: 112px minmax(0, 1fr); gap: 16px; }
+    .example-row nav { display: grid; gap: 8px; }
     .empty-state { min-height: 570px; }
     .empty-copy { padding: 48px 14px 0; }
     .empty-state h1 { font-size: clamp(2.2rem, 12vw, 3rem); }
