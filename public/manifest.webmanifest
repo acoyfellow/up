@@ -1,7 +1,7 @@
 {
-  "name": "Up — put your company’s private web online",
+  "name": "Up — your company’s private web",
   "short_name": "Up",
-  "description": "Drop a folder and put it online for your company, private by default.",
+  "description": "Publish a folder to a company-private URL, private by default.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

@@ -1,15 +1,21 @@
 {
+  "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "WebWorker", "DOM"],
-    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-pool-workers/types", "bun", "node"],
+    "types": [
+      "svelte",
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-pool-workers/types",
+      "bun",
+      "node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     "noEmit": true
-  },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+  }
 }

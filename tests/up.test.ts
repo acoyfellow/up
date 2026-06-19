@@ -11,7 +11,12 @@ import {
   sha256,
   validateManifest,
 } from '../src/core';
-import app, { type Env, handleAuthenticatedRequest, runDueSchedules } from '../src/index';
+import app, {
+  type Env,
+  handleAuthenticatedRequest,
+  isCoreRequest,
+  runDueSchedules,
+} from '../src/core-backend';
 import { cleanAllowedHosts, cleanSecretName, decryptSecret, encryptSecret } from '../src/secrets';
 import { createSession, sessionCookie, validReturnUrl, verifySession } from '../src/session';
 
@@ -93,13 +98,23 @@ describe('security configuration and public surface', () => {
       'cloudflareaccess.com',
     );
   });
-  it('serves docs publicly but never serves APIs without an Access assertion', async () => {
-    expect((await SELF.fetch('https://control.example.com/')).status).toBe(200);
+  it('keeps the core Worker non-public and rejects APIs without an Access assertion', async () => {
+    expect((await SELF.fetch('https://control.example.com/')).status).toBe(404);
     expect((await SELF.fetch('https://control.example.com/api/sites')).status).toBe(403);
   });
 });
 
 describe('input boundaries', () => {
+  it('dispatches wildcard assets and control APIs ahead of SvelteKit static assets', () => {
+    expect(isCoreRequest(new Request('https://demo.up.example.com/icon.svg'), bindings)).toBe(true);
+    expect(isCoreRequest(new Request('https://control.example.com/api/sites'), bindings)).toBe(
+      true,
+    );
+    expect(isCoreRequest(new Request('https://control.example.com/icon.svg'), bindings)).toBe(
+      false,
+    );
+  });
+
   it('accepts safe names and rejects reserved or ambiguous names', () => {
     expect(cleanSiteName('quarterly-planning')).toBe('quarterly-planning');
     for (const value of ['../owner', 'www', 'api', '-bad', 'double--dash', 'UPPER SPACE'])

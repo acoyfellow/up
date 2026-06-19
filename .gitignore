@@ -15,3 +15,5 @@ artifacts/video/
 .DS_Store
 wrangler.up.jsonc
 scratch/
+
+.svelte-kit/

@@ -112,13 +112,18 @@ await ensureWildcardDns(cf, accountId, deploymentZone, controlHost);
 const config = {
   $schema: 'node_modules/wrangler/config-schema.json',
   name: appName,
-  main: 'build/worker.bundled.mjs',
+  main: 'src/kit-worker.ts',
   compatibility_date: compatDate,
   compatibility_flags: ['nodejs_compat'],
   workers_dev: false,
   preview_urls: false,
   observability: { enabled: true },
   build: { command: 'bun run build' },
+  assets: {
+    binding: 'STATIC_ASSETS',
+    directory: '.svelte-kit/cloudflare',
+    run_worker_first: true,
+  },
   routes: [
     { pattern: controlHost, custom_domain: true },
     { pattern: `${siteWildcard}/*`, zone_name: deploymentZone },

@@ -32,7 +32,22 @@ try {
     throw Error(`API did not fail closed: ${protectedApi.status()}`);
   const app = await page.request.get(`${origin}/app`);
   if (![403, 503].includes(app.status())) throw Error(`app did not fail closed: ${app.status()}`);
-  console.log(`Local browser E2E passed for ${origin}`);
+
+  const noJs = await browser.newPage({ javaScriptEnabled: false });
+  await noJs.goto(origin, { waitUntil: 'load' });
+  if (!(await noJs.getByRole('heading', { name: 'Your company’s private web.' }).isVisible()))
+    throw Error('SSR front door missing without JavaScript');
+  const description = await noJs.locator('meta[name="description"]').getAttribute('content');
+  if (!description?.includes('company-private URL'))
+    throw Error('SSR description metadata missing');
+  const canonical = await noJs.locator('link[rel="canonical"]').getAttribute('href');
+  if (canonical !== 'https://up.ax.cloudflare.dev/') throw Error('SSR canonical metadata missing');
+  const structuredData = await noJs.locator('script[type="application/ld+json"]').textContent();
+  if (!structuredData) throw Error('SSR structured data missing');
+  JSON.parse(structuredData);
+  await noJs.close();
+
+  console.log(`Local SvelteKit SSR/browser E2E passed for ${origin}`);
 } finally {
   await browser.close();
 }

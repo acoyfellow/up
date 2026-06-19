@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import PaintSwash from './paint-swash.svelte';
 
   type Visibility = 'company' | 'restricted' | 'public';
@@ -32,7 +32,31 @@
     sha256: string;
   };
 
-  let { section = 'home', eyebrow = '' } = $props<{ section: string; eyebrow: string }>();
+  type ErrorPayload = { error?: string };
+  type SitesPayload = { sites: Site[]; siteDomain?: string | null };
+  type IdentityPayload = { email: string };
+  type DeploymentPayload = { deployment: { id: string }; error?: string };
+  type ActivationPayload = { siteUrl?: string; error?: string };
+
+  function responseJson<T>(response: Response): Promise<T> {
+    return response.json() as Promise<T>;
+  }
+
+  let {
+    section = 'home',
+    eyebrow = '',
+    initialIdentity = '',
+    initialSites = [],
+    initialSiteDomain = 'up.example.com',
+    productLoaded = false,
+  } = $props<{
+    section: string;
+    eyebrow: string;
+    initialIdentity?: string;
+    initialSites?: Site[];
+    initialSiteDomain?: string;
+    productLoaded?: boolean;
+  }>();
 
   let files = $state<File[]>([]);
   let prepared = $state<PreparedFile[]>([]);
@@ -41,16 +65,18 @@
   let progress = $state(0);
   let publishing = $state(false);
   let publishedUrl = $state('');
-  let sites = $state<Site[]>([]);
-  let identity = $state('');
-  let siteDomain = $state('up.example.com');
+  let sites = $state<Site[]>(untrack(() => initialSites));
+  let identity = $state(untrack(() => initialIdentity));
+  let siteDomain = $state(untrack(() => initialSiteDomain));
   let dragging = $state(false);
   let copied = $state(false);
   let visibility = $state<Visibility>('company');
   let readersText = $state('');
   let publicConfirmed = $state(false);
   let databaseRequested = $state(false);
-  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list' | 'manage'>('empty');
+  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list' | 'manage'>(
+    untrack(() => initialSites.length) ? 'list' : 'empty',
+  );
   let managedSite = $state<Site | null>(null);
   let managedSecrets = $state<SecretSummary[]>([]);
   let managedSchedules = $state<ScheduleSummary[]>([]);
@@ -71,7 +97,9 @@
 
   onMount(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
-    if (isProduct) void initializeProduct();
+    // SvelteKit supplies authoritative product data in the initial SSR payload.
+    // The fallback keeps the legacy renderer functional during migration only.
+    if (isProduct && !productLoaded) void initializeProduct();
   });
 
   async function initializeProduct() {
@@ -82,7 +110,7 @@
   async function loadIdentity() {
     try {
       const response = await fetch('/api/me');
-      const data = await response.json();
+      const data = await responseJson<IdentityPayload>(response);
       if (response.ok) identity = data.email;
     } catch {
       identity = '';
@@ -92,7 +120,7 @@
   async function loadSites() {
     try {
       const response = await fetch('/api/sites');
-      const data = await response.json();
+      const data = await responseJson<SitesPayload>(response);
       if (response.ok) {
         sites = data.sites;
         if (data.siteDomain) siteDomain = data.siteDomain;
@@ -121,10 +149,12 @@
       fetch(`/api/sites/${name}/schedules`),
       fetch('/api/sites'),
     ]);
-    if (secretsResponse.ok) managedSecrets = (await secretsResponse.json()).secrets;
-    if (schedulesResponse.ok) managedSchedules = (await schedulesResponse.json()).schedules;
+    if (secretsResponse.ok)
+      managedSecrets = (await responseJson<{ secrets: SecretSummary[] }>(secretsResponse)).secrets;
+    if (schedulesResponse.ok)
+      managedSchedules = (await responseJson<{ schedules: ScheduleSummary[] }>(schedulesResponse)).schedules;
     if (sitesResponse.ok) {
-      const data = await sitesResponse.json();
+      const data = await responseJson<SitesPayload>(sitesResponse);
       sites = data.sites;
       managedSite = sites.find((site) => site.name === managedSite?.name) || managedSite;
     }
@@ -147,7 +177,7 @@
         },
       }),
     });
-    const data = await response.json();
+    const data = await responseJson<ErrorPayload>(response);
     manageStatus = response.ok ? 'Visibility saved.' : data.error || 'Unable to save visibility.';
     if (response.ok) await loadManagement();
   }
@@ -160,7 +190,7 @@
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ enabled }),
     });
-    const data = await response.json();
+    const data = await responseJson<ErrorPayload>(response);
     manageStatus = response.ok
       ? enabled
         ? 'Database enabled.'
@@ -182,7 +212,7 @@
         }),
       },
     );
-    const data = await response.json();
+    const data = await responseJson<ErrorPayload>(response);
     manageStatus = response.ok ? 'Secret capability saved.' : data.error || 'Unable to save secret.';
     if (response.ok) {
       secretName = '';
@@ -214,7 +244,7 @@
         retryLimit: 3,
       }),
     });
-    const data = await response.json();
+    const data = await responseJson<ErrorPayload>(response);
     manageStatus = response.ok ? 'Schedule created.' : data.error || 'Unable to create schedule.';
     if (response.ok) await loadManagement();
   }
@@ -375,7 +405,7 @@
           access: { visibility, readers: visibility === 'restricted' ? readers : [] },
         }),
       });
-      const creation = await created.json();
+      const creation = await responseJson<DeploymentPayload>(created);
       if (!created.ok) throw new Error(creation.error || 'Unable to create deployment');
 
       for (let index = 0; index < prepared.length; index++) {
@@ -391,7 +421,8 @@
             body: asset.file,
           },
         );
-        if (!response.ok) throw new Error((await response.json()).error || 'Upload failed');
+        if (!response.ok)
+          throw new Error((await responseJson<ErrorPayload>(response)).error || 'Upload failed');
       }
 
       status = 'Verifying deployment';
@@ -399,7 +430,7 @@
       const activated = await fetch(`/api/deployments/${creation.deployment.id}/activate`, {
         method: 'POST',
       });
-      const result = await activated.json();
+      const result = await responseJson<ActivationPayload>(activated);
       if (!activated.ok) throw new Error(result.error || 'Activation failed');
       publishedUrl = result.siteUrl || '';
       if (databaseRequested && hasWorker) {
@@ -408,7 +439,8 @@
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ enabled: true }),
         });
-        if (!database.ok) throw new Error((await database.json()).error || 'Database setup failed');
+        if (!database.ok)
+          throw new Error((await responseJson<ErrorPayload>(database)).error || 'Database setup failed');
       }
       progress = 100;
       status = 'Published';

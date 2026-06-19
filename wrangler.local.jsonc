@@ -1,9 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "up-local",
-  "main": "build/worker.bundled.mjs",
+  "main": "src/kit-worker.ts",
   "compatibility_date": "2026-04-28",
   "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "STATIC_ASSETS",
+    "directory": ".svelte-kit/cloudflare",
+    "run_worker_first": true
+  },
   "vars": {
     "TEAM_DOMAIN": "",
     "POLICY_AUD": "",

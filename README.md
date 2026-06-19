@@ -3,7 +3,7 @@
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Put your company’s private web online, on your Cloudflare account.**
+**Publish your company’s private web from your Cloudflare account.**
 
 Up turns folders of HTML, CSS, JavaScript, and assets into company-private URLs. An organization connects Cloudflare once; employees and coding agents can then share small sites without creating infrastructure or configuring authentication for every artifact.
 
@@ -65,8 +65,9 @@ Read [SECURITY.md](SECURITY.md) before attaching a real company hostname.
 
 | Path | Purpose |
 |---|---|
-| `src/` | Access validation, Worker routes, deployment authority, R2 serving |
-| `src/site.svelte` | SEO/PWA docs, demo, and authenticated publisher |
+| `src/routes/` | SvelteKit SSR pages, server loads, metadata, and authenticated publisher route |
+| `src/core-backend.ts` | Access validation, control APIs, deployment authority, and wildcard site serving |
+| `src/site.svelte` | Shared product and publisher interface, initialized from SvelteKit server data |
 | `tests/` | Real Workers runtime, Durable Object, and R2 integration tests |
 | `fixtures/` | Static site used by the end-to-end verification path |
 | `docs/` | Diátaxis documentation |
@@ -80,7 +81,7 @@ Read [SECURITY.md](SECURITY.md) before attaching a real company hostname.
 - [Reference](docs/reference/index.md) — exact routes, limits, and configuration
 - [Explanation](docs/explanation/index.md) — architecture and trust boundaries
 
-The dogfood installation is available at <https://up.ax.cloudflare.dev> behind Cloudflare Access.
+The product front door is public at <https://up.ax.cloudflare.dev>; the dogfood publisher and control APIs remain behind Cloudflare Access.
 
 ## Local verification
 
@@ -105,7 +106,7 @@ bun run dev
 bun run test:e2e
 ```
 
-The local browser pass audits the public docs/PWA and confirms protected endpoints fail closed. The authenticated publish flow is verified only against an actual Access-protected deployment.
+The local browser pass audits SvelteKit SSR with JavaScript enabled and disabled, validates SEO/PWA metadata, and confirms protected endpoints fail closed. The authenticated publish flow is verified only against an actual Access-protected deployment.
 
 ## Production done gate
 

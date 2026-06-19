@@ -4,7 +4,7 @@ Report vulnerabilities privately through GitHub Security Advisories for `acoyfel
 
 ## Trust model
 
-The product homepage and documentation are public, contain no customer data, and read no private bindings.
+The product homepage and documentation are server-rendered by SvelteKit, are public, contain no customer data, and read no private bindings. The publisher's identity and site list are loaded in `+page.server.ts`, so the first authenticated HTML response already reflects authoritative server state rather than exposing an unauthenticated client shell.
 
 The publisher and control APIs require Cloudflare Access at:
 
