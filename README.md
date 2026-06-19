@@ -1,139 +1,159 @@
 # Up
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Publish your company’s private web from your Cloudflare account.**
+**Publish a folder to a company-private URL.**
 
-Up turns folders of HTML, CSS, JavaScript, and assets into company-private URLs. An organization connects Cloudflare once; employees and coding agents can then share small sites without creating infrastructure or configuring authentication for every artifact.
+An organization installs Up once in its Cloudflare account. Employees and coding agents can then publish small internal apps without creating a repository, deployment pipeline, database, credentials, or authentication flow for each app.
 
 ```text
-folder → immutable private upload → Access-authenticated URL
+folder + name → verified upload → atomic activation → company-private URL
 ```
 
-**Version:** `0.0.1` · **Dogfood:** <https://up.ax.cloudflare.dev>
+Dogfood: <https://up.ax.cloudflare.dev> · Version: `0.0.1`
 
-## Deploy
+## Publish
 
-Up uses Cloudflare OAuth. You approve a scoped consent screen; no API token or Access audience is created or copied by hand.
+Browser:
+
+```text
+Open Up → choose folder → choose name → publish
+```
+
+CLI:
 
 ```sh
-export UP_OAUTH_CLIENT_ID=<client id>
+bunx github:acoyfellow/up init
+bunx github:acoyfellow/up deploy ./dist lunch-vote
+```
+
+```text
+Authenticated · 3 files ready
+Uploading 3/3 style.css
+Published
+
+https://lunch-vote.up.example.com
+Access: your organization
+```
+
+Both clients use the same manifest, upload, and activation API. A copied URL does not grant access; Up verifies a company session before returning content.
+
+## Fixed browser API
+
+Every site can import one same-origin module:
+
+```js
+import { up } from '/_up/client.js';
+
+const viewer = await up.identity.current();
+
+const votes = up.db.collection('votes');
+await votes.create({ choice: 'Tacos', voter: viewer.email });
+
+await up.files.put('menu.txt', new Blob(['Tacos · Pizza · Salad']));
+
+const result = await up.ai.chat([
+  { role: 'user', content: 'Summarize today’s vote' }
+]);
+
+const room = up.realtime.channel('votes');
+room.on('vote', renderVote);
+room.send('vote', { choice: 'Tacos' });
+```
+
+Browser code receives no Cloudflare credentials or resource identifiers.
+
+| API | Cloudflare mechanism |
+|---|---|
+| `up.identity` | Access-backed Up session |
+| `up.db` | site-named SQLite Durable Object |
+| `up.files` | site-prefixed private R2 objects |
+| `up.ai` | Workers AI with a fixed model and limits |
+| `up.realtime` | site-and-channel Durable Object WebSockets |
+
+## Complete example
+
+**[Lunch Vote ↗](https://lunch-vote.up.ax.cloudflare.dev)** is a live, employee-protected app using all five fixed APIs. Its [`three-file source`](examples/lunch-vote) is plain HTML, CSS, and JavaScript with no `_worker.js`, credentials, framework, or infrastructure configuration. Browse it from the documentation’s compact [examples page](https://up.ax.cloudflare.dev/examples).
+
+## Install for a company
+
+Up uses Cloudflare OAuth. The current operator path is:
+
+```sh
+export UP_OAUTH_CLIENT_ID=<client-id>
 bun run oauth:connect
 
-export CLOUDFLARE_ACCOUNT_ID=<account id>
+export CLOUDFLARE_ACCOUNT_ID=<account-id>
 export UP_CONTROL_HOST=up.example.com
 export UP_PARENT_ZONE=example.com
 export UP_ALLOWED_DOMAIN=example.com
 bun run setup
 ```
 
-`bun run setup` creates an isolated child zone when requested, delegates only the control hostname, creates private R2 and the Access application, reads back its generated AUD, injects it into a gitignored deploy config, and deploys the Worker. `workers.dev` and Preview URLs remain disabled.
+The installer creates customer-owned resources:
 
-Open `https://up.example.com/app`, choose a folder containing `index.html`, and publish. Sites appear at `<name>.up.example.com` behind the same company Access boundary.
+```text
+Cloudflare Access
+       ↓
+Up Worker + SvelteKit assets
+  ├── private R2
+  ├── Registry Durable Object
+  ├── Database Durable Object namespace
+  ├── Realtime Durable Object namespace
+  └── Workers AI
+```
 
-The portable deployment fails closed until Access is configured. **Do not make the Worker public to finish setup.**
+The Worker, Access application, DNS, R2, and Durable Objects remain visible in the customer account. `workers.dev` and preview URLs stay disabled.
 
-## What publishing does
+Alchemy v2 was tested and omitted from this revision because it cannot yet express Workers AI and Access without custom provider code. See [`receipts/2026-06-19-alchemy-v2-decision.md`](receipts/2026-06-19-alchemy-v2-decision.md).
 
-1. The browser hashes every file locally and declares a bounded manifest.
-2. Up creates a pending immutable deployment in its Durable Object.
-3. Each uploaded R2 object must match the declared path, size, and SHA-256 digest.
-4. Activation verifies every object, then atomically swaps the active deployment pointer.
-5. Site requests enforce explicit visibility: public, company session, or restricted reader rules.
+## Trust boundary
 
-Visitors see either the prior complete deployment or the new complete deployment—never a partial upload.
+- Every new site is company-private.
+- The site hostname selects scope only after Up verifies identity.
+- Site A cannot address Site B’s database, files, or realtime room.
+- Browser code never receives AI or storage credentials.
+- Deployment files stay pending until every path, size, and SHA-256 digest passes verification.
+- Activation changes one pointer, so visitors receive a complete old or complete new deployment.
+- Anonymous probes receive Access before uploaded bytes.
 
-## Security invariant
-
-> A URL never grants private authority, and a deployment is not done until an isolated probe proves its declared visibility.
-
-- Control routes validate the Access signature, issuer, audience, and email.
-- Company/restricted sites require an HMAC-signed session minted by the Access-protected broker.
-- Public serving requires explicit registry state; absence of identity never implies public.
-- Missing Access or session configuration fails closed for non-public sites.
-- R2 has no public object URLs.
-- Production disables `workers.dev` and Preview URLs.
-- Site creators and configured administrators can mutate a site.
-- Cross-site control mutations are rejected using exact-origin and Fetch Metadata checks.
-- Browser code runs on sibling hostnames. Optional backend code receives only explicitly enabled, site-scoped capability stubs.
-- Site names, deployment IDs, hashes, and object keys grant no authority.
-
-Read [SECURITY.md](SECURITY.md) before attaching a real company hostname.
+Read [SECURITY.md](SECURITY.md) for the exact contracts.
 
 ## Repository map
 
-| Path | Purpose |
-|---|---|
-| `src/routes/` | SvelteKit SSR pages, server loads, metadata, and authenticated publisher route |
-| `src/core-backend.ts` | Access validation, control APIs, deployment authority, and wildcard site serving |
-| `src/site.svelte` | Shared product and publisher interface, initialized from SvelteKit server data |
-| `tests/` | Real Workers runtime, Durable Object, and R2 integration tests |
-| `fixtures/` | Static site used by the end-to-end verification path |
-| `docs/` | Diátaxis documentation |
-| `wrangler.jsonc` | Portable Deploy to Cloudflare resources; fail-closed defaults |
-| `wrangler.production.jsonc` | Dogfood route shape; placeholders must be replaced before deploy |
+```text
+src/core-backend.ts       deploy protocol and site request routing
+src/capabilities.ts       fixed browser API and site scoping
+src/site-database.ts      document collections
+src/site-realtime.ts      authenticated channel WebSockets
+src/auth.ts               Access JWT verification
+cli/up.ts                 init and deploy
+skills/up/                agent instructions and client types
+examples/lunch-vote/      complete framework-free proof
+tests/up.test.ts          runtime, capability, and isolation proof
+wrangler.jsonc            installation graph
+```
 
-## Documentation
+The source contract is captured in [`docs/0.0.1-source-brief.md`](docs/0.0.1-source-brief.md).
 
-- [Tutorial](docs/tutorial/index.md) — install and publish a first site
-- [How-to guides](docs/how-to/index.md) — operate and recover an installation
-- [Reference](docs/reference/index.md) — exact routes, limits, and configuration
-- [Explanation](docs/explanation/index.md) — architecture and trust boundaries
-
-The product front door is public at <https://up.ax.cloudflare.dev>; the dogfood publisher and control APIs remain behind Cloudflare Access.
-
-## Local verification
-
-There is intentionally no local authentication bypass.
+## Verify
 
 ```sh
 bun install
-bun run build
-bun run typecheck
-bun run test
-bun run dry-run
-```
-
-The test suite executes the real Worker, SQLite-backed Durable Objects, R2, session broker, capability stores, scheduler, and Dynamic Worker boundary under Cloudflare’s Workers Vitest pool. It proves visibility rules, digest enforcement, atomic activation, runtime limits, database isolation, encrypted secret metadata, schedule quotas/retries, public serving, and anonymous denial.
-
-For a stable manual publish fixture, choose [`examples/baseline-site`](examples/BASELINE.md). It exercises nested CSS, JavaScript, SVG, a text asset, and the authenticated identity endpoint without external dependencies.
-
-For the browser pass:
-
-```sh
-bun run dev
+bun run check
 bun run test:e2e
 ```
 
-The local browser pass audits SvelteKit SSR with JavaScript enabled and disabled, validates SEO/PWA metadata, and confirms protected endpoints fail closed. The authenticated publish flow is verified only against an actual Access-protected deployment.
+The suite uses the real Workers runtime, SQLite Durable Objects, R2, WebSockets, SvelteKit SSR, and Access/session logic. It does not use application mocks.
 
-## Production done gate
+## Documentation
 
-A release is done only after all of these are recorded:
-
-- local build, typecheck, runtime tests, dry run, browser test, SEO/PWA audit;
-- deployment watched to success;
-- public docs and every canonical link checked;
-- authenticated folder publish succeeds;
-- returned site renders HTML and assets;
-- `/__up/me` returns the authenticated Access identity;
-- a clean isolated browser is challenged by Access and never receives uploaded bytes;
-- update and atomic activation are verified;
-- deployment receipt records git SHA, route exposure, bindings, and the checks above.
-
-## Status
-
-Up `0.0.1` is static and company-private by default, with explicit progressive capabilities:
-
-- **Visibility:** company, restricted email/domain/IdP-group readers, or confirmed public access
-- **Backend:** an optional root `_worker.js` executes `/api/*` in a network-isolated Dynamic Worker
-- **Secrets:** encrypted, write-only bearer capabilities restricted to exact outbound hosts
-- **Data:** an isolated per-site SQLite Durable Object, enabled and deleted by the owner
-- **Schedules:** bounded UTC jobs with daily quotas, retries, pause/disable behavior, and audit receipts
-
-Dynamic code never runs in the Up control isolate and never receives the registry, deployment authority, private R2 bucket, encryption keys, or another site's bindings.
+- [Tutorial](docs/tutorial/index.md)
+- [How-to guides](docs/how-to/index.md)
+- [Reference](docs/reference/index.md)
+- [Explanation](docs/explanation/index.md)
 
 ## License
 
-MIT © Jordan Coeyman.
+MIT © Jordan Coeyman

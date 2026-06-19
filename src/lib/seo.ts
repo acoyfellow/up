@@ -26,6 +26,12 @@ export const metadata = {
       'Update and verify sites, configure company identity, inspect deployment receipts, and operate Up safely on Cloudflare.',
     eyebrow: 'How-to · operate a deployment',
   },
+  '/examples': {
+    title: 'Apps Built with Up — Examples',
+    description:
+      'Explore small company-private apps built with Up and inspect their framework-free source.',
+    eyebrow: 'Examples · built with Up',
+  },
   '/reference': {
     title: 'Up Reference — API, Limits, and Cloudflare Resources',
     description:

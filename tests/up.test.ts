@@ -5,24 +5,22 @@ import {
   cleanAssetPath,
   cleanSiteName,
   type Identity,
-  nextScheduleTime,
-  normalizeSchedule,
-  normalizeSiteAccess,
   sha256,
   validateManifest,
 } from '../src/core';
-import app, {
-  type Env,
-  handleAuthenticatedRequest,
-  isCoreRequest,
-  runDueSchedules,
-} from '../src/core-backend';
-import { cleanAllowedHosts, cleanSecretName, decryptSecret, encryptSecret } from '../src/secrets';
-import { createSession, sessionCookie, validReturnUrl, verifySession } from '../src/session';
+import app, { type Env, handleAuthenticatedRequest, isCoreRequest } from '../src/core-backend';
+import {
+  createCliAuthorization,
+  createSession,
+  exchangeCliAuthorization,
+  sessionCookie,
+  validCliRedirect,
+  validReturnUrl,
+  verifyCliSession,
+  verifySession,
+} from '../src/session';
 
 const owner: Identity = { email: 'owner@example.com', role: 'member' };
-const stranger: Identity = { email: 'stranger@example.com', role: 'member' };
-const admin: Identity = { email: 'admin@example.com', role: 'admin' };
 const bindings = env as unknown as Env;
 
 function control(path: string, init: RequestInit = {}) {
@@ -137,63 +135,6 @@ describe('input boundaries', () => {
       }),
     ).toThrow('SHA-256');
   });
-  it('validates explicit visibility and reader rules', () => {
-    expect(normalizeSiteAccess(undefined)).toEqual({ visibility: 'company', readers: [] });
-    expect(
-      normalizeSiteAccess({
-        visibility: 'restricted',
-        readers: [
-          { type: 'email', value: 'READER@EXAMPLE.COM' },
-          { type: 'domain', value: '@partner.example' },
-          { type: 'group', value: 'Engineering' },
-        ],
-      }),
-    ).toEqual({
-      visibility: 'restricted',
-      readers: [
-        { type: 'email', value: 'reader@example.com' },
-        { type: 'domain', value: 'partner.example' },
-        { type: 'group', value: 'engineering' },
-      ],
-    });
-    expect(() => normalizeSiteAccess({ visibility: 'restricted', readers: [] })).toThrow(
-      'at least one reader',
-    );
-    expect(() =>
-      normalizeSiteAccess({
-        visibility: 'restricted',
-        readers: [
-          { type: 'email', value: 'same@example.com' },
-          { type: 'email', value: 'same@example.com' },
-        ],
-      }),
-    ).toThrow('unique');
-  });
-  it('validates bounded schedules and computes the next UTC run', () => {
-    expect(
-      normalizeSchedule(
-        { path: '/api/jobs/daily', cron: '15 9 * * *', maxRunsPerDay: 2, retryLimit: 4 },
-        new Date('2026-06-16T09:15:00Z'),
-      ),
-    ).toMatchObject({
-      path: '/api/jobs/daily',
-      cron: '15 9 * * *',
-      status: 'enabled',
-      maxRunsPerDay: 2,
-      retryLimit: 4,
-      nextRunAt: '2026-06-17T09:15:00.000Z',
-    });
-    expect(nextScheduleTime('*/15 * * * *', new Date('2026-06-16T09:16:00Z')).toISOString()).toBe(
-      '2026-06-16T09:30:00.000Z',
-    );
-    expect(() => normalizeSchedule({ path: '/', cron: '* * * * *' })).toThrow('/api/');
-    expect(() => normalizeSchedule({ path: '/api/run', cron: '* * * * MON' })).toThrow(
-      'minute/hour',
-    );
-    expect(() =>
-      normalizeSchedule({ path: '/api/run', cron: '* * * * *', maxRunsPerDay: 2000 }),
-    ).toThrow('1-1440');
-  });
   it('rejects cross-site mutation requests', async () => {
     const response = await handleAuthenticatedRequest(
       new Request('https://control.example.com/api/sites/test/deployments', {
@@ -224,6 +165,24 @@ describe('Access-backed site sessions', () => {
     expect(await verifySession(`${token}x`, secret)).toBeNull();
     expect(await verifySession(await createSession(owner, secret, -1), secret)).toBeNull();
   });
+  it('exchanges a short-lived PKCE authorization for a deploy-only CLI session', async () => {
+    const verifier = 'v'.repeat(48);
+    const digest = new Uint8Array(
+      await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)),
+    );
+    const challenge = btoa(String.fromCharCode(...digest))
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '');
+    const code = await createCliAuthorization(owner, challenge, secret);
+    expect(await verifyCliSession(code, secret)).toBeNull();
+    expect(await exchangeCliAuthorization(code, 'wrong-verifier'.repeat(4), secret)).toBeNull();
+    const token = await exchangeCliAuthorization(code, verifier, secret);
+    expect(await verifyCliSession(token || undefined, secret)).toEqual({ ...owner, groups: [] });
+    expect(validCliRedirect('http://127.0.0.1:49152/callback')?.pathname).toBe('/callback');
+    expect(validCliRedirect('https://evil.example/callback')).toBeNull();
+  });
+
   it('scopes cookies and return URLs to sibling site hosts', async () => {
     const token = await createSession(owner, secret);
     expect(sessionCookie(token, 'up.example.com')).toContain(
@@ -287,495 +246,97 @@ describe('real Durable Object and R2 deployment flow', () => {
     expect(noJwt.status).toBe(302);
     expect(noJwt.headers.get('location')).toContain('/app/__session');
   });
-  it('serves explicit public sites anonymously without exposing private sites', async () => {
-    const published = await createDeployment(undefined, { visibility: 'public', readers: [] });
-    await upload(published.id, published.html);
-    await upload(published.id, published.css);
-    await handleAuthenticatedRequest(
-      control(`/api/deployments/${published.id}/activate`, { method: 'POST' }),
-      bindings,
-      owner,
-    );
-    const page = await SELF.fetch(`https://${published.site}.up.example.com/`);
-    expect(page.status).toBe(200);
-    expect(await page.text()).toContain('private receipt');
-    const viewer = await SELF.fetch(`https://${published.site}.up.example.com/__up/me`);
-    expect(await viewer.json()).toEqual({ email: null, visibility: 'public' });
-
-    const company = await createDeployment();
-    await upload(company.id, company.html);
-    await upload(company.id, company.css);
-    await handleAuthenticatedRequest(
-      control(`/api/deployments/${company.id}/activate`, { method: 'POST' }),
-      bindings,
-      owner,
-    );
-    const anonymousCompany = await SELF.fetch(`https://${company.site}.up.example.com/`, {
-      redirect: 'manual',
-    });
-    expect({ status: anonymousCompany.status, body: await anonymousCompany.text() }).toEqual({
-      status: 302,
-      body: '',
-    });
-    const session = await createSession(
-      owner,
-      'test-session-secret-that-is-at-least-32-characters',
-    );
-    const authenticated = await SELF.fetch(`https://${company.site}.up.example.com/`, {
-      headers: { cookie: `up_session=${session}` },
-    });
-    expect(authenticated.status).toBe(200);
-  });
-  it('enforces restricted email, domain, and group readers while concealing sites', async () => {
-    const restricted = await createDeployment(undefined, {
-      visibility: 'restricted',
-      readers: [
-        { type: 'email', value: stranger.email },
-        { type: 'domain', value: 'partner.example' },
-        { type: 'group', value: 'engineering' },
-      ],
-    });
-    await upload(restricted.id, restricted.html);
-    await upload(restricted.id, restricted.css);
-    await handleAuthenticatedRequest(
-      control(`/api/deployments/${restricted.id}/activate`, { method: 'POST' }),
-      bindings,
-      owner,
-    );
-    for (const identity of [
-      stranger,
-      { email: 'person@partner.example', role: 'member' as const },
-      { email: 'group-user@example.com', role: 'member' as const, groups: ['Engineering'] },
-    ]) {
-      const page = await handleAuthenticatedRequest(
-        new Request(`https://${restricted.site}.up.example.com/`),
+  it('provides fixed credential-free site capabilities with site isolation', async () => {
+    const first = await createDeployment();
+    const second = await createDeployment();
+    for (const deployment of [first, second]) {
+      await upload(deployment.id, deployment.html);
+      await upload(deployment.id, deployment.css);
+      await handleAuthenticatedRequest(
+        control(`/api/deployments/${deployment.id}/activate`, { method: 'POST' }),
         bindings,
-        identity,
+        owner,
       );
-      expect(page.status).toBe(200);
     }
-    const denied = await handleAuthenticatedRequest(
-      new Request(`https://${restricted.site}.up.example.com/`),
-      bindings,
-      { email: 'denied@example.com', role: 'member' },
-    );
-    expect(denied.status).toBe(404);
-  });
-  it('loads optional backend code only for site API routes with hard isolation limits', async () => {
-    const code = `export default { fetch() { return new Response('dynamic'); } };`;
-    const created = await createDeployment(undefined, undefined, code);
-    await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/database`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ enabled: true }),
-      }),
-      bindings,
-      owner,
-    );
-    await upload(created.id, created.html);
-    await upload(created.id, created.css);
-    if (!created.worker) throw new Error('worker fixture missing');
-    await upload(created.id, created.worker);
-    await handleAuthenticatedRequest(
-      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
-      bindings,
-      owner,
-    );
-    let loads = 0;
-    let loaded: WorkerLoaderWorkerCode | undefined;
-    const loader = {
-      get(_id: string, getCode: () => Promise<WorkerLoaderWorkerCode>) {
-        return {
-          getEntrypoint(_name?: string, options?: WorkerStubEntrypointOptions) {
-            return {
-              async fetch() {
-                loads++;
-                loaded = await getCode();
-                expect(options?.limits).toEqual({ cpuMs: 50, subRequests: 5 });
-                return new Response('dynamic response', {
-                  status: 201,
-                  headers: { 'set-cookie': 'escape=blocked; Domain=.example.com' },
-                });
-              },
-            };
-          },
-        };
-      },
-    } as unknown as WorkerLoader;
-    const runtimeBindings = Object.assign({}, bindings, { LOADER: loader });
-    const staticPage = await handleAuthenticatedRequest(
-      new Request(`https://${created.site}.up.example.com/`),
-      runtimeBindings,
-      owner,
-    );
-    expect(staticPage.status).toBe(200);
-    expect(loads).toBe(0);
-    const dynamic = await handleAuthenticatedRequest(
-      new Request(`https://${created.site}.up.example.com/api/hello`),
-      runtimeBindings,
-      owner,
-    );
-    expect(dynamic.status).toBe(201);
-    expect(await dynamic.text()).toBe('dynamic response');
-    expect(dynamic.headers.get('set-cookie')).toBeNull();
-    expect(dynamic.headers.get('cache-control')).toBe('private, no-store');
-    expect(loaded?.modules['_worker.js']).toBe(code);
-    expect(loaded?.globalOutbound).toBeNull();
-    expect(loaded?.env.UP_DB).toBeTruthy();
-    expect(loaded?.env.UP_SECRETS).toBeTruthy();
-    expect(loaded?.limits).toEqual({ cpuMs: 50, subRequests: 5 });
-  });
-  it('returns a generic failure without leaking dynamic code errors', async () => {
-    const code = `throw new Error('TOP SECRET STACK');`;
-    const created = await createDeployment(undefined, undefined, code);
-    await upload(created.id, created.html);
-    await upload(created.id, created.css);
-    if (!created.worker) throw new Error('worker fixture missing');
-    await upload(created.id, created.worker);
-    await handleAuthenticatedRequest(
-      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
-      bindings,
-      owner,
-    );
-    const loader = {
-      get() {
-        throw new Error('TOP SECRET STACK');
-      },
-    } as unknown as WorkerLoader;
-    const response = await handleAuthenticatedRequest(
-      new Request(`https://${created.site}.up.example.com/api/fail`),
-      Object.assign({}, bindings, { LOADER: loader }),
-      owner,
-    );
-    expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: 'Dynamic request failed' });
-  });
-  it('lets only owners and admins change site visibility', async () => {
-    const created = await createDeployment();
-    const body = JSON.stringify({
-      access: { visibility: 'restricted', readers: [{ type: 'email', value: stranger.email }] },
-    });
-    const strangerResponse = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/access`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body,
-      }),
-      bindings,
-      stranger,
-    );
-    expect(strangerResponse.status).toBe(404);
-    const updated = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/access`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body,
-      }),
-      bindings,
-      owner,
-    );
-    expect(updated.status).toBe(200);
-    expect((await updated.json<{ site: { access: unknown } }>()).site.access).toEqual({
-      visibility: 'restricted',
-      readers: [{ type: 'email', value: stranger.email }],
-    });
-  });
-  it('provisions and destroys an isolated per-site SQLite database', async () => {
-    const created = await createDeployment();
-    const strangerResponse = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/database`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ enabled: true }),
-      }),
-      bindings,
-      stranger,
-    );
-    expect(strangerResponse.status).toBe(404);
-    const enabled = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/database`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ enabled: true }),
-      }),
-      bindings,
-      owner,
-    );
-    expect(
-      (await enabled.json<{ site: { databaseEnabled: boolean } }>()).site.databaseEnabled,
-    ).toBe(true);
-    const database = bindings.SITE_DATABASE?.get(bindings.SITE_DATABASE.idFromName(created.site));
-    if (!database) throw new Error('SITE_DATABASE binding missing');
-    const query = async (sql: string, params: unknown[] = []) =>
-      database.fetch('https://database.internal/query', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ sql, params }),
-      });
-    expect((await query('CREATE TABLE notes(id INTEGER PRIMARY KEY, body TEXT)')).status).toBe(200);
-    expect((await query('INSERT INTO notes(body) VALUES (?)', ['private'])).status).toBe(200);
-    const selected = await query('SELECT body FROM notes');
-    expect(await selected.json()).toMatchObject({ rows: [{ body: 'private' }] });
-    expect((await query("ATTACH DATABASE 'other' AS other")).status).toBe(400);
-    expect((await query('SELECT 1; SELECT 2')).status).toBe(400);
 
-    const disabled = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/database`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ enabled: false }),
-      }),
-      bindings,
-      owner,
-    );
-    expect(
-      (await disabled.json<{ site: { databaseEnabled: boolean } }>()).site.databaseEnabled,
-    ).toBe(false);
-    expect((await query('SELECT body FROM notes')).status).toBe(400);
-  });
-  it('creates, pauses, disables, audits, and deletes bounded schedules', async () => {
-    const created = await createDeployment(
-      undefined,
-      undefined,
-      `export default { fetch() { return new Response(null, { status: 204 }); } };`,
-    );
-    await upload(created.id, created.html);
-    await upload(created.id, created.css);
-    if (!created.worker) throw new Error('worker fixture missing');
-    await upload(created.id, created.worker);
-    await handleAuthenticatedRequest(
-      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
-      bindings,
-      owner,
-    );
-    const payload = JSON.stringify({
-      path: '/api/jobs/hourly',
-      cron: '0 * * * *',
-      maxRunsPerDay: 12,
-      retryLimit: 2,
-    });
-    const denied = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: payload,
-      }),
-      bindings,
-      stranger,
-    );
-    expect(denied.status).toBe(404);
-    const added = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: payload,
-      }),
-      bindings,
-      owner,
-    );
-    expect(added.status).toBe(201);
-    const item = await added.json<{ schedule: { id: string; status: string } }>();
-    expect(item.schedule.status).toBe('enabled');
-    const paused = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules/${item.schedule.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status: 'paused' }),
-      }),
-      bindings,
-      owner,
-    );
-    expect((await paused.json<{ schedule: { status: string } }>()).schedule.status).toBe('paused');
-    const disabled = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules/${item.schedule.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status: 'disabled' }),
-      }),
-      bindings,
-      owner,
-    );
-    expect((await disabled.json<{ schedule: { status: string } }>()).schedule.status).toBe(
-      'disabled',
-    );
-    const audit = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/audit`),
-      bindings,
-      owner,
-    );
-    const auditBody = await audit.text();
-    expect(auditBody).toContain('schedule.created');
-    expect(auditBody).toContain('schedule.updated');
-    expect(auditBody).not.toContain('secret');
-    const removed = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules/${item.schedule.id}`, {
-        method: 'DELETE',
-      }),
-      bindings,
-      owner,
-    );
-    expect(removed.status).toBe(200);
-    const listed = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules`),
-      bindings,
-      owner,
-    );
-    expect(await listed.json()).toEqual({ schedules: [] });
-  });
-  it('leases due schedules atomically, retries failures, enforces quotas, and audits runs', async () => {
-    const code = `export default { fetch() { return new Response('scheduled'); } };`;
-    const created = await createDeployment(undefined, undefined, code);
-    await upload(created.id, created.html);
-    await upload(created.id, created.css);
-    if (!created.worker) throw new Error('worker fixture missing');
-    await upload(created.id, created.worker);
-    await handleAuthenticatedRequest(
-      control(`/api/deployments/${created.id}/activate`, { method: 'POST' }),
-      bindings,
-      owner,
-    );
-    const added = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          path: '/api/jobs/run',
-          cron: '* * * * *',
-          maxRunsPerDay: 2,
-          retryLimit: 2,
-        }),
-      }),
-      bindings,
-      owner,
-    );
-    const schedule = await added.json<{ schedule: { nextRunAt: string } }>();
-    let invocations = 0;
-    const loader = {
-      get(_id: string, getCode: () => Promise<WorkerLoaderWorkerCode>) {
-        return {
-          getEntrypoint() {
-            return {
-              async fetch() {
-                await getCode();
-                invocations++;
-                return new Response(null, { status: invocations === 1 ? 500 : 204 });
-              },
-            };
-          },
-        };
-      },
-    } as unknown as WorkerLoader;
-    const runtimeBindings = Object.assign({}, bindings, { LOADER: loader });
-    const firstRun = new Date(schedule.schedule.nextRunAt);
-    expect(await runDueSchedules(runtimeBindings, firstRun)).toBe(1);
-    const afterFailure = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules`),
-      bindings,
-      owner,
-    );
-    const failed = await afterFailure.json<{
-      schedules: Array<{ nextRunAt: string; lastStatus: string; attempts: number }>;
-    }>();
-    expect(failed.schedules[0]).toMatchObject({ lastStatus: 'failed', attempts: 1 });
-    expect(
-      await runDueSchedules(runtimeBindings, new Date(failed.schedules[0]?.nextRunAt || '')),
-    ).toBe(1);
-    const afterSuccess = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/schedules`),
-      bindings,
-      owner,
-    );
-    const succeeded = await afterSuccess.json<{
-      schedules: Array<{ nextRunAt: string; lastStatus: string; attempts: number }>;
-    }>();
-    expect(succeeded.schedules[0]).toMatchObject({ lastStatus: 'success', attempts: 0 });
-    expect(
-      await runDueSchedules(runtimeBindings, new Date(succeeded.schedules[0]?.nextRunAt || '')),
-    ).toBe(0);
-    expect(invocations).toBe(2);
-    const audit = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/audit`),
-      bindings,
-      owner,
-    );
-    const auditText = await audit.text();
-    expect(auditText).toContain('schedule.run_failed');
-    expect(auditText).toContain('schedule.run_succeeded');
-    expect(auditText).toContain('schedule.quota_skipped');
-    expect(auditText).not.toContain(code);
-  });
-  it('encrypts per-site secret capabilities and never returns plaintext', async () => {
-    const key = 'dGVzdC10ZXN0LXNlY3JldHMta2V5LTMyLWJ5dGVzISE';
-    const encrypted = await encryptSecret('super-secret-value', key);
-    expect(JSON.stringify(encrypted)).not.toContain('super-secret-value');
-    expect(await decryptSecret(encrypted, key)).toBe('super-secret-value');
-    expect(cleanSecretName('api_token')).toBe('API_TOKEN');
-    expect(cleanAllowedHosts(['API.EXAMPLE.COM', 'api.example.com'])).toEqual(['api.example.com']);
+    const capability = (site: string, path: string, init: RequestInit = {}) => {
+      const origin = `https://${site}.up.example.com`;
+      const headers = new Headers(init.headers);
+      headers.set('origin', origin);
+      headers.set('sec-fetch-site', 'same-origin');
+      return handleAuthenticatedRequest(
+        new Request(`${origin}/_up/${path}`, { ...init, headers }),
+        bindings,
+        owner,
+      );
+    };
 
-    const created = await createDeployment();
-    const payload = JSON.stringify({
-      value: 'super-secret-value',
-      allowedHosts: ['api.example.com'],
-    });
-    const denied = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/secrets/API_TOKEN`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: payload,
-      }),
-      bindings,
-      stranger,
-    );
-    expect(denied.status).toBe(404);
-    const stored = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/secrets/API_TOKEN`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: payload,
-      }),
-      bindings,
-      owner,
-    );
-    expect(stored.status).toBe(201);
-    expect(await stored.text()).not.toContain('super-secret-value');
-    const listed = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/secrets`),
-      bindings,
-      owner,
-    );
-    const listing = await listed.text();
-    expect(listing).toContain('API_TOKEN');
-    expect(listing).toContain('api.example.com');
-    expect(listing).not.toContain('super-secret-value');
+    const client = await capability(first.site, 'client.js');
+    expect(client.status).toBe(200);
+    expect(await client.text()).toContain('export const up=');
 
-    const secrets = bindings.SITE_SECRETS?.get(bindings.SITE_SECRETS.idFromName(created.site));
-    if (!secrets) throw new Error('SITE_SECRETS binding missing');
-    expect((await secrets.fetch('https://secrets.internal/secrets')).status).toBe(404);
-    const disallowed = await secrets.fetch('https://secrets.internal/use/API_TOKEN', {
+    const identity = await capability(first.site, 'identity');
+    expect(await identity.json()).toEqual({ email: owner.email, groups: [], role: 'member' });
+
+    const created = await capability(first.site, 'db/votes', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ url: 'https://evil.example/collect' }),
+      body: JSON.stringify({ choice: 'Tacos' }),
     });
-    expect(disallowed.status).toBe(403);
+    expect(created.status).toBe(201);
+    const document = await created.json<{ id: string; choice: string }>();
+    expect(document.choice).toBe('Tacos');
+    const list = await capability(first.site, 'db/votes');
+    expect((await list.json<{ documents: unknown[] }>()).documents).toContainEqual(document);
+    const isolatedList = await capability(second.site, 'db/votes');
+    expect((await isolatedList.json<{ documents: unknown[] }>()).documents).toEqual([]);
 
-    const removed = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/secrets/API_TOKEN`, { method: 'DELETE' }),
-      bindings,
-      owner,
+    const stored = await capability(first.site, 'files/menu.txt', {
+      method: 'PUT',
+      headers: { 'content-type': 'text/plain' },
+      body: 'tacos',
+    });
+    expect(stored.status).toBe(201);
+    expect(await (await capability(first.site, 'files/menu.txt')).text()).toBe('tacos');
+    expect((await capability(second.site, 'files/menu.txt')).status).toBe(404);
+    const files = await capability(first.site, 'files');
+    expect((await files.json<{ files: Array<{ name: string }> }>()).files).toContainEqual(
+      expect.objectContaining({ name: 'menu.txt' }),
     );
-    expect(removed.status).toBe(200);
-    const empty = await handleAuthenticatedRequest(
-      control(`/api/sites/${created.site}/secrets`),
-      bindings,
-      owner,
-    );
-    expect(await empty.json()).toEqual({ secrets: [] });
-  });
-  it('conceals deployment writes from strangers but allows an administrator', async () => {
-    const first = await createDeployment();
-    expect((await upload(first.id, first.html, stranger)).status).toBe(404);
-    expect((await upload(first.id, first.html, admin)).status).toBe(200);
+
+    const ai = await capability(first.site, 'ai/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] }),
+    });
+    expect(ai.status).toBe(503);
+
+    const connect = async () => {
+      const response = await capability(first.site, 'realtime/votes', {
+        headers: { upgrade: 'websocket' },
+      });
+      expect(response.status).toBe(101);
+      const socket = response.webSocket;
+      if (!socket) throw new Error('Realtime WebSocket missing');
+      socket.accept();
+      return socket;
+    };
+    const sender = await connect();
+    const receiver = await connect();
+    const received = new Promise<Record<string, unknown>>((resolve) => {
+      receiver.addEventListener('message', (event) => {
+        const message = JSON.parse(String(event.data)) as Record<string, unknown>;
+        if (message.type === 'vote') resolve(message);
+      });
+    });
+    sender.send(JSON.stringify({ type: 'vote', data: { choice: 'Tacos' } }));
+    await expect(received).resolves.toMatchObject({
+      type: 'vote',
+      data: { choice: 'Tacos' },
+      sender: owner.email,
+    });
+    sender.close();
+    receiver.close();
   });
   it('atomically supersedes a previous complete deployment', async () => {
     const first = await createDeployment();

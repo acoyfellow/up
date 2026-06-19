@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lunch Vote · Up</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">UP 0.0.1 PROOF</p>
+        <h1>Where should we eat?</h1>
+        <p id="viewer">Checking company identity…</p>
+      </header>
+
+      <section class="choices" aria-label="Lunch choices">
+        <button type="button" data-choice="Tacos">Tacos <span>0</span></button>
+        <button type="button" data-choice="Pizza">Pizza <span>0</span></button>
+        <button type="button" data-choice="Salad">Salad <span>0</span></button>
+      </section>
+
+      <section class="panel">
+        <div>
+          <h2>Live room</h2>
+          <p id="live-status">Connecting…</p>
+        </div>
+        <ul id="activity" aria-live="polite"></ul>
+      </section>
+
+      <section class="tools">
+        <label class="upload">
+          <span>Share a menu</span>
+          <input id="menu" type="file" />
+        </label>
+        <button type="button" id="summarize">Ask AI to summarize</button>
+      </section>
+
+      <section class="result">
+        <h2>Summary</h2>
+        <p id="summary">Vote to create a summary.</p>
+        <a id="menu-link" href="/_up/files/menu" hidden>Open shared menu ↗</a>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

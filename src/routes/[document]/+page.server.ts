@@ -5,6 +5,7 @@ import type { PageServerLoad } from './$types';
 const sections = {
   tutorial: 'tutorial',
   'how-to': 'how-to',
+  examples: 'examples',
   reference: 'reference',
   explanation: 'explanation',
   offline: 'offline',
