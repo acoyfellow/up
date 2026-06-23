@@ -29,6 +29,7 @@
     "company:setup": "bun run scripts/setup.ts",
     "company:access:provision": "bun run scripts/provision-access.ts",
     "company:test:production": "node scripts/production-e2e.mjs",
+    "verify:anonymous": "node scripts/anonymous-verify.mjs",
     "company:verify:onboarding": "node scripts/onboarding-verify.mjs",
     "company:verify:onboarding:local": "node scripts/onboarding-verify.mjs --local-only",
     "company:test:dynamic-production": "node scripts/dynamic-production-e2e.mjs",
