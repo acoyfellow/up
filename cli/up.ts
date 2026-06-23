@@ -559,21 +559,31 @@ async function deployAnonymous(): Promise<void> {
   const temporary = await readTemporaryAccount();
   const liveUrl = deploymentUrl(output, name);
   console.log(
-    `\nLive now\n\n${liveUrl}\n\nExpires in about ${minutesRemaining(temporary.accountExpiresAt)} minutes unless claimed.\nPublic: anyone with this URL can open it.\n\nKeep it (sensitive ownership link):\n${temporary.claimUrl}\n\nThis link claims every deployment in the current anonymous Up session.\nRun \`up claim --open\` to open the claim flow.`,
+    `\nLive now\n\n${liveUrl}\n\nExpires in about ${minutesRemaining(temporary.accountExpiresAt)} minutes unless claimed.\nPublic: anyone with this URL can open it.\n\nKeep it: run \`up claim --open\` to open the ownership flow,\nor \`up claim --show\` to reveal the link. Up stores it locally and does not print it.`,
   );
 }
 
 async function claim(): Promise<void> {
   const temporary = await readTemporaryAccount();
-  console.log(
-    `Claim within about ${minutesRemaining(temporary.claimExpiresAt)} minutes.\nTreat this ownership link as sensitive:\n\n${temporary.claimUrl}`,
-  );
+  const minutes = minutesRemaining(temporary.claimExpiresAt);
   if (hasFlag('--open')) {
     const opened = await openUrl(temporary.claimUrl);
     console.log(
-      opened ? '\nOpened in your browser.' : '\nCould not open a browser; use the URL above.',
+      opened
+        ? `Opening the ownership flow in your browser. Claim within about ${minutes} minutes.`
+        : `Could not open a browser. Run \`up claim --show\` to reveal the link (claim within about ${minutes} minutes).`,
     );
+    return;
   }
+  if (hasFlag('--show')) {
+    console.log(
+      `This ownership link claims the whole anonymous session. Treat it like a password.\nClaim within about ${minutes} minutes:\n\n${temporary.claimUrl}`,
+    );
+    return;
+  }
+  console.log(
+    `Claim within about ${minutes} minutes.\nUp keeps the ownership link local and does not print it.\nRun \`up claim --open\` to open the flow, or \`up claim --show\` to reveal the link.`,
+  );
 }
 
 async function cliToken(origin: string): Promise<string> {

@@ -93,11 +93,15 @@ describe('anonymous-first CLI', () => {
     expect(result.stdout).toContain('https://demo.authoritative-target.workers.dev');
     expect(result.stdout).not.toContain('https://demo.display-name-is-not-the-host.workers.dev');
     expect(result.stdout).toContain('Public: anyone with this URL can open it.');
-    const claim = 'https://dash.cloudflare.com/claim-preview?claimToken=fake-sensitive-token';
-    expect(result.stdout.match(new RegExp(claim.replace(/[?]/g, '\\?'), 'g'))).toHaveLength(1);
+    // The account-wide claim URL must never be printed during deploy.
+    expect(result.stdout).not.toContain('claimToken=fake-sensitive-token');
+    expect(result.stdout).toContain('up claim --show');
     expect(result.stderr).not.toContain('fake-sensitive-token');
     const accountPath = join(data.state, 'config', '.wrangler', 'wrangler-temporary-account.toml');
-    expect(readFileSync(accountPath, 'utf8')).toContain('temporary-secret');
+    const accountFile = readFileSync(accountPath, 'utf8');
+    expect(accountFile).toContain('temporary-secret');
+    // It is stored locally instead of printed.
+    expect(accountFile).toContain('claimToken=fake-sensitive-token');
     expect(readdirSync(data.state).some((name) => name.startsWith('deploy-'))).toBe(false);
     if (process.platform !== 'win32') {
       expect(statSync(data.state).mode & 0o777).toBe(0o700);
@@ -113,10 +117,15 @@ describe('anonymous-first CLI', () => {
       /https:\/\/up-[a-f0-9]{10}\.authoritative-target\.workers\.dev/,
     );
     const result = runCli(['claim'], data);
-
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('Treat this ownership link as sensitive');
-    expect(result.stdout).toContain('claimToken=fake-sensitive-token');
+    // Default claim withholds the ownership link.
+    expect(result.stdout).not.toContain('claimToken=fake-sensitive-token');
+    expect(result.stdout).toContain('up claim --show');
+
+    const shown = runCli(['claim', '--show'], data);
+    expect(shown.status, shown.stderr).toBe(0);
+    expect(shown.stdout).toContain('Treat it like a password');
+    expect(shown.stdout).toContain('claimToken=fake-sensitive-token');
   });
 
   it('deploys Worker code, assets, and platform bindings as one claimable app', () => {
