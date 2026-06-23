@@ -34,8 +34,9 @@ No other root or binding fields are accepted in 0.0.1.
 |---|---|
 | `up deploy <folder> [name]` | Provision and deploy one public Temporary Account graph |
 | `up deploy … --accept-cloudflare-terms` | Explicit non-interactive Terms acceptance |
-| `up claim` | Print the current sensitive account claim URL |
-| `up claim --open` | Open the dashboard claim flow |
+| `up claim` | Show claim timing without printing the ownership link |
+| `up claim --open` | Open the ownership flow without printing the link |
+| `up claim --show` | Explicitly reveal the sensitive ownership link |
 | `up init [directory]` | Install `.up/SKILL.md` and client types |
 | `up private <folder> <name>` | Explicit secondary company-mode deployment |
 
@@ -63,6 +64,14 @@ No other root or binding fields are accepted in 0.0.1.
 | Hyperdrive | upstream support; not exposed yet |
 | R2, Workers AI, Access | unavailable in current Temporary Account matrix |
 | Workflows, Browser Rendering, Containers, Sandboxes, Dispatch | unavailable in current matrix |
+
+## Connected services with Capa
+
+Capa is the path from platform bindings to the services an app already uses. GitHub, Stripe, and other APIs run in a separate Worker beside the app. Capa keeps the provider API key out of app code, limits the available actions, and returns both the answer and a record of what happened.
+
+The same-account design passed a live Temporary Account test: app Worker → private Capa Worker → upstream API. The credential stayed out of the app and response. The simple installer is not shipped yet; it depends on immutable, hash-verified Capa bundles.
+
+See the [Capa integration contract](../capa-integration.md) and [live spike receipt](../../receipts/2026-06-23-capa-temporary-account-spike.md).
 
 ## Credential behavior
 

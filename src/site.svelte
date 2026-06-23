@@ -308,8 +308,24 @@
           <article><span>WORKER</span><h3>Run code</h3><p>A root <code>_worker.js</code> serves dynamic routes and exports Durable Object classes.</p></article>
           <article><span>ASSETS</span><h3>Serve the page</h3><p>HTML, CSS, JavaScript, and images through <code>env.ASSETS</code>.</p></article>
           <article><span>KV</span><h3>Store keys</h3><p>A namespace, provisioned and bound from one line of <code>up.json</code>.</p></article>
-          <article><span>D1</span><h3>Query SQL</h3><p>A real SQLite database that travels with the claim.</p></article>
+          <article><span>D1</span><h3>Query SQL</h3><p>A real SQLite database that stays with the app if you keep it.</p></article>
           <article><span>DURABLE OBJECTS</span><h3>Coordinate state</h3><p>Storage and WebSockets with a generated SQLite migration.</p></article>
+        </div>
+        <div class="connected-services">
+          <div>
+            <p class="section-index">COMING NEXT / CAPA</p>
+            <h3>Connect GitHub, Stripe, and the tools your app needs.</h3>
+            <p>Capa keeps API keys out of your app code. You choose what the app is allowed to do; each request comes back with the answer and a clear record of what happened.</p>
+          </div>
+          <div class="connected-status">
+            <strong>Tested end to end</strong>
+            <span>The connection worked in a real temporary account. The simple installer is not shipped yet.</span>
+            <a href="https://capa.coey.dev">See Capa <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div class="after-keep">
+          <strong>If you keep it</strong>
+          <span>The Worker, bindings, and data stay together in your Cloudflare account. The app is still public until you add Cloudflare Access or another login.</span>
         </div>
         <a class="shelf-cta primary link-button" href="/tutorial">Deploy one in a minute <span aria-hidden="true">→</span></a>
       </section>
@@ -444,7 +460,7 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
           </article>
         </div>
       {:else if section === 'reference'}
-        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the account-wide claim flow</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are in the upstream matrix but not yet exposed by Up</li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul>
+        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the ownership flow without printing the sensitive link</td></tr><tr><th><code>up claim --show</code></th><td>Explicitly reveal the ownership link</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are in the upstream matrix but not yet exposed by Up</li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul><h2>Connected services with Capa</h2><p>Capa keeps provider API keys out of app code and gives the Worker a smaller set of allowed actions for services such as GitHub and Stripe. A live same-account test passed; the simple installer is not shipped yet. <a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract →</a></p>
       {:else if section === 'explanation'}
         <h1>The dynamic graph comes first.</h1><p class="summary">Worker code and platform bindings exist before the deployer has a Cloudflare identity. That inversion is the product.</p><h2>Agents need real behavior</h2><p>A screenshot of static output cannot validate data, coordination, or API logic. Temporary Accounts let an agent exercise Worker, KV, D1, and Durable Object semantics in the real runtime.</p><h2>Bindings travel together</h2><p>The claim URL transfers the whole account, including the supported resources and data produced during the experiment. The app is not reconstructed after signup.</p><h2>Public is explicit</h2><p>The generated Worker URL has no Access boundary. Anyone with it can call the app. Up labels that fact instead of pretending a hard-to-guess hostname is private.</p><h2>Credentials stay isolated</h2><p>Up snapshots the folder, launches Wrangler in a separate home, and removes inherited Cloudflare credentials so the anonymous graph cannot mutate a permanent account.</p>
       {:else if section === 'offline'}
@@ -571,6 +587,17 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
   .feature-grid h3 { margin: 24px 0 10px; font-size: .96rem; letter-spacing: -.018em; }
   .feature-grid p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.62; }
   .feature-grid code { font-size: .7rem; }
+  .connected-services { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(230px, .55fr); gap: 42px; margin-top: 28px; padding: 30px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--paper); }
+  .connected-services h3 { margin: 16px 0 10px; font-size: clamp(1.2rem, 2vw, 1.55rem); letter-spacing: -.022em; }
+  .connected-services > div > p:last-child { max-width: 660px; margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.68; }
+  .connected-status { display: grid; align-content: center; gap: 10px; padding-left: 28px; border-left: 1px solid var(--line); }
+  .connected-status strong { font-size: .82rem; }
+  .connected-status span { color: var(--muted); font-size: .7rem; line-height: 1.55; }
+  .connected-status a { width: fit-content; margin-top: 5px; color: var(--blue); font-size: .72rem; text-decoration: none; }
+  .connected-status a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .after-keep { display: grid; grid-template-columns: 150px minmax(0, 650px); gap: 22px; margin-top: 24px; padding: 18px 0; border-block: 1px solid var(--line); }
+  .after-keep strong { font-size: .76rem; }
+  .after-keep span { color: var(--muted); font-size: .74rem; line-height: 1.6; }
   .shelf-cta { min-width: 200px; margin-top: 34px; justify-content: space-between; gap: 28px; }
 
   /* Docs */
@@ -684,6 +711,8 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
     .feature-grid article { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
     .feature-grid article:nth-child(2n) { border-right: 0; }
     .feature-grid article:last-child { border-right: 0; border-bottom: 0; }
+    .connected-services { grid-template-columns: 1fr; gap: 24px; }
+    .connected-status { padding: 22px 0 0; border-top: 1px solid var(--line); border-left: 0; }
     .docs-shell { grid-template-columns: 1fr; gap: 40px; }
     .docs-nav { position: static; min-height: 0; padding: 0 0 12px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--line); }
     .docs-nav > p { margin-bottom: 12px; }
@@ -715,6 +744,8 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
     .feature-grid article { min-height: 178px; border-right: 0; border-bottom: 1px solid var(--line); }
     .feature-grid article:last-child { border-bottom: 0; }
     .feature-grid h3 { margin-top: 20px; }
+    .connected-services { padding: 22px; }
+    .after-keep { grid-template-columns: 1fr; gap: 8px; }
     .doc h1 { font-size: clamp(2.2rem, 13vw, 3rem); }
     .doc .summary { margin-bottom: 36px; padding-bottom: 28px; font-size: .94rem; }
     .example-row { grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 20px 0; }
