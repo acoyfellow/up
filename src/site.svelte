@@ -272,7 +272,7 @@
         <div class="home-hero-copy">
           <div class="home-kicker"><span>Deploy before signup</span><i aria-hidden="true"></i><span>Claim later</span></div>
           <h1 id="home-title">Ship the whole stack.<br /><span class="accent">Claim it if it works.</span></h1>
-          <p class="home-tagline">Deploy Worker code, assets, KV, D1, and Durable Objects before signup. Exercise the real app for about an hour, then claim every binding or let it disappear.</p>
+          <p class="home-tagline">A dynamic Worker with KV, D1, and Durable Objects — bindings off the shelf, live before you sign up. Run it for real for about an hour, then claim the whole graph or let it vanish.</p>
           <div class="home-actions">
             <a class="primary link-button" href="https://github.com/acoyfellow/up#deploy-first">Get the CLI <span aria-hidden="true">→</span></a>
             <a class="home-secondary" href="/tutorial">See the flow</a>
@@ -297,69 +297,20 @@
         </div>
       </section>
 
-      <section class="home-intro" aria-labelledby="intro-title">
-        <p class="section-index">01 / PRODUCT</p>
-        <div>
-          <h2 id="intro-title">One folder.<br />One dynamic graph.</h2>
-          <p>Up turns <code>_worker.js</code>, browser assets, and a narrow binding manifest into a real Temporary Account. Agents can exercise the platform before ownership becomes part of the build loop.</p>
+      <section class="shelf" aria-labelledby="shelf-title">
+        <div class="shelf-head">
+          <p class="section-index">01 / DYNAMIC</p>
+          <h2 id="shelf-title">Bindings off the shelf.</h2>
+          <p>Name a binding in <code>up.json</code> and Wrangler provisions and binds it. You call real Worker, KV, D1, and Durable Object semantics from the first deploy — then claim the whole graph or let it vanish.</p>
         </div>
-      </section>
-
-      <section class="feature-grid" aria-label="Product capabilities">
-        <article><span>01</span><h3>Run Worker code</h3><p>A root <code>_worker.js</code> handles dynamic routes and exports Durable Object classes.</p></article>
-        <article><span>02</span><h3>Serve browser assets</h3><p>HTML, CSS, JavaScript, and images are available through <code>env.ASSETS</code>.</p></article>
-        <article><span>03</span><h3>Bind KV</h3><p>Declare a namespace in <code>up.json</code>; Wrangler provisions and binds it.</p></article>
-        <article><span>04</span><h3>Bind D1</h3><p>Deploy a real SQLite database with the Worker and keep it when you claim.</p></article>
-        <article><span>05</span><h3>Bind Durable Objects</h3><p>Ship coordinated state, storage, and WebSockets with a generated migration.</p></article>
-        <article><span>06</span><h3>Skip signup</h3><p>No Cloudflare account, OAuth window, permanent token, or copied credential.</p></article>
-        <article><span>07</span><h3>Exercise the stack</h3><p>Fetch API routes, mutate bindings, revise, and redeploy for up to an hour.</p></article>
-        <article><span>08</span><h3>Claim everything</h3><p>One sensitive link transfers the Temporary Account, app, bindings, and data.</p></article>
-      </section>
-
-      <section class="capa-bridge" aria-labelledby="capa-title">
-        <p class="section-index">02 / CONNECTED APIS</p>
-        <div>
-          <div class="capa-heading"><h2 id="capa-title">Native bindings first.<br />Third-party APIs next.</h2><span>SPIKE PROVEN · INSTALLER NEXT</span></div>
-          <p class="capa-summary">Capa turns OpenAPI specs into typed Cloudflare service-binding Workers. The spike proved that Up could install a selected capability into the same Temporary Account, isolate its provider credential, and claim it with the app.</p>
-          <div class="capa-proof" aria-label="Capa integration proof">
-            <div><strong>14</strong><span>generated APIs · Capa 382359f</span></div>
-            <div><strong>5,998</strong><span>generated operations · not reviewed</span></div>
-            <div><strong>1 account</strong><span>app + capability + secret</span></div>
-          </div>
-          <div class="capa-flow" aria-label="Up and Capa same-account flow"><span>Up app</span><i>→</i><span>Capa Worker</span><i>→</i><span>upstream API</span><i>→</i><span>result + evidence</span></div>
-          <p class="capa-status">The same-account runtime path passed with a real read-only operation and credential-free evidence. Click-to-connect is intentionally not advertised as shipped until Capa publishes immutable install bundles.</p>
-          <div class="capa-actions"><a href="https://capa.coey.dev">Browse Capa ↗</a><a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract ↗</a></div>
+        <div class="feature-grid">
+          <article><span>WORKER</span><h3>Run code</h3><p>A root <code>_worker.js</code> serves dynamic routes and exports Durable Object classes.</p></article>
+          <article><span>ASSETS</span><h3>Serve the page</h3><p>HTML, CSS, JavaScript, and images through <code>env.ASSETS</code>.</p></article>
+          <article><span>KV</span><h3>Store keys</h3><p>A namespace, provisioned and bound from one line of <code>up.json</code>.</p></article>
+          <article><span>D1</span><h3>Query SQL</h3><p>A real SQLite database that travels with the claim.</p></article>
+          <article><span>DURABLE OBJECTS</span><h3>Coordinate state</h3><p>Storage and WebSockets with a generated SQLite migration.</p></article>
         </div>
-      </section>
-
-      <section class="system-model" aria-labelledby="model-title">
-        <p class="section-index">03 / SYSTEM</p>
-        <div>
-          <h2 id="model-title">Code and bindings before ownership.</h2>
-          <div class="model-flow" aria-label="Dynamic app to claimable stack workflow">
-            <span>Worker + assets</span><i>→</i><span>KV + D1 + DO</span><i>→</i><span>temporary account</span><i>→</i><span>claimable stack</span>
-          </div>
-          <ol>
-            <li><strong>Declare</strong><span>Put dynamic code and supported binding names in one folder.</span></li>
-            <li><strong>Exercise</strong><span>Use the real Worker URL and mutate real platform state.</span></li>
-            <li><strong>Decide</strong><span>Claim every resource or let Cloudflare delete the graph.</span></li>
-          </ol>
-        </div>
-      </section>
-
-      <section class="docs-map" aria-labelledby="docs-title">
-        <div class="docs-map-heading"><div><p class="section-index">04 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
-        <div class="docs-quadrants">
-          <a href="/tutorial"><span>LEARNING</span><strong>Tutorial</strong><p>Deploy a first disposable site without signing up.</p><i aria-hidden="true">01 →</i></a>
-          <a href="/how-to"><span>GOALS</span><strong>How-to guides</strong><p>Update, operate, verify, and respond safely.</p><i aria-hidden="true">02 →</i></a>
-          <a href="/reference"><span>INFORMATION</span><strong>Reference</strong><p>Routes, limits, bindings, headers, and exact contracts.</p><i aria-hidden="true">03 →</i></a>
-          <a href="/explanation"><span>UNDERSTANDING</span><strong>Explanation</strong><p>Why deployment can happen before identity and ownership.</p><i aria-hidden="true">04 →</i></a>
-        </div>
-      </section>
-
-      <section class="read-next" aria-labelledby="next-title">
-        <p class="section-index">WHAT TO READ NEXT</p>
-        <div><h2 id="next-title">Deploy before you decide.</h2><a href="/tutorial">Your first temporary site <span aria-hidden="true">→</span></a></div>
+        <a class="shelf-cta primary link-button" href="/tutorial">Deploy one in a minute <span aria-hidden="true">→</span></a>
       </section>
     </div>
   {:else if section === 'app'}
@@ -605,56 +556,19 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
   .home-secondary:hover { border-color: var(--ink); color: var(--ink); }
   .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
   .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
-  .home-intro, .capa-bridge, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
-  .home-intro h2, .capa-bridge h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
-  .home-intro > div > p { max-width: 680px; margin: 30px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
-  .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
-  .feature-grid article { min-height: 228px; padding: 26px; border-right: 1px solid var(--line); }
-  .feature-grid article:nth-child(4n) { border-right: 0; }
-  .feature-grid article:nth-child(-n+4) { border-bottom: 1px solid var(--line); }
-  .feature-grid article > span { color: var(--orange); font: 500 .62rem var(--mono); }
-  .feature-grid h3 { margin: 26px 0 10px; font-size: .98rem; letter-spacing: -.018em; }
+  .shelf { padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
+  .shelf-head { max-width: 760px; margin-bottom: 42px; }
+  .shelf-head h2 { margin: 16px 0 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
+  .shelf-head > p { margin: 22px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
+  .shelf-head code { font-size: .82rem; }
+  .feature-grid { display: grid; grid-template-columns: repeat(5, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
+  .feature-grid article { min-height: 210px; padding: 24px; border-right: 1px solid var(--line); }
+  .feature-grid article:last-child { border-right: 0; }
+  .feature-grid article > span { color: var(--orange); font: 500 .6rem var(--mono); letter-spacing: .04em; }
+  .feature-grid h3 { margin: 24px 0 10px; font-size: .96rem; letter-spacing: -.018em; }
   .feature-grid p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.62; }
   .feature-grid code { font-size: .7rem; }
-  .capa-bridge { margin-top: var(--section); background: linear-gradient(135deg,#0b1118 0%,#121f2a 64%,#193244 100%); color:#fff; }
-  .capa-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
-  .capa-heading > span { flex:0 0 auto; padding:7px 9px; border:1px solid #71b8d866; border-radius:3px; color:var(--cyan); font:500 .58rem var(--mono); letter-spacing:.06em; }
-  .capa-summary { max-width:720px; margin:28px 0 32px; color:#b8c7d2; font-size:.9rem; line-height:1.72; }
-  .capa-proof { display:grid; grid-template-columns:repeat(3,1fr); border-block:1px solid #ffffff29; }
-  .capa-proof > div { display:grid; min-height:112px; align-content:center; gap:8px; padding:18px; border-right:1px solid #ffffff29; }
-  .capa-proof > div:last-child { border-right:0; }
-  .capa-proof strong { font-size:1.45rem; letter-spacing:-.025em; }
-  .capa-proof span { color:#9fb1be; font:500 .61rem var(--mono); }
-  .capa-flow { display:flex; align-items:center; gap:10px; margin:28px 0 20px; overflow-x:auto; white-space:nowrap; }
-  .capa-flow span { padding:8px 10px; border:1px solid #ffffff29; border-radius:3px; background:#ffffff08; font:500 .64rem var(--mono); }
-  .capa-flow i { color:var(--orange); font-style:normal; }
-  .capa-status { max-width:760px; margin:0; color:#9fb1be; font-size:.72rem; line-height:1.65; }
-  .capa-actions { display:flex; flex-wrap:wrap; gap:20px; margin-top:26px; }
-  .capa-actions a { color:var(--cyan); font-size:.7rem; text-decoration:none; }
-  .capa-actions a:hover { text-decoration:underline; text-underline-offset:3px; }
-  .model-flow { display: flex; align-items: center; gap: 10px; margin: 38px 0; padding: 18px 0; overflow-x: auto; border-block: 1px solid var(--line); white-space: nowrap; }
-  .model-flow span { padding: 8px 11px; border: 1px solid var(--line); border-radius: 3px; background: #fff; font: 500 .68rem var(--mono); }
-  .model-flow i { color: var(--orange); font-style: normal; }
-  .system-model ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-  .system-model li { display: grid; grid-template-columns: 110px 1fr; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: .77rem; }
-  .system-model li span { color: var(--muted); }
-  .docs-map { padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
-  .docs-map-heading { display: grid; grid-template-columns: 1.25fr .75fr; align-items: end; gap: 48px; margin-bottom: 48px; }
-  .docs-map-heading .section-index { margin-bottom: 18px; }
-  .docs-map-heading > p { max-width: 350px; margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.7; }
-  .docs-quadrants { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
-  .docs-quadrants a { position: relative; min-height: 232px; padding: 26px 28px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; transition: background .14s ease; }
-  .docs-quadrants a:nth-child(2n) { border-right: 0; }
-  .docs-quadrants a:nth-child(n+3) { border-bottom: 0; }
-  .docs-quadrants a:hover { background: var(--paper); }
-  .docs-quadrants a > span { color: var(--orange); font: 500 .61rem var(--mono); letter-spacing: .08em; }
-  .docs-quadrants strong { display: block; margin-top: 28px; font-size: 1.18rem; letter-spacing: -.022em; }
-  .docs-quadrants p { max-width: 350px; margin: 10px 0 0; color: var(--muted); font-size: .75rem; line-height: 1.58; }
-  .docs-quadrants i { position: absolute; top: 26px; right: 27px; color: var(--quiet); font: 500 .61rem var(--mono); font-style: normal; }
-  .read-next { padding-block: 70px 78px; }
-  .read-next > div { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; }
-  .read-next h2 { font-size: clamp(1.55rem, 3vw, 2.2rem); }
-  .read-next a { display: flex; min-width: 210px; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--ink); font-size: .77rem; text-decoration: none; }
+  .shelf-cta { min-width: 200px; margin-top: 34px; justify-content: space-between; gap: 28px; }
 
   /* Docs */
   .docs-shell { display: grid; grid-template-columns: 200px minmax(0, var(--reading)); gap: clamp(42px, 7vw, 78px); width: min(100%, 1060px); margin-inline: auto; align-items: start; }
@@ -763,15 +677,10 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
     .home-art img { object-position:64% 72%; }
     .ambient-mark { top:-32px; right:-24px; width:260px; opacity:.1; }
     .paint-pattern { top:74px; right:-18px; bottom:auto; width:270px; grid-template-columns:repeat(2,1fr); gap:20px; opacity:.58; }
-    .home-intro, .capa-bridge, .system-model, .read-next { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-    .capa-heading { align-items:flex-start; flex-direction:column; }
-    .capa-proof { grid-template-columns:1fr 1fr 1fr; }
-    .system-model > div { min-width: 0; }
     .feature-grid { grid-template-columns: repeat(2, 1fr); }
+    .feature-grid article { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
     .feature-grid article:nth-child(2n) { border-right: 0; }
-    .feature-grid article:nth-child(n) { border-bottom: 1px solid var(--line); }
-    .feature-grid article:nth-last-child(-n+2) { border-bottom: 0; }
-    .docs-map-heading { grid-template-columns: 1fr; gap: 26px; }
+    .feature-grid article:last-child { border-right: 0; border-bottom: 0; }
     .docs-shell { grid-template-columns: 1fr; gap: 40px; }
     .docs-nav { position: static; min-height: 0; padding: 0 0 12px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--line); }
     .docs-nav > p { margin-bottom: 12px; }
@@ -798,24 +707,11 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
     .home-art img { object-position:62% 78%; }
     .ambient-mark { top:-28px; right:-26px; width:200px; opacity:.09; }
     .paint-pattern { top:92px; right:-16px; width:200px; gap:14px; opacity:.6; }
-    .home-intro, .capa-bridge, .system-model, .read-next, .docs-map { padding: 56px 14px; }
-    .capa-proof { grid-template-columns:1fr; }
-    .capa-proof > div { min-height:86px; border-right:0; border-bottom:1px solid #ffffff29; }
-    .capa-proof > div:last-child { border-bottom:0; }
-    .capa-flow { display:grid; grid-template-columns:1fr; justify-items:stretch; overflow:visible; white-space:normal; }
-    .capa-flow span { text-align:center; }
-    .capa-flow i { justify-self:center; transform:rotate(90deg); }
-    .model-flow { display:grid; grid-template-columns:minmax(0,1fr); justify-items:stretch; overflow:visible; white-space:normal; }
-    .model-flow span { text-align:center; }
-    .model-flow i { justify-self:center; transform:rotate(90deg); }
+    .shelf { padding: 56px 14px; }
     .feature-grid { grid-template-columns: 1fr; }
-    .feature-grid article:nth-child(n) { min-height: 190px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .feature-grid article { min-height: 178px; border-right: 0; border-bottom: 1px solid var(--line); }
     .feature-grid article:last-child { border-bottom: 0; }
-    .feature-grid h3 { margin-top: 22px; }
-    .docs-quadrants { grid-template-columns: 1fr; }
-    .docs-quadrants a:nth-child(n) { min-height: 208px; border-right: 0; border-bottom: 1px solid var(--line); }
-    .docs-quadrants a:last-child { border-bottom: 0; }
-    .read-next > div { align-items: flex-start; flex-direction: column; }
+    .feature-grid h3 { margin-top: 20px; }
     .doc h1 { font-size: clamp(2.2rem, 13vw, 3rem); }
     .doc .summary { margin-bottom: 36px; padding-bottom: 28px; font-size: .94rem; }
     .example-row { grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 20px 0; }

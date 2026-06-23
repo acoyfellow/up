@@ -223,8 +223,8 @@ if (!localOnly) result.production = await production();
 
 console.log(`\n${'─'.repeat(60)}`);
 const localOk = productionOnly || result.local === true;
-const prodOk = localOnly || (result.production && result.production.ok);
-const prodBlocked = !localOnly && result.production && result.production.blocked;
+const prodOk = localOnly || result.production?.ok;
+const prodBlocked = !localOnly && result.production?.blocked;
 
 if (!localOk) {
   console.log('RESULT: FAIL (local onboarding broken)');
