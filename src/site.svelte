@@ -270,14 +270,15 @@
     <div class="home-shell">
       <section class="home-hero" aria-labelledby="home-title">
         <div class="home-hero-copy">
-          <div class="home-kicker"><span>Deploy before signup</span><i aria-hidden="true"></i><span>Claim later</span></div>
-          <h1 id="home-title">Ship the whole stack.<br /><span class="accent">Claim it if it works.</span></h1>
-          <p class="home-tagline">A dynamic Worker with KV, D1, and Durable Objects — bindings off the shelf, live before you sign up. Run it for real for about an hour, then claim the whole graph or let it vanish.</p>
+          <div class="home-kicker"><span>Deploy without an account</span></div>
+          <h1 id="home-title">A real Cloudflare URL<br /><span class="accent">without the signup.</span></h1>
+          <p class="home-tagline">Run <code>up deploy</code> on a folder and get a live Worker at a public URL. Add KV, D1, or Durable Objects when you want them. It runs for about an hour, then it&rsquo;s yours to keep or gone.</p>
           <div class="home-actions">
             <a class="primary link-button" href="https://github.com/acoyfellow/up#deploy-first">Get the CLI <span aria-hidden="true">→</span></a>
-            <a class="home-secondary" href="/tutorial">See the flow</a>
+            <a class="home-secondary" href="/tutorial">See it work</a>
           </div>
-          <p class="hosted-note"><i aria-hidden="true"></i>Independent user-land experiment. Not an official Cloudflare product.</p>
+          <p class="hosted-note caution"><i aria-hidden="true"></i>The URL is public. Anyone with it can load your app — don&rsquo;t deploy secrets.</p>
+          <p class="hosted-note"><i aria-hidden="true"></i>Independent project. Not an official Cloudflare product.</p>
         </div>
         <picture class="home-art" aria-hidden="true">
           <source srcset="/images/up-hero-paint.webp" type="image/webp" />
@@ -546,16 +547,18 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
   .paint-pattern :global(svg:nth-child(7)) { transform:translate(-22px,7px) rotate(15deg) scale(1.24); }
   .paint-pattern :global(svg:nth-child(8)) { transform:translate(11px,-15px) rotate(-5deg) scale(.9); }
   .home-kicker { display: flex; align-items: center; gap: 10px; color: var(--quiet); font: 500 .66rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }
-  .home-kicker i { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); }
   .home-hero h1 { max-width: 580px; margin: 22px 0 20px; font-size: clamp(2.6rem, 5.2vw, 4rem); font-weight: 640; line-height: 1.02; letter-spacing: -.032em; }
   .home-hero h1 .accent { color: var(--blue); }
   .home-tagline { max-width: 470px; margin: 0; color: var(--muted); font-size: clamp(.98rem, 1.4vw, 1.1rem); line-height: 1.64; }
+  .home-tagline code { padding: .08em .32em; border-radius: 4px; background: var(--paper); font-size: .92em; }
   .home-actions { display: flex; align-items: center; gap: 28px; margin-top: 32px; }
   .home-actions .primary { min-width: 136px; justify-content: space-between; gap: 28px; }
   .home-secondary { padding: 10px 0 7px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: .78rem; text-decoration: none; }
   .home-secondary:hover { border-color: var(--ink); color: var(--ink); }
   .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
   .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
+  .hosted-note.caution { margin-top: 22px; color: var(--muted); }
+  .hosted-note.caution i { background: var(--orange); }
   .shelf { padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
   .shelf-head { max-width: 760px; margin-bottom: 42px; }
   .shelf-head h2 { margin: 16px 0 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
