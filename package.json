@@ -29,6 +29,8 @@
     "company:setup": "bun run scripts/setup.ts",
     "company:access:provision": "bun run scripts/provision-access.ts",
     "company:test:production": "node scripts/production-e2e.mjs",
+    "company:verify:onboarding": "node scripts/onboarding-verify.mjs",
+    "company:verify:onboarding:local": "node scripts/onboarding-verify.mjs --local-only",
     "company:test:dynamic-production": "node scripts/dynamic-production-e2e.mjs",
     "company:deploy:docs": "bun run check && wrangler deploy -c wrangler.docs.jsonc",
     "company:deploy:app": "bun run check && wrangler deploy -c wrangler.production.jsonc",
