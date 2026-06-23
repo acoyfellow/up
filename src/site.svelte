@@ -313,7 +313,7 @@
         </div>
         <div class="connected-services">
           <div>
-            <p class="section-index">COMING NEXT / CAPA</p>
+            <p class="section-index">CONNECTED SERVICES / CAPA</p>
             <h3>Connect GitHub, Stripe, and the tools your app needs.</h3>
             <p>Capa keeps API keys out of your app code. You choose what the app is allowed to do; each request comes back with the answer and a clear record of what happened.</p>
           </div>
