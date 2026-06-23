@@ -1,12 +1,83 @@
-# Tutorial: publish a company-private site
+# Tutorial: deploy a dynamic stack before signup
 
-1. Click the Deploy to Cloudflare button in the README.
-2. Create `up.example.com` and `*.up.example.com` in a zone owned by the same account.
-3. Create one Access application that protects both hostnames for your organization.
-4. Configure `TEAM_DOMAIN`, `POLICY_AUD`, `CONTROL_HOST`, `SITE_DOMAIN`, and administrators.
-5. Disable `workers.dev` and Preview URLs, then attach production routes.
-6. Open `/app`, choose a folder containing `index.html`, and publish.
-7. Verify the returned site while authenticated.
-8. Open it in an isolated browser. Access must challenge the browser before uploaded content appears.
+## 1. Make one app folder
 
-You now have one private publishing plane that can host many static company sites.
+```text
+app/
+├── index.html
+├── app.js
+├── _worker.js
+└── up.json
+```
+
+`_worker.js` handles dynamic routes and serves browser files through `env.ASSETS`:
+
+```js
+export class Room {
+  constructor(state) {
+    this.state = state;
+  }
+
+  async fetch() {
+    const visits = ((await this.state.storage.get('visits')) || 0) + 1;
+    await this.state.storage.put('visits', visits);
+    return Response.json({ visits });
+  }
+}
+
+export default {
+  async fetch(request, env) {
+    if (new URL(request.url).pathname === '/api/value') {
+      await env.CACHE.put('last', new Date().toISOString());
+      const rows = await env.DB.prepare('SELECT 1 AS ok').all();
+      const room = env.ROOMS.get(env.ROOMS.idFromName('main'));
+      return Response.json({ rows, room: await room.fetch(request).then((r) => r.json()) });
+    }
+    return env.ASSETS.fetch(request);
+  }
+};
+```
+
+## 2. Declare bindings
+
+```json
+{
+  "bindings": {
+    "kv": ["CACHE"],
+    "d1": ["DB"],
+    "durableObjects": [{ "binding": "ROOMS", "className": "Room" }]
+  }
+}
+```
+
+Up supports only this narrow manifest in anonymous mode. Unknown fields fail rather than passing arbitrary account configuration through to Wrangler.
+
+## 3. Deploy
+
+Interactive terminal:
+
+```sh
+bunx github:acoyfellow/up deploy ./app
+```
+
+Agent/background session, after the user approves Cloudflare's Terms and Privacy Policy:
+
+```sh
+up deploy ./app --accept-cloudflare-terms
+```
+
+Up snapshots the folder, isolates credentials, generates a temporary Wrangler configuration, and lets Wrangler provision the supported resources and deployment.
+
+## 4. Exercise the stack
+
+Open the page and fetch `/api/value`. Verify KV, D1, and Durable Object behavior. Revise and redeploy during the active session.
+
+## 5. Decide
+
+Keep the Worker, resources, and data:
+
+```sh
+up claim --open
+```
+
+Or do nothing. Cloudflare deletes the unclaimed Temporary Account and whole dynamic graph after up to/about 60 minutes.

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Binding Lab · Up</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <main>
+      <p class="kicker">UP / TEMPORARY FULL STACK</p>
+      <h1>One claimable app.<br />Three platform bindings.</h1>
+      <p class="lede">Worker code and assets deploy together. KV counts the edge, D1 stores notes, and a Durable Object coordinates one room.</p>
+
+      <section class="metrics" aria-label="Binding state">
+        <article><span>KV</span><strong id="views">—</strong><small>page views</small></article>
+        <article><span>DURABLE OBJECT</span><strong id="room">—</strong><small>room visits</small></article>
+        <article><span>D1</span><strong id="notes-count">—</strong><small>stored notes</small></article>
+      </section>
+
+      <form id="note-form">
+        <label for="note">Leave state behind</label>
+        <div><input id="note" maxlength="240" placeholder="This stack only lives for an hour…" required /><button type="submit">Store in D1</button></div>
+      </form>
+
+      <section class="notes" aria-live="polite">
+        <h2>Latest notes</h2>
+        <ol id="notes"><li>Loading bindings…</li></ol>
+      </section>
+
+      <footer>Public and disposable until someone claims the Temporary Account.</footer>
+    </main>
+  </body>
+</html>

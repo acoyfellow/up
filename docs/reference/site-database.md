@@ -1,27 +1,25 @@
-# Site database
+# Company-mode site database
 
-Dynamic Up sites can opt into an isolated SQLite database. The database is a dedicated Durable Object instance named for the site; sites never receive the namespace and cannot address another site's object.
+> This reference applies only to the secondary `up private` installation. Anonymous static deployments do not receive this API.
 
-The Dynamic Worker receives one `UP_DB` stub when database access is enabled. It uses the standard binding fetch interface:
+Each company-mode site resolves one SQLite Durable Object from its authenticated hostname. Browser code receives document collections rather than a raw SQL interface:
 
 ```js
-const response = await env.UP_DB.fetch('https://database.internal/query', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({
-    sql: 'SELECT body FROM notes WHERE id = ?',
-    params: [1],
-  }),
-});
-const { rows } = await response.json();
+import { up } from '/_up/client.js';
+
+const notes = up.db.collection('notes');
+const created = await notes.create({ body: 'hello' });
+await notes.get(created.id);
+await notes.list({ limit: 50, offset: 0 });
+await notes.update(created.id, { body: 'updated' });
+await notes.delete(created.id);
 ```
 
-Limits:
+Contracts:
 
-- one SQL statement per call
-- 20,000 SQL characters
-- 100 scalar parameters
-- 1,000 returned rows
-- `ATTACH`, `DETACH`, `PRAGMA`, and `VACUUM` are rejected
-
-Only the site owner or an Up administrator can enable or disable the database. Disabling is destructive: the Durable Object storage is deleted before the API reports success. Dynamic code receives no database binding while disabled.
+- collection names are lowercase identifiers up to 48 characters;
+- document IDs contain letters, numbers, `_`, or `-` and are at most 64 characters;
+- documents are JSON objects up to 64 KiB;
+- a list returns at most 100 documents;
+- site scope comes from the authenticated hostname;
+- browser code cannot select another site's Durable Object.

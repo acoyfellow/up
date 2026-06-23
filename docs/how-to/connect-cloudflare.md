@@ -1,4 +1,6 @@
-# Connect Up to Cloudflare
+# Company mode: connect Cloudflare
+
+> Secondary mode only. Anonymous `up deploy` does not require OAuth, setup, or a Cloudflare account.
 
 Up provisions itself into *your* Cloudflare account using the OAuth
 Authorization Code flow. You approve a scoped consent screen — you never paste
@@ -11,6 +13,7 @@ Least-privilege scopes, shown on Cloudflare's consent screen before you approve:
 | Scope | Why |
 | --- | --- |
 | `access.write` | Create the Access application and policy |
+| `access-org.write` | Read or initialize the account Access organization |
 | `workers-scripts.write` | Deploy the control Worker and its Durable Object |
 | `workers-routes.write` | Bind the control and wildcard routes |
 | `workers-r2.write` | Create and manage the private assets bucket |
@@ -44,7 +47,7 @@ Copy the **Client ID** (and secret, if any).
 ```sh
 export UP_OAUTH_CLIENT_ID=<client id>
 # export UP_OAUTH_CLIENT_SECRET=<secret>   # only for a confidential client
-bun run oauth:connect
+bun run company:oauth:connect
 ```
 
 A browser opens to Cloudflare's consent screen. Approve it. The short-lived token is stored in `.cloudflare-oauth.json` (gitignored, mode `600`). Re-run the consent command when it expires; it never asks for an API token.
@@ -56,7 +59,7 @@ export CLOUDFLARE_ACCOUNT_ID=<account id>
 export UP_CONTROL_HOST=up.yourcompany.com
 export UP_PARENT_ZONE=yourcompany.com
 export UP_ALLOWED_EMAIL=you@yourcompany.com
-bun run setup
+bun run company:setup
 ```
 
 `setup` delegates an isolated child zone when requested, creates private R2 and the Access application, reads back its generated audience, injects it into a gitignored deployment config, and deploys. No AUD is created or copied by hand.

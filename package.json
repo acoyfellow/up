@@ -6,7 +6,7 @@
   "bin": {
     "up": "./cli/up.ts"
   },
-  "description": "Publish your company's private web from your Cloudflare account.",
+  "description": "Deploy a dynamic Cloudflare app and bindings before signup, then claim the stack.",
   "scripts": {
     "up": "bun run cli/up.ts",
     "build": "svelte-kit sync && vite build",
@@ -15,7 +15,9 @@
     "dev:kit": "bun run dev",
     "typecheck": "tsc --noEmit",
     "check:kit": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "test": "vitest run",
+    "test": "bun run test:workers && bun run test:cli",
+    "test:workers": "vitest run",
+    "test:cli": "vitest run -c vitest.cli.config.ts",
     "baseline:check": "bun run scripts/check-baseline.ts",
     "test:e2e": "bash scripts/local-e2e.sh",
     "dry-run": "bun run build && wrangler deploy --dry-run --outdir dist",
@@ -23,14 +25,14 @@
     "public:check": "bash scripts/check-public.sh",
     "release:access:check": "bun run scripts/check-access-release.ts",
     "check": "bun run build && bun run check:kit && bun run typecheck && bun run baseline:check && bun run test && biome check .",
-    "oauth:connect": "bun run scripts/oauth-bootstrap.ts",
-    "setup": "bun run scripts/setup.ts",
-    "access:provision": "bun run scripts/provision-access.ts",
-    "test:production": "node scripts/production-e2e.mjs",
-    "test:dynamic-production": "node scripts/dynamic-production-e2e.mjs",
-    "deploy:docs": "bun run check && wrangler deploy -c wrangler.docs.jsonc",
-    "deploy:app": "bun run check && wrangler deploy -c wrangler.production.jsonc",
-    "deploy:up:safe": "bun run check && bun run release:access:check && wrangler deploy -c wrangler.up.jsonc"
+    "company:oauth:connect": "bun run scripts/oauth-bootstrap.ts",
+    "company:setup": "bun run scripts/setup.ts",
+    "company:access:provision": "bun run scripts/provision-access.ts",
+    "company:test:production": "node scripts/production-e2e.mjs",
+    "company:test:dynamic-production": "node scripts/dynamic-production-e2e.mjs",
+    "company:deploy:docs": "bun run check && wrangler deploy -c wrangler.docs.jsonc",
+    "company:deploy:app": "bun run check && wrangler deploy -c wrangler.production.jsonc",
+    "company:deploy:up:safe": "bun run check && bun run release:access:check && wrangler deploy -c wrangler.up.jsonc"
   },
   "dependencies": {
     "hono": "^4.12.19",

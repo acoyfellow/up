@@ -1,141 +1,231 @@
 # Up
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Publish a folder to a company-private URL.**
+**Deploy a dynamic Cloudflare app now. Claim the whole stack later.**
 
-An organization installs Up once in its Cloudflare account. Employees and coding agents can then publish small internal apps without creating a repository, deployment pipeline, database, credentials, or authentication flow for each app.
-
-```text
-folder + name → verified upload → atomic activation → company-private URL
-```
-
-Dogfood: <https://up.ax.cloudflare.dev> · Version: `0.0.1`
-
-## Publish
-
-Browser:
+Up gives coding agents a Worker, Static Assets, and platform bindings before anyone creates an account, opens OAuth, or copies an API token.
 
 ```text
-Open Up → choose folder → choose name → publish
+app folder → Worker + assets + bindings → public URL → claim or disappear
 ```
 
-CLI:
+Up is an independent, user-land experiment. It is not an official Cloudflare product and is not supported by Cloudflare.
+
+## Deploy first
+
+A dynamic Up app is an ordinary folder:
+
+```text
+my-app/
+├── index.html       browser UI
+├── app.js
+├── _worker.js       dynamic Worker entry point
+└── up.json          platform bindings
+```
+
+```sh
+bunx github:acoyfellow/up deploy ./my-app
+```
+
+```text
+Deploying dynamic app with 2 assets without a Cloudflare account
+Bindings: CACHE, DB, ROOMS…
+
+Live now
+
+https://up-a1b2c3d4e5.example-account.workers.dev
+
+Expires in about 60 minutes unless claimed.
+Public: anyone with this URL can open it.
+
+Keep it (sensitive ownership link):
+https://dash.cloudflare.com/claim-preview?claimToken=...
+```
+
+No signup, login, permanent token, repository, or Up server is involved. Interactive use asks you to accept Cloudflare’s Terms and Privacy Policy. Agents and other non-interactive sessions must pass the explicit approval flag:
+
+```sh
+up deploy ./my-app --accept-cloudflare-terms
+```
+
+To claim the account later:
+
+```sh
+up claim --open
+```
+
+If it is not claimed within about 60 minutes, Cloudflare deletes the Temporary Account, Worker, bindings, and data.
+
+## Bind the platform
+
+`up.json` declares the resources the app expects:
+
+```json
+{
+  "bindings": {
+    "kv": ["CACHE"],
+    "d1": ["DB"],
+    "durableObjects": [{ "binding": "ROOMS", "className": "Room" }]
+  }
+}
+```
+
+Up turns that into a temporary Wrangler graph. Wrangler auto-provisions KV and D1, deploys the Durable Object class and migration, binds Static Assets as `env.ASSETS`, and uploads the Worker and browser files together.
+
+```js
+export class Room {
+  constructor(state) {
+    this.state = state;
+  }
+
+  async fetch() {
+    const visits = ((await this.state.storage.get('visits')) || 0) + 1;
+    await this.state.storage.put('visits', visits);
+    return Response.json({ visits });
+  }
+}
+
+export default {
+  async fetch(request, env) {
+    const cached = await env.CACHE.get('key');
+    const rows = await env.DB.prepare('SELECT * FROM notes').all();
+    const room = env.ROOMS.get(env.ROOMS.idFromName('main'));
+
+    if (new URL(request.url).pathname === '/api/state')
+      return Response.json({ cached, rows, room: await room.fetch(request).then((r) => r.json()) });
+
+    return env.ASSETS.fetch(request);
+  }
+};
+```
+
+Browser code gets a normal same-origin API. Worker code gets real Cloudflare bindings. Claiming transfers the entire Temporary Account and the supported resources created inside it.
+
+## Binding spectrum
+
+| Primitive | Anonymous Up 0.0.1 | Temporary Account contract |
+|---|---:|---|
+| Worker runtime | **Yes** | Dynamic request handling on `workers.dev` |
+| Static Assets | **Yes** | 1,000 files; 5 MiB each |
+| KV | **Yes** | Auto-provisioned from `up.json` |
+| D1 | **Yes** | One database; 100 MB total |
+| Durable Objects | **Yes** | Class binding plus SQLite migration |
+| Queues | Next | Temporary Accounts allow up to 10 |
+| Hyperdrive | Connect later | Two configs; requires an existing database |
+| Certificates | Claim-time concern | Supported command family |
+| R2, Workers AI, Access | **No** | Not in the current Temporary Account matrix |
+| Workflows, Browser Rendering, Containers, Sandboxes | **No** | Not in the current matrix |
+
+The boundary is deliberately upstream-shaped. Up does not fake unavailable bindings or proxy them through a permanent service account.
+
+## Third-party APIs through Capa
+
+[Capa](https://capa.coey.dev) turns OpenAPI specs into generated Cloudflare service-binding Workers. Capa `main` at [`382359f`](https://github.com/acoyfellow/capa/commit/382359f) contains 14 API capabilities and 5,998 generated operations—not 5,998 reviewed or equally safe actions—with `{ result, evidence }` returned from every call.
+
+An isolated spike proved the intended composition inside one Temporary Account:
+
+```text
+Up app Worker
+  └── service binding → Capa capability Worker
+                           └── provider credential secret
+```
+
+A generated read-only capability returned a real `200`/`pass` evidence receipt, survived caller redeployment, and leaked no credential. Capa `main` Stripe also reached the real upstream API with a deliberately fake token and returned a bounded `401`/`fail` receipt without exposing authorization data.
+
+**The runtime composition is proven; click-to-connect is not shipped yet.** Capa needs immutable per-capability install bundles before Up can safely offer a local connector UI. Existing permanent Capa Workers cannot be bound cross-account; each selected capability Worker must install into the same Temporary Account as the app.
+
+Read the [integration and local composer contract](docs/capa-integration.md) and [spike receipt](receipts/2026-06-23-capa-temporary-account-spike.md).
+
+## Complete dynamic example
+
+[`examples/binding-lab`](examples/binding-lab) is a framework-free dynamic app using:
+
+- a Worker API;
+- Static Assets;
+- KV for an edge counter;
+- D1 for notes;
+- a Durable Object for one coordinated room.
+
+Deploy it anonymously:
+
+```sh
+up deploy examples/binding-lab binding-lab --accept-cloudflare-terms
+```
+
+A real isolated smoke test returned HTTP 200 from both its page and `/api/state`, with live values from all three bindings.
+
+## What Up actually does
+
+Up deliberately stays close to Cloudflare’s bleeding edge instead of recreating its deployment APIs:
+
+1. validates and snapshots the app into a private staging directory;
+2. reads a narrow `up.json` binding manifest;
+3. generates a temporary Wrangler graph for Worker, assets, KV, D1, and Durable Objects;
+4. starts pinned Wrangler in an isolated Up-owned home;
+5. removes every current and deprecated Cloudflare credential variable;
+6. runs `wrangler deploy --temporary` with experimental resource provisioning;
+7. takes the authoritative public URL from Wrangler output;
+8. returns expiry and one sensitive claim URL.
+
+Wrangler owns proof-of-work, Terms acceptance, short-lived credentials, resource provisioning, upload, account reuse, and dashboard claiming. Up does not reimplement the unpublished provisioning protocol.
+
+The isolated state lives under `~/.up/anonymous` with private permissions. Repeated deploys during one active session reuse the Temporary Account, so **the claim URL claims every app and binding in that session**.
+
+## The temporary contract
+
+| Contract | Anonymous Up deployment |
+|---|---|
+| Runtime | Dynamic Worker plus same-origin Static Assets |
+| Visibility | Public; URL possession is enough to read it |
+| Lifetime | Up to/about 60 minutes unless claimed |
+| Credentials | Existing Cloudflare credentials are removed from the child process |
+| Name | Stable path fingerprint, or a strictly validated explicit name |
+| Ownership | Claim URL grants the whole temporary account; treat it as a secret |
+| Production | Not intended for production or CI/CD |
+
+Official primitive: [Claim deployments (Temporary Accounts)](https://developers.cloudflare.com/workers/platform/claim-deployments/).
+
+## Build with an agent
 
 ```sh
 bunx github:acoyfellow/up init
-bunx github:acoyfellow/up deploy ./dist lunch-vote
 ```
 
-```text
-Authenticated · 3 files ready
-Uploading 3/3 style.css
-Published
+This writes `.up/SKILL.md`. Ask an agent to read it, build the app, deploy it, fetch the real Worker URL, exercise its bindings, revise, and redeploy without stopping for browser authentication.
 
-https://lunch-vote.up.example.com
-Access: your organization
-```
+## Private company mode
 
-Both clients use the same manifest, upload, and activation API. A copied URL does not grant access; Up verifies a company session before returning content.
-
-## Fixed browser API
-
-Every site can import one same-origin module:
-
-```js
-import { up } from '/_up/client.js';
-
-const viewer = await up.identity.current();
-
-const votes = up.db.collection('votes');
-await votes.create({ choice: 'Tacos', voter: viewer.email });
-
-await up.files.put('menu.txt', new Blob(['Tacos · Pizza · Salad']));
-
-const result = await up.ai.chat([
-  { role: 'user', content: 'Summarize today’s vote' }
-]);
-
-const room = up.realtime.channel('votes');
-room.on('vote', renderVote);
-room.send('vote', { choice: 'Tacos' });
-```
-
-Browser code receives no Cloudflare credentials or resource identifiers.
-
-| API | Cloudflare mechanism |
-|---|---|
-| `up.identity` | Access-backed Up session |
-| `up.db` | site-named SQLite Durable Object |
-| `up.files` | site-prefixed private R2 objects |
-| `up.ai` | Workers AI with a fixed model and limits |
-| `up.realtime` | site-and-channel Durable Object WebSockets |
-
-## Complete example
-
-**[Lunch Vote ↗](https://lunch-vote.up.ax.cloudflare.dev)** is a live, employee-protected app using all five fixed APIs. Its [`three-file source`](examples/lunch-vote) is plain HTML, CSS, and JavaScript with no `_worker.js`, credentials, framework, or infrastructure configuration. Browse it from the documentation’s compact [examples page](https://up.ax.cloudflare.dev/examples).
-
-## Install for a company
-
-Up uses Cloudflare OAuth. The current operator path is:
+The original company-private experiment remains available as a secondary mode:
 
 ```sh
-export UP_OAUTH_CLIENT_ID=<client-id>
-bun run oauth:connect
-
-export CLOUDFLARE_ACCOUNT_ID=<account-id>
-export UP_CONTROL_HOST=up.example.com
-export UP_PARENT_ZONE=example.com
-export UP_ALLOWED_DOMAIN=example.com
-bun run setup
+up private ./dist team-tool --origin https://up.example.com
 ```
 
-The installer creates customer-owned resources:
+That path requires a customer-owned Up installation, Cloudflare Access, and browser-mediated CLI authentication. It is retained for comparison and dogfood; it is no longer the default positioning.
+
+## Why this pivot
+
+The old product asked an organization to install infrastructure before anyone could publish. The new product moves the dynamic graph ahead of ownership:
 
 ```text
-Cloudflare Access
-       ↓
-Up Worker + SvelteKit assets
-  ├── private R2
-  ├── Registry Durable Object
-  ├── Database Durable Object namespace
-  ├── Realtime Durable Object namespace
-  └── Workers AI
+old: install → authenticate → configure bindings → deploy
+new: declare bindings → deploy → exercise the real stack → decide whether to own it
 ```
 
-The Worker, Access application, DNS, R2, and Durable Objects remain visible in the customer account. `workers.dev` and preview URLs stay disabled.
-
-Alchemy v2 was tested and omitted from this revision because it cannot yet express Workers AI and Access without custom provider code. See [`receipts/2026-06-19-alchemy-v2-decision.md`](receipts/2026-06-19-alchemy-v2-decision.md).
-
-## Trust boundary
-
-- Every new site is company-private.
-- The site hostname selects scope only after Up verifies identity.
-- Site A cannot address Site B’s database, files, or realtime room.
-- Browser code never receives AI or storage credentials.
-- Deployment files stay pending until every path, size, and SHA-256 digest passes verification.
-- Activation changes one pointer, so visitors receive a complete old or complete new deployment.
-- Anonymous probes receive Access before uploaded bytes.
-
-Read [SECURITY.md](SECURITY.md) for the exact contracts.
+The point is not anonymous static hosting. The point is letting an agent discover how far a real Cloudflare application can get before signup becomes necessary.
 
 ## Repository map
 
 ```text
-src/core-backend.ts       deploy protocol and site request routing
-src/capabilities.ts       fixed browser API and site scoping
-src/site-database.ts      document collections
-src/site-realtime.ts      authenticated channel WebSockets
-src/auth.ts               Access JWT verification
-cli/up.ts                 init and deploy
-skills/up/                agent instructions and client types
-examples/lunch-vote/      complete framework-free proof
-tests/up.test.ts          runtime, capability, and isolation proof
-wrangler.jsonc            installation graph
+cli/up.ts                         staging, binding graph, anonymous deploy/claim
+examples/binding-lab/            Worker + Assets + KV + D1 + Durable Object proof
+tests/anonymous-cli.test.ts      subprocess, binding config, isolation, claim proof
+skills/up/SKILL.md                agent dynamic-app contract
+docs/anonymous-first-brief.md    product and security boundary
+docs/capa-integration.md         proven composition and local composer contract
+src/                              retained company-mode runtime
 ```
-
-The source contract is captured in [`docs/0.0.1-source-brief.md`](docs/0.0.1-source-brief.md).
 
 ## Verify
 
@@ -145,14 +235,15 @@ bun run check
 bun run test:e2e
 ```
 
-The suite uses the real Workers runtime, SQLite Durable Objects, R2, WebSockets, SvelteKit SSR, and Access/session logic. It does not use application mocks.
+Ordinary tests never create anonymous accounts. The CLI suite uses a real subprocess and fake Wrangler executable to verify staging, generated binding configuration, argument boundaries, credential removal, claim redaction, and public URL handling. Live Temporary Account tests are deliberate manual checks because they create rate-limited remote resources.
 
 ## Documentation
 
-- [Tutorial](docs/tutorial/index.md)
-- [How-to guides](docs/how-to/index.md)
-- [Reference](docs/reference/index.md)
-- [Explanation](docs/explanation/index.md)
+- [Anonymous-first source brief](docs/anonymous-first-brief.md)
+- [Security](SECURITY.md)
+- [Capa integration contract](docs/capa-integration.md)
+- [Historical company-private source brief](docs/0.0.1-source-brief.md)
+- [Binding Lab](examples/binding-lab)
 
 ## License
 

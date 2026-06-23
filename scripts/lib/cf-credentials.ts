@@ -22,6 +22,7 @@ export const CREDENTIALS_FILE = resolve(process.cwd(), '.cloudflare-oauth.json')
  */
 export const DEFAULT_SCOPES = [
   'access.write', // Access: Apps and Policies Write
+  'access-org.write', // create/read the account Access organization when absent
   'workers-scripts.write', // deploy the control Worker (+ Durable Objects)
   'workers-routes.write', // bind the wildcard + app routes
   'workers-r2.write', // create/manage the private assets bucket
@@ -58,7 +59,7 @@ function isExpired(stored: StoredCredentials): boolean {
 async function refresh(stored: StoredCredentials): Promise<StoredCredentials> {
   if (!stored.refresh_token || !stored.client_id) {
     throw new Error(
-      'Stored Cloudflare token expired and cannot be refreshed. Run bun run oauth:connect.',
+      'Stored Cloudflare token expired and cannot be refreshed. Run bun run company:oauth:connect.',
     );
   }
   const body = new URLSearchParams({
@@ -93,7 +94,7 @@ export async function resolveToken(): Promise<string> {
   const stored = await readStored();
   if (!stored?.access_token) {
     throw new Error(
-      'No Cloudflare credentials. Run bun run oauth:connect, or set CLOUDFLARE_API_TOKEN.',
+      'No Cloudflare credentials. Run bun run company:oauth:connect, or set CLOUDFLARE_API_TOKEN.',
     );
   }
   if (isExpired(stored)) return (await refresh(stored)).access_token;

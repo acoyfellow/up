@@ -1,0 +1,133 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #f4f7f9;
+  color: #17212b;
+  font-family: Inter, system-ui, sans-serif;
+}
+main {
+  width: min(100% - 40px, 980px);
+  margin: 0 auto;
+  padding: 70px 0;
+}
+.kicker {
+  color: #f6821f;
+  font:
+    600 13px ui-monospace,
+    monospace;
+  letter-spacing: 0.12em;
+}
+h1 {
+  max-width: 840px;
+  margin: 24px 0;
+  font-size: clamp(42px, 8vw, 78px);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+.lede {
+  max-width: 700px;
+  color: #657583;
+  font-size: 19px;
+  line-height: 1.6;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 58px 0 36px;
+  border: 1px solid #becbd4;
+  background: white;
+}
+.metrics article {
+  display: grid;
+  min-height: 190px;
+  padding: 24px;
+  border-right: 1px solid #d7e0e6;
+}
+.metrics article:last-child {
+  border: 0;
+}
+.metrics span,
+small {
+  color: #71818e;
+  font:
+    600 11px ui-monospace,
+    monospace;
+  letter-spacing: 0.08em;
+}
+.metrics strong {
+  align-self: center;
+  font-size: 54px;
+}
+form,
+.notes {
+  margin-top: 28px;
+  padding: 26px;
+  border: 1px solid #becbd4;
+  background: white;
+}
+label,
+h2 {
+  display: block;
+  margin: 0 0 16px;
+  font-size: 17px;
+  font-weight: 700;
+}
+form div {
+  display: flex;
+  gap: 8px;
+}
+input {
+  min-width: 0;
+  flex: 1;
+  padding: 14px;
+  border: 1px solid #becbd4;
+  font: inherit;
+}
+button {
+  padding: 0 20px;
+  border: 0;
+  background: #f6821f;
+  color: #1f1208;
+  font-weight: 700;
+  cursor: pointer;
+}
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+li {
+  padding: 13px 0;
+  border-top: 1px solid #e1e7eb;
+  color: #52616d;
+}
+footer {
+  margin-top: 42px;
+  color: #71818e;
+  font:
+    500 12px ui-monospace,
+    monospace;
+}
+@media (max-width: 650px) {
+  main {
+    width: min(100% - 28px, 980px);
+    padding-top: 42px;
+  }
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+  .metrics article {
+    min-height: 130px;
+    border-right: 0;
+    border-bottom: 1px solid #d7e0e6;
+  }
+  form div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  button {
+    min-height: 48px;
+  }
+}

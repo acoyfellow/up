@@ -258,7 +258,7 @@
     {#if !isProduct}
       <a href="/tutorial">Docs</a>
       <a href="/explanation">How it works</a>
-      <a href="/app">Open Up ↗</a>
+      <a href="https://github.com/acoyfellow/up">Get the CLI ↗</a>
     {:else}
       <span class="identity"><i aria-hidden="true"></i>{identity}</span>
     {/if}
@@ -270,14 +270,14 @@
     <div class="home-shell">
       <section class="home-hero" aria-labelledby="home-title">
         <div class="home-hero-copy">
-          <div class="home-kicker"><span>Cloudflare-native</span><i aria-hidden="true"></i><span>Private by default</span></div>
-          <h1 id="home-title">Your company’s<br /><span class="accent">private web.</span></h1>
-          <p class="home-tagline">Publish a folder to a company-private URL behind the identity system your organization already trusts.</p>
+          <div class="home-kicker"><span>Deploy before signup</span><i aria-hidden="true"></i><span>Claim later</span></div>
+          <h1 id="home-title">Ship the whole stack.<br /><span class="accent">Claim it if it works.</span></h1>
+          <p class="home-tagline">Deploy Worker code, assets, KV, D1, and Durable Objects before signup. Exercise the real app for about an hour, then claim every binding or let it disappear.</p>
           <div class="home-actions">
-            <a class="primary link-button" href="/app">Open Up <span aria-hidden="true">→</span></a>
-            <a class="home-secondary" href="/tutorial">Install your own</a>
+            <a class="primary link-button" href="https://github.com/acoyfellow/up#deploy-first">Get the CLI <span aria-hidden="true">→</span></a>
+            <a class="home-secondary" href="/tutorial">See the flow</a>
           </div>
-          <p class="hosted-note"><i aria-hidden="true"></i>Cloudflare’s hosted installation is currently available to Cloudflare employees.</p>
+          <p class="hosted-note"><i aria-hidden="true"></i>Independent user-land experiment. Not an official Cloudflare product.</p>
         </div>
         <picture class="home-art" aria-hidden="true">
           <source srcset="/images/up-hero-paint.webp" type="image/webp" />
@@ -300,50 +300,66 @@
       <section class="home-intro" aria-labelledby="intro-title">
         <p class="section-index">01 / PRODUCT</p>
         <div>
-          <h2 id="intro-title">One installation.<br />Every small site.</h2>
-          <p>Up gives employees and agents one dependable place to publish prototypes, reports, demos, and internal tools. Files stay in private R2. Every request meets Cloudflare Access first.</p>
+          <h2 id="intro-title">One folder.<br />One dynamic graph.</h2>
+          <p>Up turns <code>_worker.js</code>, browser assets, and a narrow binding manifest into a real Temporary Account. Agents can exercise the platform before ownership becomes part of the build loop.</p>
         </div>
       </section>
 
       <section class="feature-grid" aria-label="Product capabilities">
-        <article><span>01</span><h3>Publish a folder</h3><p>HTML, CSS, JavaScript, and assets. No framework or build system required.</p></article>
-        <article><span>02</span><h3>Know the viewer</h3><p><code>up.identity</code> returns the employee identity already verified by Access.</p></article>
-        <article><span>03</span><h3>Store records</h3><p><code>up.db</code> provides site-scoped document collections backed by SQLite.</p></article>
-        <article><span>04</span><h3>Share files</h3><p><code>up.files</code> stores bounded site files in private R2 without credentials.</p></article>
-        <article><span>05</span><h3>Call AI</h3><p><code>up.ai</code> uses the installation’s fixed Workers AI policy.</p></article>
-        <article><span>06</span><h3>Update live</h3><p><code>up.realtime</code> connects authenticated browsers through site-scoped rooms.</p></article>
-        <article><span>07</span><h3>Publish atomically</h3><p>Every digest is verified before a deployment becomes visible. Partial updates never leak.</p></article>
-        <article><span>08</span><h3>Stay in control</h3><p>The Worker, Durable Objects, R2, DNS, and Access app remain in your account.</p></article>
+        <article><span>01</span><h3>Run Worker code</h3><p>A root <code>_worker.js</code> handles dynamic routes and exports Durable Object classes.</p></article>
+        <article><span>02</span><h3>Serve browser assets</h3><p>HTML, CSS, JavaScript, and images are available through <code>env.ASSETS</code>.</p></article>
+        <article><span>03</span><h3>Bind KV</h3><p>Declare a namespace in <code>up.json</code>; Wrangler provisions and binds it.</p></article>
+        <article><span>04</span><h3>Bind D1</h3><p>Deploy a real SQLite database with the Worker and keep it when you claim.</p></article>
+        <article><span>05</span><h3>Bind Durable Objects</h3><p>Ship coordinated state, storage, and WebSockets with a generated migration.</p></article>
+        <article><span>06</span><h3>Skip signup</h3><p>No Cloudflare account, OAuth window, permanent token, or copied credential.</p></article>
+        <article><span>07</span><h3>Exercise the stack</h3><p>Fetch API routes, mutate bindings, revise, and redeploy for up to an hour.</p></article>
+        <article><span>08</span><h3>Claim everything</h3><p>One sensitive link transfers the Temporary Account, app, bindings, and data.</p></article>
+      </section>
+
+      <section class="capa-bridge" aria-labelledby="capa-title">
+        <p class="section-index">02 / CONNECTED APIS</p>
+        <div>
+          <div class="capa-heading"><h2 id="capa-title">Native bindings first.<br />Third-party APIs next.</h2><span>SPIKE PROVEN · INSTALLER NEXT</span></div>
+          <p class="capa-summary">Capa turns OpenAPI specs into typed Cloudflare service-binding Workers. The spike proved that Up could install a selected capability into the same Temporary Account, isolate its provider credential, and claim it with the app.</p>
+          <div class="capa-proof" aria-label="Capa integration proof">
+            <div><strong>14</strong><span>generated APIs · Capa 382359f</span></div>
+            <div><strong>5,998</strong><span>generated operations · not reviewed</span></div>
+            <div><strong>1 account</strong><span>app + capability + secret</span></div>
+          </div>
+          <div class="capa-flow" aria-label="Up and Capa same-account flow"><span>Up app</span><i>→</i><span>Capa Worker</span><i>→</i><span>upstream API</span><i>→</i><span>result + evidence</span></div>
+          <p class="capa-status">The same-account runtime path passed with a real read-only operation and credential-free evidence. Click-to-connect is intentionally not advertised as shipped until Capa publishes immutable install bundles.</p>
+          <div class="capa-actions"><a href="https://capa.coey.dev">Browse Capa ↗</a><a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract ↗</a></div>
+        </div>
       </section>
 
       <section class="system-model" aria-labelledby="model-title">
-        <p class="section-index">02 / SYSTEM</p>
+        <p class="section-index">03 / SYSTEM</p>
         <div>
-          <h2 id="model-title">Folder to private URL.</h2>
-          <div class="model-flow" aria-label="Folder to private URL workflow">
-            <span>static folder</span><i>→</i><span>verified upload</span><i>→</i><span>private R2</span><i>→</i><span>Access URL</span>
+          <h2 id="model-title">Code and bindings before ownership.</h2>
+          <div class="model-flow" aria-label="Dynamic app to claimable stack workflow">
+            <span>Worker + assets</span><i>→</i><span>KV + D1 + DO</span><i>→</i><span>temporary account</span><i>→</i><span>claimable stack</span>
           </div>
           <ol>
-            <li><strong>Connect</strong><span>Approve Up once in Cloudflare.</span></li>
-            <li><strong>Publish</strong><span>Choose a folder and name the site.</span></li>
-            <li><strong>Prove</strong><span>Verify authenticated content and anonymous denial.</span></li>
+            <li><strong>Declare</strong><span>Put dynamic code and supported binding names in one folder.</span></li>
+            <li><strong>Exercise</strong><span>Use the real Worker URL and mutate real platform state.</span></li>
+            <li><strong>Decide</strong><span>Claim every resource or let Cloudflare delete the graph.</span></li>
           </ol>
         </div>
       </section>
 
       <section class="docs-map" aria-labelledby="docs-title">
-        <div class="docs-map-heading"><div><p class="section-index">03 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
+        <div class="docs-map-heading"><div><p class="section-index">04 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
         <div class="docs-quadrants">
-          <a href="/tutorial"><span>LEARNING</span><strong>Tutorial</strong><p>Connect Cloudflare and publish a first private site.</p><i aria-hidden="true">01 →</i></a>
+          <a href="/tutorial"><span>LEARNING</span><strong>Tutorial</strong><p>Deploy a first disposable site without signing up.</p><i aria-hidden="true">01 →</i></a>
           <a href="/how-to"><span>GOALS</span><strong>How-to guides</strong><p>Update, operate, verify, and respond safely.</p><i aria-hidden="true">02 →</i></a>
           <a href="/reference"><span>INFORMATION</span><strong>Reference</strong><p>Routes, limits, bindings, headers, and exact contracts.</p><i aria-hidden="true">03 →</i></a>
-          <a href="/explanation"><span>UNDERSTANDING</span><strong>Explanation</strong><p>Why the Access boundary and atomic model matter.</p><i aria-hidden="true">04 →</i></a>
+          <a href="/explanation"><span>UNDERSTANDING</span><strong>Explanation</strong><p>Why deployment can happen before identity and ownership.</p><i aria-hidden="true">04 →</i></a>
         </div>
       </section>
 
       <section class="read-next" aria-labelledby="next-title">
         <p class="section-index">WHAT TO READ NEXT</p>
-        <div><h2 id="next-title">Start with a first publish.</h2><a href="/tutorial">Your first Up site <span aria-hidden="true">→</span></a></div>
+        <div><h2 id="next-title">Deploy before you decide.</h2><a href="/tutorial">Your first temporary site <span aria-hidden="true">→</span></a></div>
       </section>
     </div>
   {:else if section === 'app'}
@@ -450,23 +466,25 @@
           <a class:active={section === 'reference'} href="/reference"><span>03</span>Reference</a>
           <a class:active={section === 'explanation'} href="/explanation"><span>04</span>Explanation</a>
         </nav>
-        <div><span>Up 0.0.1</span><a href="/app">Open publisher →</a></div>
+        <div><span>Up 0.0.1</span><a href="https://github.com/acoyfellow/up">Get the CLI →</a></div>
       </aside>
       <article class="doc">
       <p class="state-label">{eyebrow}</p>
       {#if section === 'tutorial'}
-        <h1>Set up Up</h1><p class="summary">Connect your Cloudflare account once. Up provisions itself and the Access boundary on your behalf — no API tokens to mint.</p>
-        <h2>1. Connect with Cloudflare</h2><p><a class="primary link-button" href="/how-to">Connect with Cloudflare</a></p><p>You review the requested scopes on Cloudflare’s consent screen and approve. Up creates the Worker, Durable Object, private R2 bucket, and Access application — all in your account.</p>
-        <h2>2. Choose who gets in</h2><p>The Access policy defaults to your company email domain. Point it at your existing SSO (Okta, Entra, Google) or Cloudflare authentication. Everyone in the company; nobody outside.</p>
-        <h2>3. Verify before use</h2><p>Publish a folder while authenticated. Open the resulting URL in a clean browser. It must reach Access before any uploaded bytes. <code>workers.dev</code> and Preview URLs stay disabled.</p>
-        <p>Prefer to fork and self-host the source? <a href={deployUrl}>Deploy to Cloudflare ↗</a></p>
+        <h1>Deploy the stack before signup</h1><p class="summary">Give an agent Worker code, browser assets, and binding names. Create an account only after the dynamic graph proves itself.</p>
+        <h2>1. Build one app folder</h2><pre><code>app/
+  index.html
+  _worker.js
+  up.json</code></pre><p><code>_worker.js</code> handles requests and calls <code>env.ASSETS</code>. <code>up.json</code> declares KV, D1, and Durable Object bindings.</p>
+        <h2>2. Deploy anonymously</h2><pre><code>bunx github:acoyfellow/up deploy ./app</code></pre><p>Up snapshots the app and runs pinned Wrangler with isolated credentials. Wrangler creates the Temporary Account and provisions the supported resources.</p>
+        <h2>3. Exercise or claim</h2><p>Fetch the page and API, mutate every binding, revise, and redeploy. Run <code>up claim --open</code> to keep the whole stack, or let every resource disappear.</p>
       {:else if section === 'how-to'}
-        <h1>Operate Up</h1><p class="summary">Publish the same folder from the browser, CLI, or an agent.</p><h2>Update a site</h2><p>Publish the same name. Up activates the replacement only after every new asset passes verification.</p><h2>Initialize an agent</h2><pre><code>up init
+        <h1>Iterate and claim</h1><p class="summary">Temporary deployments are a loop, not a miniature production environment.</p><h2>Redeploy a folder</h2><p>Run <code>up deploy ./dist</code> again. A stable path fingerprint selects the same Worker name and Wrangler reuses the active temporary account.</p><h2>Initialize an agent</h2><pre><code>up init
 # Ask the agent to read .up/SKILL.md
 # Build into ./dist
-up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import <code>/_up/client.js</code>. Identity, document collections, files, AI, and realtime are available without credentials or per-site infrastructure.</p><p><a href="/examples">Browse apps built with Up →</a></p><h2>Respond to exposure</h2><p>Disable the wildcard route or Access application first. Never enable <code>workers.dev</code> as a workaround.</p>
+up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --open</code></pre><p>The claim URL owns every deployment in the current anonymous Up session. Treat it like a password.</p><p><a href="/examples">Browse apps built with Up →</a></p><h2>Use company mode deliberately</h2><p>Run <code>up private ./dist team-tool --origin https://up.example.com</code> only for an existing Access-protected installation.</p>
       {:else if section === 'examples'}
-        <h1>Apps built with Up</h1><p class="summary">Small company-private apps and the folders that power them. Live AX examples require a Cloudflare employee identity.</p>
+        <h1>Apps built with Up</h1><p class="summary">Small apps and the folders that power them. Lunch Vote demonstrates the retained company mode; anonymous examples are next.</p>
         <div class="example-list">
           <article class="example-row">
             <a class="example-thumb" href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer" aria-label="Open the Lunch Vote live example"><img src="/demos/lunch-vote.jpg" alt="Lunch Vote interface" width="1200" height="675" /></a>
@@ -474,9 +492,9 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
           </article>
         </div>
       {:else if section === 'reference'}
-        <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List company sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create a pending company deployment</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store one asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomically activate a deployment</td></tr><tr><th><code>GET /_up/identity</code></th><td>Current verified employee</td></tr><tr><th><code>/_up/db/*</code></th><td>Site document collections</td></tr><tr><th><code>/_up/files/*</code></th><td>Site file storage</td></tr><tr><th><code>POST /_up/ai/chat</code></th><td>Bounded Workers AI request</td></tr><tr><th><code>GET /_up/realtime/:channel</code></th><td>Authenticated WebSocket channel</td></tr></tbody></table><h2>Limits</h2><ul><li>500 deployment files; 10 MiB each; 50 MiB total</li><li><code>index.html</code> required</li><li>64 KiB per database document; 100 documents per page</li><li>10 MiB per site file; 1,000 listed files</li><li>24 AI messages; 20,000 input characters; 512 output tokens</li><li>16 KiB per realtime message</li></ul>
+        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the account-wide claim flow</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are in the upstream matrix but not yet exposed by Up</li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul>
       {:else if section === 'explanation'}
-        <h1>A URL does not grant access.</h1><p class="summary">Up verifies a company session before returning a site or any of its capabilities.</p><h2>One company boundary</h2><p>Cloudflare Access authenticates employees. Up converts that identity into a scoped sibling-domain session. Missing identity returns no uploaded content.</p><h2>The hostname selects one site</h2><p>Database collections, uploaded files, AI requests, and realtime channels are resolved from the current site hostname. Browser code cannot supply another site’s resource ID.</p><h2>Credentials stay on the server</h2><p>The browser receives a fixed same-origin API. R2, Durable Object, and Workers AI credentials never enter site code.</p><h2>A deployment appears all at once</h2><p>Files remain pending in private R2 until every manifest digest passes verification. Activation changes one pointer, so visitors receive either the previous complete version or the next one.</p>
+        <h1>The dynamic graph comes first.</h1><p class="summary">Worker code and platform bindings exist before the deployer has a Cloudflare identity. That inversion is the product.</p><h2>Agents need real behavior</h2><p>A screenshot of static output cannot validate data, coordination, or API logic. Temporary Accounts let an agent exercise Worker, KV, D1, and Durable Object semantics in the real runtime.</p><h2>Bindings travel together</h2><p>The claim URL transfers the whole account, including the supported resources and data produced during the experiment. The app is not reconstructed after signup.</p><h2>Public is explicit</h2><p>The generated Worker URL has no Access boundary. Anyone with it can call the app. Up labels that fact instead of pretending a hard-to-guess hostname is private.</p><h2>Credentials stay isolated</h2><p>Up snapshots the folder, launches Wrangler in a separate home, and removes inherited Cloudflare credentials so the anonymous graph cannot mutate a permanent account.</p>
       {:else if section === 'offline'}
         <h1>You are offline.</h1><p class="summary">The documentation shell is cached. Publishing still requires the network and Access.</p>
       {:else}
@@ -487,7 +505,7 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   {/if}
 </main>
 
-<footer><span>Up 0.0.1 · Private by default</span><nav><a href="/tutorial">Setup</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
+<footer><span>Up 0.0.1 · Deploy first, claim later</span><nav><a href="/tutorial">Start</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
 
 <style>
   :global(:root) {
@@ -587,8 +605,8 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .home-secondary:hover { border-color: var(--ink); color: var(--ink); }
   .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
   .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
-  .home-intro, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
-  .home-intro h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
+  .home-intro, .capa-bridge, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
+  .home-intro h2, .capa-bridge h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
   .home-intro > div > p { max-width: 680px; margin: 30px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
   .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
   .feature-grid article { min-height: 228px; padding: 26px; border-right: 1px solid var(--line); }
@@ -598,6 +616,22 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .feature-grid h3 { margin: 26px 0 10px; font-size: .98rem; letter-spacing: -.018em; }
   .feature-grid p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.62; }
   .feature-grid code { font-size: .7rem; }
+  .capa-bridge { margin-top: var(--section); background: linear-gradient(135deg,#0b1118 0%,#121f2a 64%,#193244 100%); color:#fff; }
+  .capa-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
+  .capa-heading > span { flex:0 0 auto; padding:7px 9px; border:1px solid #71b8d866; border-radius:3px; color:var(--cyan); font:500 .58rem var(--mono); letter-spacing:.06em; }
+  .capa-summary { max-width:720px; margin:28px 0 32px; color:#b8c7d2; font-size:.9rem; line-height:1.72; }
+  .capa-proof { display:grid; grid-template-columns:repeat(3,1fr); border-block:1px solid #ffffff29; }
+  .capa-proof > div { display:grid; min-height:112px; align-content:center; gap:8px; padding:18px; border-right:1px solid #ffffff29; }
+  .capa-proof > div:last-child { border-right:0; }
+  .capa-proof strong { font-size:1.45rem; letter-spacing:-.025em; }
+  .capa-proof span { color:#9fb1be; font:500 .61rem var(--mono); }
+  .capa-flow { display:flex; align-items:center; gap:10px; margin:28px 0 20px; overflow-x:auto; white-space:nowrap; }
+  .capa-flow span { padding:8px 10px; border:1px solid #ffffff29; border-radius:3px; background:#ffffff08; font:500 .64rem var(--mono); }
+  .capa-flow i { color:var(--orange); font-style:normal; }
+  .capa-status { max-width:760px; margin:0; color:#9fb1be; font-size:.72rem; line-height:1.65; }
+  .capa-actions { display:flex; flex-wrap:wrap; gap:20px; margin-top:26px; }
+  .capa-actions a { color:var(--cyan); font-size:.7rem; text-decoration:none; }
+  .capa-actions a:hover { text-decoration:underline; text-underline-offset:3px; }
   .model-flow { display: flex; align-items: center; gap: 10px; margin: 38px 0; padding: 18px 0; overflow-x: auto; border-block: 1px solid var(--line); white-space: nowrap; }
   .model-flow span { padding: 8px 11px; border: 1px solid var(--line); border-radius: 3px; background: #fff; font: 500 .68rem var(--mono); }
   .model-flow i { color: var(--orange); font-style: normal; }
@@ -723,13 +757,15 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .site-list a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
   @media (max-width: 900px) {
-    .home-hero { min-height:0; align-items:flex-end; padding-top:460px; padding-bottom:56px; }
+    .home-hero { min-height:0; align-items:flex-end; padding-top:270px; padding-bottom:56px; }
     .home-hero-copy { width:min(100%,600px); }
-    .home-art { top:0; right:auto; bottom:auto; left:-18%; width:138%; height:440px; }
+    .home-art { top:0; right:auto; bottom:auto; left:-18%; width:138%; height:250px; }
     .home-art img { object-position:64% 72%; }
-    .ambient-mark { top:-32px; right:-24px; width:300px; opacity:.1; }
-    .paint-pattern { top:170px; right:-18px; bottom:auto; width:300px; grid-template-columns:repeat(2,1fr); gap:24px; opacity:.58; }
-    .home-intro, .system-model, .read-next { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .ambient-mark { top:-32px; right:-24px; width:260px; opacity:.1; }
+    .paint-pattern { top:74px; right:-18px; bottom:auto; width:270px; grid-template-columns:repeat(2,1fr); gap:20px; opacity:.58; }
+    .home-intro, .capa-bridge, .system-model, .read-next { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .capa-heading { align-items:flex-start; flex-direction:column; }
+    .capa-proof { grid-template-columns:1fr 1fr 1fr; }
     .system-model > div { min-width: 0; }
     .feature-grid { grid-template-columns: repeat(2, 1fr); }
     .feature-grid article:nth-child(2n) { border-right: 0; }
@@ -762,7 +798,13 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .home-art img { object-position:62% 78%; }
     .ambient-mark { top:-28px; right:-26px; width:200px; opacity:.09; }
     .paint-pattern { top:92px; right:-16px; width:200px; gap:14px; opacity:.6; }
-    .home-intro, .system-model, .read-next, .docs-map { padding: 56px 14px; }
+    .home-intro, .capa-bridge, .system-model, .read-next, .docs-map { padding: 56px 14px; }
+    .capa-proof { grid-template-columns:1fr; }
+    .capa-proof > div { min-height:86px; border-right:0; border-bottom:1px solid #ffffff29; }
+    .capa-proof > div:last-child { border-bottom:0; }
+    .capa-flow { display:grid; grid-template-columns:1fr; justify-items:stretch; overflow:visible; white-space:normal; }
+    .capa-flow span { text-align:center; }
+    .capa-flow i { justify-self:center; transform:rotate(90deg); }
     .model-flow { display:grid; grid-template-columns:minmax(0,1fr); justify-items:stretch; overflow:visible; white-space:normal; }
     .model-flow span { text-align:center; }
     .model-flow i { justify-self:center; transform:rotate(90deg); }
