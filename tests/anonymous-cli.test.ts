@@ -79,6 +79,56 @@ function runCli(arguments_: string[], fixtureData: ReturnType<typeof fixture>) {
   });
 }
 
+function handoffFixture() {
+  const root = mkdtempSync(join(tmpdir(), 'up-handoff-cli-'));
+  const site = join(root, 'app');
+  const state = join(root, 'state');
+  const fakeWrangler = join(root, 'wrangler');
+  mkdirSync(site);
+  writeFileSync(join(site, 'index.html'), '<h1>Kept app</h1>');
+  writeFileSync(
+    join(site, '_worker.js'),
+    'export default { fetch: (r, env) => env.ASSETS.fetch(r) };',
+  );
+  writeFileSync(join(site, 'up.json'), JSON.stringify({ bindings: { kv: ['CACHE'], d1: ['DB'] } }));
+  writeFileSync(
+    fakeWrangler,
+    `#!/usr/bin/env bun
+import { readFileSync, writeFileSync } from 'node:fs';
+const args = process.argv.slice(2);
+const expectedAccount = '0123456789abcdef0123456789abcdef';
+if (process.env.CLOUDFLARE_ACCOUNT_ID !== expectedAccount || process.env.CF_ACCOUNT_ID) process.exit(51);
+if (args[0] === 'deployments' && args[1] === 'status') {
+  if (args[args.indexOf('--name') + 1] !== 'kept-app') process.exit(52);
+  console.log(JSON.stringify({ deployments: [{ id: 'existing' }] }));
+  process.exit(0);
+}
+if (args[0] !== 'deploy' || args.includes('--temporary') || args.includes('--experimental-auto-create')) process.exit(53);
+if (!args.includes('--experimental-provision') || args[args.indexOf('--name') + 1] !== 'kept-app') process.exit(54);
+const config = JSON.parse(readFileSync(args[args.indexOf('--config') + 1], 'utf8'));
+if (config.kv_namespaces[0].id || config.d1_databases[0].database_id) process.exit(55);
+writeFileSync('${join(root, 'deployed')}', JSON.stringify(args));
+console.log('https://kept-app.claimed-account.workers.dev');
+`,
+  );
+  chmodSync(fakeWrangler, 0o755);
+  return { root, site, state, fakeWrangler };
+}
+
+function runHandoffCli(arguments_: string[], data: ReturnType<typeof handoffFixture>) {
+  return spawnSync('bun', [cli, ...arguments_], {
+    cwd: repository,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      CF_ACCOUNT_ID: 'deprecated-must-be-removed',
+      CLOUDFLARE_ACCOUNT_ID: 'wrong-must-be-overridden',
+      UP_STATE_DIR: data.state,
+      UP_WRANGLER_BIN: data.fakeWrangler,
+    },
+  });
+}
+
 const accepted = '--accept-cloudflare-terms';
 
 describe('anonymous-first CLI', () => {
@@ -126,6 +176,48 @@ describe('anonymous-first CLI', () => {
     expect(shown.status, shown.stderr).toBe(0);
     expect(shown.stdout).toContain('Treat it like a password');
     expect(shown.stdout).toContain('claimToken=fake-sensitive-token');
+  });
+
+  it('hands a claimed Worker to normal Wrangler without replacing its bindings', () => {
+    const data = handoffFixture();
+    const accountId = '0123456789abcdef0123456789abcdef';
+    const result = runHandoffCli(
+      ['handoff', data.site, 'kept-app', '--account-id', accountId],
+      data,
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('Handoff complete');
+    expect(result.stdout).toContain('https://kept-app.claimed-account.workers.dev');
+    expect(result.stdout).toContain('no Up API key is needed');
+    expect(result.stdout).toContain('add Cloudflare Access or another login');
+    expect(existsSync(join(data.root, 'deployed'))).toBe(true);
+    expect(readdirSync(data.state).some((name) => name.startsWith('deploy-'))).toBe(false);
+  });
+
+  it('refuses handoff when the claimed Worker is not found', () => {
+    const data = handoffFixture();
+    const result = runHandoffCli(
+      ['handoff', data.site, 'wrong-worker', '--account-id', '0123456789abcdef0123456789abcdef'],
+      data,
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Could not find wrong-worker');
+    expect(result.stderr).toContain('Nothing was deployed');
+    expect(existsSync(join(data.root, 'deployed'))).toBe(false);
+  });
+
+  it('installs an agent continuation prompt with up init', () => {
+    const data = fixture();
+    const project = join(data.root, 'agent-project');
+    mkdirSync(project);
+    const result = runCli(['init', project], data);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(join(project, '.up', 'HANDOFF.md'), 'utf8')).toContain(
+      'Do not create replacement KV or D1 resources',
+    );
   });
 
   it('deploys Worker code, assets, and platform bindings as one claimable app', () => {

@@ -32,7 +32,9 @@ function usage(): never {
 
 up deploy <folder> [name]       Deploy now without a Cloudflare account
   --accept-cloudflare-terms     Required for agents and non-interactive use
-up claim [--open]               Show or open the sensitive claim URL
+up claim [--open|--show]        Open or explicitly reveal the ownership link
+up handoff <folder> <name>      Continue after ownership with normal Wrangler
+  --account-id <id>             Claimed Cloudflare account (from wrangler whoami)
 up init [directory]             Install instructions for a coding agent
 up private <folder> <name>      Use a company-owned Up installation
 `);
@@ -97,6 +99,12 @@ const cloudflareCredentialVariables = [
   'CF_API_KEY',
   'CF_EMAIL',
 ] as const;
+
+function permanentEnvironment(accountId: string): NodeJS.ProcessEnv {
+  const env = { ...process.env, CLOUDFLARE_ACCOUNT_ID: accountId };
+  delete env.CF_ACCOUNT_ID;
+  return env;
+}
 
 function anonymousEnvironment(
   paths: ReturnType<typeof anonymousPaths>,
@@ -563,6 +571,78 @@ async function deployAnonymous(): Promise<void> {
   );
 }
 
+async function handoff(): Promise<void> {
+  const accountId = option('--account-id');
+  const positionals: string[] = [];
+  for (let index = 0; index < args.length; index++) {
+    if (args[index] === '--account-id') {
+      index += 1;
+      continue;
+    }
+    const value = args[index];
+    if (!value || value.startsWith('-')) usage();
+    positionals.push(value);
+  }
+  if (positionals.length !== 2 || !accountId || !/^[a-f0-9]{32}$/i.test(accountId)) usage();
+  const root = resolve(positionals[0] as string);
+  const name = positionals[1] as string;
+  if (!validName(name)) throw new Error('Use the exact Worker name shown in the temporary URL.');
+  if (!(await stat(root).catch(() => null))?.isDirectory())
+    throw new Error(`Folder not found: ${root}`);
+
+  const env = permanentEnvironment(accountId);
+  console.log(
+    'Checking the claimed account. If Wrangler is not connected yet, run `wrangler login`, then retry.\n',
+  );
+  try {
+    await run(wranglerBinary(), ['deployments', 'status', '--name', name, '--json'], {
+      cwd: root,
+      env,
+    });
+  } catch {
+    throw new Error(
+      `Could not find ${name} in account ${accountId}. Run \`wrangler whoami\`, choose the account created by the ownership flow, and use the exact Worker name from its workers.dev URL. Nothing was deployed.`,
+    );
+  }
+
+  const state = anonymousPaths();
+  await mkdir(state.root, { recursive: true, mode: 0o700 });
+  const staged = await stageAnonymousFolder(root, state.root);
+  let output: string;
+  try {
+    console.log(`\nContinuing ${name} from the local source folder…\n`);
+    output = await run(
+      wranglerBinary(),
+      [
+        'deploy',
+        staged.deployTarget,
+        ...(staged.config ? ['--config', staged.config] : []),
+        '--name',
+        name,
+        '--compatibility-date',
+        TEMPORARY_COMPATIBILITY_DATE,
+        '--no-autoconfig',
+        '--experimental-provision',
+      ],
+      { cwd: state.root, env },
+    );
+  } finally {
+    await rm(staged.directory, { recursive: true, force: true });
+  }
+
+  const liveUrl = deploymentUrl(output, name);
+  console.log(`
+Handoff complete
+
+${liveUrl}
+
+The local folder is still the source of truth. Wrangler is now connected through OAuth; no Up API key is needed.
+The URL remains public. Before adding sensitive data, add Cloudflare Access or another login and verify an anonymous request is denied.
+
+Agent handoff prompt:
+Continue this existing Cloudflare Worker from ${root}. Use account ${accountId} and Worker ${name}. Do not create replacement KV or D1 resources: preserve the existing bindings by name. Deploy with \`up handoff ${root} ${name} --account-id ${accountId}\`, test the public URL and every binding, and ask me before adding Cloudflare Access or creating a CI API token.`);
+}
+
 async function claim(): Promise<void> {
   const temporary = await readTemporaryAccount();
   const minutes = minutesRemaining(temporary.claimExpiresAt);
@@ -679,15 +759,19 @@ async function init(): Promise<void> {
   const directory = join(target, '.up');
   await mkdir(directory, { recursive: true });
   const source = resolve(import.meta.dir, '..', 'skills', 'up', 'SKILL.md');
+  const handoff = resolve(import.meta.dir, '..', 'skills', 'up', 'HANDOFF.md');
   const types = resolve(import.meta.dir, '..', 'skills', 'up', 'client.d.ts');
   await Promise.all([
     writeFile(join(directory, 'SKILL.md'), await readFile(source)),
+    writeFile(join(directory, 'HANDOFF.md'), await readFile(handoff)),
     writeFile(join(directory, 'client.d.ts'), await readFile(types)),
   ]);
   console.log(`Initialized ${relative(process.cwd(), directory) || '.up'}
 
 Ask your agent to read .up/SKILL.md, build into ./dist, then run:
-  up deploy ./dist [name]`);
+  up deploy ./dist [name]
+
+After you keep the app, .up/HANDOFF.md contains the continuation prompt.`);
 }
 
 async function deployPrivate(): Promise<void> {
@@ -770,6 +854,7 @@ try {
   if (command === 'init') await init();
   else if (command === 'deploy') await deployAnonymous();
   else if (command === 'claim') await claim();
+  else if (command === 'handoff') await handoff();
   else if (command === 'private') await deployPrivate();
   else usage();
 } catch (error) {

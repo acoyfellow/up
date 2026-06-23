@@ -38,7 +38,7 @@ Export every Durable Object class from `_worker.js`. Binding names must be uniqu
 up deploy ./app --accept-cloudflare-terms
 ```
 
-The default Worker name is a stable fingerprint of the absolute folder path. Pinned Wrangler reuses the active Temporary Account and previously provisioned resources while its credentials and claim link remain valid.
+The default Worker name is a stable fingerprint of the absolute folder path. Pinned Wrangler reuses the active Temporary Account and previously provisioned resources while its credentials and ownership link remain valid.
 
 ## Choose a readable Worker name
 
@@ -48,13 +48,23 @@ up deploy ./app crit-board --accept-cloudflare-terms
 
 Explicit names use lowercase letters, numbers, and hyphens. Invalid names fail with a suggested correction rather than being silently rewritten.
 
-## Claim the whole graph
+## Keep the whole graph
 
 ```sh
 up claim --open
 ```
 
-The claim link grants the whole Temporary Account, including every app, binding, and data record created in the active anonymous Up session. Do not share or commit it.
+The ownership link grants the whole Temporary Account, including every app, binding, and data record created in the active anonymous Up session. Up stores it locally; do not share or commit it.
+
+After the browser flow, continue from the same source folder:
+
+```sh
+bunx wrangler@4.103.0 login
+bunx wrangler@4.103.0 whoami
+up handoff ./app exact-worker-name --account-id <account-id>
+```
+
+See [After you keep an app](after-claim.md) for the copy-ready agent prompt and Access checklist.
 
 ## Prepare an agent-authored app
 
@@ -62,7 +72,7 @@ The claim link grants the whole Temporary Account, including every app, binding,
 up init
 ```
 
-Tell the agent to read `.up/SKILL.md`, build the dynamic app, test locally, and ask before making it public and accepting Cloudflare's Terms. After approval it deploys and exercises every declared binding.
+Tell the agent to read `.up/SKILL.md`, build the dynamic app, test locally, and ask before making it public and accepting Cloudflare's Terms. After approval it deploys and exercises every declared binding. If you keep the app, `.up/HANDOFF.md` contains the continuation prompt.
 
 ## Use an existing company installation
 

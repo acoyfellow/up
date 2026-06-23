@@ -60,7 +60,8 @@ Worker code uses `env.ASSETS.fetch(request)` for browser assets and normal bindi
 ```sh
 up deploy <folder> [name]
 up deploy <folder> [name] --accept-cloudflare-terms  # agents/non-interactive
-up claim [--open]
+up claim [--open|--show]
+up handoff <folder> <exact-worker-name> --account-id <claimed-account-id>
 ```
 
 - The deployment is public.
@@ -69,10 +70,17 @@ up claim [--open]
 - An omitted Worker name is a stable fingerprint of the local path, not the folder name.
 - Explicit invalid names are rejected rather than silently rewritten.
 - The app is copied through no-follow file handles into a private staging snapshot.
-- Wrangler output is filtered so its claim link is withheld; Up prints the link once in a labeled sensitive block.
+- Wrangler output is filtered so its ownership link is withheld; Up stores it locally and reveals it only with explicit `up claim --show`.
 - Up consumes the authoritative `workers.dev` target from Wrangler output.
 - The Temporary Account expires after up to/about 60 minutes unless claimed.
-- The claim URL grants ownership of every app and resource in the active anonymous session.
+- The ownership URL grants ownership of every app and resource in the active anonymous session.
+- After ownership, `up handoff` verifies the existing Worker in the selected account and continues through normal Wrangler OAuth without auto-creating replacement resources.
+
+## After ownership
+
+The human completes the browser flow, runs `wrangler login`, and selects the new account from `wrangler whoami`. `up handoff` requires that account ID and the exact Worker name. It fails before deployment if the Worker does not already exist there.
+
+Wrangler inherits existing KV and D1 bindings from the Worker's settings by binding name. No Up API key is involved. The URL remains public until the owner adds Cloudflare Access or application authentication. Scoped API tokens are a later CI/CD choice, not part of onboarding.
 
 ## Binding surface
 

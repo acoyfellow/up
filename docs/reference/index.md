@@ -37,7 +37,8 @@ No other root or binding fields are accepted in 0.0.1.
 | `up claim` | Show claim timing without printing the ownership link |
 | `up claim --open` | Open the ownership flow without printing the link |
 | `up claim --show` | Explicitly reveal the sensitive ownership link |
-| `up init [directory]` | Install `.up/SKILL.md` and client types |
+| `up handoff <folder> <name> --account-id <id>` | Continue an existing claimed Worker through normal Wrangler OAuth |
+| `up init [directory]` | Install `.up/SKILL.md`, `.up/HANDOFF.md`, and client types |
 | `up private <folder> <name>` | Explicit secondary company-mode deployment |
 
 ## Anonymous defaults
@@ -72,6 +73,12 @@ Capa is the path from platform bindings to the services an app already uses. Git
 The same-account design passed a live Temporary Account test: app Worker → private Capa Worker → upstream API. The credential stayed out of the app and response. The simple installer is not shipped yet; it depends on immutable, hash-verified Capa bundles.
 
 See the [Capa integration contract](../capa-integration.md) and [live spike receipt](../../receipts/2026-06-23-capa-temporary-account-spike.md).
+
+## After ownership
+
+Run `wrangler login`, select the new account from `wrangler whoami`, then run `up handoff` with the exact Worker name and account ID. Handoff first proves that the Worker exists in that account. It deploys without `--temporary` and lets Wrangler inherit existing KV and D1 bindings from the Worker's settings.
+
+No Up API key is involved. A scoped Cloudflare API token is only needed later for CI/CD. Ownership does not make the public URL private; add Access or application authentication separately.
 
 ## Credential behavior
 

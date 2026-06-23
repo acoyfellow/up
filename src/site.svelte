@@ -62,6 +62,20 @@
 
   const deployUrl =
     'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up';
+  const capaCatalog = [
+    { name: 'GitHub', slug: 'github' },
+    { name: 'GitLab', slug: 'gitlab' },
+    { name: 'Jira', slug: 'jira' },
+    { name: 'Slack', slug: 'slack' },
+    { name: 'Stripe', slug: 'stripe' },
+    { name: 'Discord', slug: 'discord' },
+    { name: 'Box', slug: 'box' },
+    { name: 'Kubernetes', slug: 'kubernetes' },
+    { name: 'Sentry', slug: 'sentry' },
+    { name: 'Twilio', slug: 'twilio', detail: '3 bindings' },
+    { name: 'Twitch', slug: 'twitch' },
+    { name: 'Zoom', slug: 'zoom' },
+  ];
   const isProduct = $derived(section === 'app');
 
   onMount(() => {
@@ -315,7 +329,17 @@
           <div>
             <p class="section-index">CONNECTED SERVICES / CAPA</p>
             <h3>Connect GitHub, Stripe, and the tools your app needs.</h3>
-            <p>Capa keeps API keys out of your app code. You choose what the app is allowed to do; each request comes back with the answer and a clear record of what happened.</p>
+            <p class="connected-copy">Capa keeps API keys out of your app code. You choose what the app is allowed to do; each request comes back with the answer and a clear record of what happened.</p>
+            <p class="catalog-label">In Capa today · 14 bindings</p>
+            <ul class="capa-catalog" aria-label="Services available in Capa today">
+              {#each capaCatalog as service}
+                <li>
+                  <img src={`/images/capa/${service.slug}.svg`} alt="" width="24" height="24" />
+                  <span>{service.name}</span>
+                  {#if service.detail}<small>{service.detail}</small>{/if}
+                </li>
+              {/each}
+            </ul>
           </div>
           <div class="connected-status">
             <strong>Tested end to end</strong>
@@ -445,12 +469,17 @@
   _worker.js
   up.json</code></pre><p><code>_worker.js</code> handles requests and calls <code>env.ASSETS</code>. <code>up.json</code> declares KV, D1, and Durable Object bindings.</p>
         <h2>2. Deploy anonymously</h2><pre><code>bunx github:acoyfellow/up deploy ./app</code></pre><p>Up snapshots the app and runs pinned Wrangler with isolated credentials. Wrangler creates the Temporary Account and provisions the supported resources.</p>
-        <h2>3. Exercise or claim</h2><p>Fetch the page and API, mutate every binding, revise, and redeploy. Run <code>up claim --open</code> to keep the whole stack, or let every resource disappear.</p>
+        <h2>3. Exercise or keep</h2><p>Fetch the page and API, mutate every binding, revise, and redeploy. Run <code>up claim --open</code> to keep the whole stack, or let every resource disappear.</p>
+        <h2>4. Hand it back to your agent</h2><p>After the browser ownership flow, connect normal Wrangler with <code>wrangler login</code> and find the new account with <code>wrangler whoami</code>. Then continue the same Worker and bindings:</p><pre><code>up handoff ./app exact-worker-name \
+  --account-id &lt;claimed-account-id&gt;</code></pre><p>No Up API key is needed. The URL stays public until you add Cloudflare Access or another login.</p><p><a href="https://github.com/acoyfellow/up/blob/main/docs/how-to/after-claim.md">Copy the agent handoff prompt →</a></p>
       {:else if section === 'how-to'}
-        <h1>Iterate and claim</h1><p class="summary">Temporary deployments are a loop, not a miniature production environment.</p><h2>Redeploy a folder</h2><p>Run <code>up deploy ./dist</code> again. A stable path fingerprint selects the same Worker name and Wrangler reuses the active temporary account.</p><h2>Initialize an agent</h2><pre><code>up init
+        <h1>Iterate, keep, continue</h1><p class="summary">Temporary deployment is the first loop. Handoff reconnects the same source and resources to normal Wrangler.</p><h2>Redeploy before ownership</h2><p>Run <code>up deploy ./dist</code> again. A stable path fingerprint selects the same Worker name and Wrangler reuses the active temporary account.</p><h2>Initialize an agent</h2><pre><code>up init
 # Ask the agent to read .up/SKILL.md
 # Build into ./dist
-up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --open</code></pre><p>The claim URL owns every deployment in the current anonymous Up session. Treat it like a password.</p><p><a href="/examples">Browse apps built with Up →</a></p><h2>Use company mode deliberately</h2><p>Run <code>up private ./dist team-tool --origin https://up.example.com</code> only for an existing Access-protected installation.</p>
+up deploy ./dist</code></pre><h2>Keep the session</h2><pre><code>up claim --open</code></pre><p>The ownership link controls every deployment in the current anonymous Up session. Up stores it locally and does not print it unless you run <code>up claim --show</code>.</p><h2>Continue after ownership</h2><pre><code>bunx wrangler@4.103.0 login
+bunx wrangler@4.103.0 whoami
+up handoff ./dist exact-worker-name \
+  --account-id &lt;claimed-account-id&gt;</code></pre><p>Wrangler OAuth is enough for local work. The handoff preflight refuses the wrong account or Worker name and preserves attached KV and D1 resources by binding name.</p><p><strong>The URL is still public.</strong> Add Access or another login before adding sensitive data, then verify an anonymous request is denied.</p><p><a href="https://github.com/acoyfellow/up/blob/main/docs/how-to/after-claim.md">Copy the agent handoff prompt →</a></p><p><a href="/examples">Browse apps built with Up →</a></p>
       {:else if section === 'examples'}
         <h1>Apps built with Up</h1><p class="summary">Small apps and the folders that power them. Lunch Vote demonstrates the retained company mode; anonymous examples are next.</p>
         <div class="example-list">
@@ -460,7 +489,7 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
           </article>
         </div>
       {:else if section === 'reference'}
-        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the ownership flow without printing the sensitive link</td></tr><tr><th><code>up claim --show</code></th><td>Explicitly reveal the ownership link</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are in the upstream matrix but not yet exposed by Up</li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul><h2>Connected services with Capa</h2><p>Capa keeps provider API keys out of app code and gives the Worker a smaller set of allowed actions for services such as GitHub and Stripe. A live same-account test passed; the simple installer is not shipped yet. <a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract →</a></p>
+        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the ownership flow without printing the sensitive link</td></tr><tr><th><code>up claim --show</code></th><td>Explicitly reveal the ownership link</td></tr><tr><th><code>up handoff &lt;folder&gt; &lt;name&gt; --account-id &lt;id&gt;</code></th><td>Continue the existing Worker after ownership using normal Wrangler OAuth</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are in the upstream matrix but not yet exposed by Up</li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul><h2>Connected services with Capa</h2><p>Capa keeps provider API keys out of app code and gives the Worker a smaller set of allowed actions for services such as GitHub and Stripe. A live same-account test passed; the simple installer is not shipped yet. <a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract →</a></p>
       {:else if section === 'explanation'}
         <h1>The dynamic graph comes first.</h1><p class="summary">Worker code and platform bindings exist before the deployer has a Cloudflare identity. That inversion is the product.</p><h2>Agents need real behavior</h2><p>A screenshot of static output cannot validate data, coordination, or API logic. Temporary Accounts let an agent exercise Worker, KV, D1, and Durable Object semantics in the real runtime.</p><h2>Bindings travel together</h2><p>The claim URL transfers the whole account, including the supported resources and data produced during the experiment. The app is not reconstructed after signup.</p><h2>Public is explicit</h2><p>The generated Worker URL has no Access boundary. Anyone with it can call the app. Up labels that fact instead of pretending a hard-to-guess hostname is private.</p><h2>Credentials stay isolated</h2><p>Up snapshots the folder, launches Wrangler in a separate home, and removes inherited Cloudflare credentials so the anonymous graph cannot mutate a permanent account.</p>
       {:else if section === 'offline'}
@@ -589,7 +618,15 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
   .feature-grid code { font-size: .7rem; }
   .connected-services { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(230px, .55fr); gap: 42px; margin-top: 28px; padding: 30px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--paper); }
   .connected-services h3 { margin: 16px 0 10px; font-size: clamp(1.2rem, 2vw, 1.55rem); letter-spacing: -.022em; }
-  .connected-services > div > p:last-child { max-width: 660px; margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.68; }
+  .connected-copy { max-width: 660px; margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.68; }
+  .catalog-label { margin: 26px 0 10px; color: var(--quiet); font: 500 .6rem var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+  .capa-catalog { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); list-style: none; }
+  .capa-catalog li { display: grid; min-height: 66px; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 9px; padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
+  .capa-catalog li:nth-child(4n) { border-right: 0; }
+  .capa-catalog li:nth-last-child(-n+4) { border-bottom: 0; }
+  .capa-catalog img { width: 22px; height: 22px; object-fit: contain; }
+  .capa-catalog span { overflow: hidden; font-size: .7rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+  .capa-catalog small { grid-column: 2; margin-top: -7px; color: var(--quiet); font: 500 .54rem var(--mono); }
   .connected-status { display: grid; align-content: center; gap: 10px; padding-left: 28px; border-left: 1px solid var(--line); }
   .connected-status strong { font-size: .82rem; }
   .connected-status span { color: var(--muted); font-size: .7rem; line-height: 1.55; }
@@ -745,6 +782,10 @@ up deploy ./dist</code></pre><h2>Claim the session</h2><pre><code>up claim --ope
     .feature-grid article:last-child { border-bottom: 0; }
     .feature-grid h3 { margin-top: 20px; }
     .connected-services { padding: 22px; }
+    .capa-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .capa-catalog li:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .capa-catalog li:nth-child(2n) { border-right: 0; }
+    .capa-catalog li:nth-last-child(-n+2) { border-bottom: 0; }
     .after-keep { grid-template-columns: 1fr; gap: 8px; }
     .doc h1 { font-size: clamp(2.2rem, 13vw, 3rem); }
     .doc .summary { margin-bottom: 36px; padding-bottom: 28px; font-size: .94rem; }

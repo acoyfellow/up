@@ -2,12 +2,12 @@
 
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Deploy a dynamic Cloudflare app now. Claim the whole stack later.**
+**Deploy a dynamic Cloudflare app before signup. Keep it if it works.**
 
 Up gives coding agents a Worker, Static Assets, and platform bindings before anyone creates an account, opens OAuth, or copies an API token.
 
 ```text
-app folder → Worker + assets + bindings → public URL → claim or disappear
+app folder → Worker + assets + bindings → public URL → keep or disappear
 ```
 
 Up is an independent, user-land experiment. It is not an official Cloudflare product and is not supported by Cloudflare.
@@ -39,8 +39,8 @@ https://up-a1b2c3d4e5.example-account.workers.dev
 Expires in about 60 minutes unless claimed.
 Public: anyone with this URL can open it.
 
-Keep it (sensitive ownership link):
-https://dash.cloudflare.com/claim-preview?claimToken=...
+Keep it: run `up claim --open` to open the ownership flow.
+Up stores the sensitive link locally and does not print it.
 ```
 
 No signup, login, permanent token, repository, or Up server is involved. Interactive use asks you to accept Cloudflare’s Terms and Privacy Policy. Agents and other non-interactive sessions must pass the explicit approval flag:
@@ -49,13 +49,53 @@ No signup, login, permanent token, repository, or Up server is involved. Interac
 up deploy ./my-app --accept-cloudflare-terms
 ```
 
-To claim the account later:
+To keep the account:
 
 ```sh
 up claim --open
 ```
 
 If it is not claimed within about 60 minutes, Cloudflare deletes the Temporary Account, Worker, bindings, and data.
+
+## After you keep it
+
+The browser flow gives you ownership of the Temporary Account. The Worker, bindings, and data stay there. Your source code stays in the local folder.
+
+Connect Wrangler with OAuth—no Up API key and no copied Cloudflare API key:
+
+```sh
+bunx wrangler@4.103.0 login
+bunx wrangler@4.103.0 whoami
+```
+
+If `whoami` lists more than one account, choose the account created by the ownership flow and copy its account ID. Then reconnect the exact Worker name shown in the original `workers.dev` URL:
+
+```sh
+up handoff ./my-app exact-worker-name \
+  --account-id 0123456789abcdef0123456789abcdef
+```
+
+Up first confirms that Worker already exists in that account. It then deploys without `--temporary`; Wrangler inherits the existing KV and D1 resources from the Worker's bindings instead of creating replacements.
+
+**Ownership is not authentication.** The app remains public after you keep it. Before adding sensitive data, add [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/) or another login and verify an anonymous request is denied.
+
+Create a scoped Cloudflare API token only when you later add CI/CD. Local development should use `wrangler login`.
+
+### Copy this to your agent
+
+```text
+Continue this existing Cloudflare Worker from ./my-app.
+
+1. Ask me to complete `wrangler login` in the browser. Do not ask for or copy an API key.
+2. Run `wrangler whoami` and ask me which account was created by the ownership flow if several are listed.
+3. Use the exact Worker name from its workers.dev URL.
+4. Run `up handoff ./my-app <worker-name> --account-id <account-id>`.
+5. Do not create replacement KV or D1 resources. Preserve the existing bindings by name.
+6. Test the deployed URL and every binding.
+7. Remind me that the URL is public. Ask before adding Cloudflare Access or creating a scoped CI token.
+```
+
+See [After you keep an app](docs/how-to/after-claim.md) for the full checklist.
 
 ## Bind the platform
 
@@ -166,7 +206,7 @@ Up deliberately stays close to Cloudflare’s bleeding edge instead of recreatin
 5. removes every current and deprecated Cloudflare credential variable;
 6. runs `wrangler deploy --temporary` with experimental resource provisioning;
 7. takes the authoritative public URL from Wrangler output;
-8. returns expiry and one sensitive claim URL.
+8. stores the sensitive ownership link locally without printing it.
 
 Wrangler owns proof-of-work, Terms acceptance, short-lived credentials, resource provisioning, upload, account reuse, and dashboard claiming. Up does not reimplement the unpublished provisioning protocol.
 
