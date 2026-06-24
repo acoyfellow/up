@@ -8,15 +8,20 @@ Build framework-free output unless the project already has a build system:
 
 ```text
 dist/
-├── index.html
-├── app.js
-├── _worker.js
+├── public/
+│   ├── index.html
+│   └── app.js
+├── worker/
+│   ├── index.js
+│   └── helpers.js
 └── up.json
 ```
 
-- `index.html` is required.
-- `_worker.js` exports the Worker and any Durable Object classes.
-- Browser assets are available to Worker code as `env.ASSETS`.
+- `public/index.html` is required.
+- `worker/index.js` is optional and exports the Worker and any Durable Object classes.
+- Keep Worker imports under `worker/`; Up preserves the module graph for Wrangler.
+- Browser assets under `public/` are available to Worker code as `env.ASSETS`.
+- Legacy root `index.html` + `_worker.js` remains accepted for migration, but never mix layouts.
 - `up.json` may request KV, D1, and Durable Object bindings:
 
 ```json

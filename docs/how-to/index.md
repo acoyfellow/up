@@ -2,7 +2,7 @@
 
 ## Add a Worker to a static folder
 
-Create a root `_worker.js`:
+Move browser files under `public/`, then create `worker/index.js`:
 
 ```js
 export default {
@@ -14,7 +14,7 @@ export default {
 };
 ```
 
-The rest of the folder remains browser assets.
+Keep sibling imports under `worker/`; Up preserves that module graph. Browser files stay under `public/`. Legacy root `index.html` + `_worker.js` remains accepted for migration, but do not mix layouts.
 
 ## Add bindings
 
@@ -30,7 +30,7 @@ Create `up.json`:
 }
 ```
 
-Export every Durable Object class from `_worker.js`. Binding names must be unique uppercase identifiers.
+Export every Durable Object class from `worker/index.js` or its imported modules. Binding names must be unique uppercase identifiers.
 
 ## Redeploy an active experiment
 

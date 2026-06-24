@@ -4,13 +4,15 @@
 
 ```text
 app/
-├── index.html
-├── app.js
-├── _worker.js
+├── public/
+│   ├── index.html
+│   └── app.js
+├── worker/
+│   └── index.js
 └── up.json
 ```
 
-`_worker.js` handles dynamic routes and serves browser files through `env.ASSETS`:
+`worker/index.js` handles dynamic routes and serves browser files from `public/` through `env.ASSETS`:
 
 ```js
 export class Room {

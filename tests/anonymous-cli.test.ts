@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -39,19 +40,27 @@ function fixture() {
   writeFileSync(
     fakeWrangler,
     `#!/usr/bin/env bun
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 const forbidden = ${JSON.stringify(credentialNames)};
 if (forbidden.some((name) => process.env[name])) process.exit(41);
 const args = process.argv.slice(2);
 if (args[0] !== 'deploy' || !args.includes('--temporary') || !args.includes('--name') || !args.includes('--no-autoconfig') || !args.includes('--experimental-provision') || !args.includes('--experimental-auto-create')) process.exit(42);
 if (!process.env.HOME?.includes('state/home') || !process.env.USERPROFILE?.includes('state/home')) process.exit(43);
 if (!process.env.XDG_CONFIG_HOME?.includes('state/config') || !process.env.APPDATA?.includes('state/config') || !process.env.LOCALAPPDATA?.includes('state/config')) process.exit(44);
-if (!args[1]?.includes('state/deploy-')) process.exit(45);
+const configPath = args[args.indexOf('--config') + 1];
+if (!configPath?.includes('state/deploy-')) process.exit(45);
 const name = args[args.indexOf('--name') + 1];
 const directory = join(process.env.XDG_CONFIG_HOME, '.wrangler');
 mkdirSync(directory, { recursive: true });
-if (args.includes('--config')) writeFileSync(join(process.env.XDG_CONFIG_HOME, 'captured-config.json'), readFileSync(args[args.indexOf('--config') + 1]));
+const configSource = readFileSync(configPath, 'utf8');
+writeFileSync(join(process.env.XDG_CONFIG_HOME, 'captured-config.json'), configSource);
+const config = JSON.parse(configSource);
+if (config.main) {
+  writeFileSync(join(process.env.XDG_CONFIG_HOME, 'captured-main.js'), readFileSync(join(dirname(configPath), config.main)));
+  const helper = join(dirname(configPath), 'worker', 'helper.js');
+  if (existsSync(helper)) writeFileSync(join(process.env.XDG_CONFIG_HOME, 'captured-helper.js'), readFileSync(helper));
+}
 const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 writeFileSync(join(directory, 'wrangler-temporary-account.toml'), '[account]\\nname = "Display Name Is Not The Host"\\napiToken = "temporary-secret"\\nexpiresAt = "' + expires + '"\\n\\n[claim]\\nurl = "https://dash.cloudflare.com/claim-preview?claimToken=fake-sensitive-token"\\nexpiresAt = "' + expires + '"\\n', { mode: 0o600 });
 console.log('Temporary account ready:');
@@ -143,6 +152,14 @@ describe('anonymous-first CLI', () => {
     expect(result.stdout).toContain('https://demo.authoritative-target.workers.dev');
     expect(result.stdout).not.toContain('https://demo.display-name-is-not-the-host.workers.dev');
     expect(result.stdout).toContain('Public: anyone with this URL can open it.');
+    const staticConfig = JSON.parse(
+      readFileSync(join(data.state, 'config', 'captured-config.json'), 'utf8'),
+    );
+    expect(staticConfig).toMatchObject({
+      assets: { directory: './assets' },
+      compatibility_date: '2026-06-23',
+    });
+    expect(staticConfig).not.toHaveProperty('main');
     // The account-wide claim URL must never be printed during deploy.
     expect(result.stdout).not.toContain('claimToken=fake-sensitive-token');
     expect(result.stdout).toContain('up claim --show');
@@ -245,13 +262,49 @@ describe('anonymous-first CLI', () => {
       readFileSync(join(data.state, 'config', 'captured-config.json'), 'utf8'),
     );
     expect(config).toMatchObject({
-      main: './_worker.js',
+      main: './worker/_worker.js',
       assets: { directory: './assets', binding: 'ASSETS', run_worker_first: true },
       kv_namespaces: [{ binding: 'CACHE' }],
       d1_databases: [{ binding: 'DB' }],
       durable_objects: { bindings: [{ name: 'ROOMS', class_name: 'Room' }] },
       migrations: [{ tag: 'v1', new_sqlite_classes: ['Room'] }],
     });
+  });
+
+  it('preserves a canonical Worker module graph outside public assets', () => {
+    const data = fixture();
+    rmSync(data.site, { recursive: true });
+    mkdirSync(join(data.site, 'public'), { recursive: true });
+    mkdirSync(join(data.site, 'worker'), { recursive: true });
+    writeFileSync(join(data.site, 'public', 'index.html'), '<h1>Canonical app</h1>');
+    writeFileSync(
+      join(data.site, 'worker', 'index.js'),
+      `import { value } from './helper.js';\nexport default { fetch() { return new Response(value) } };`,
+    );
+    writeFileSync(join(data.site, 'worker', 'helper.js'), `export const value = 'module-ok';`);
+    const result = runCli(['deploy', data.site, 'module-app', accepted], data);
+
+    expect(result.status, result.stderr).toBe(0);
+    const config = JSON.parse(
+      readFileSync(join(data.state, 'config', 'captured-config.json'), 'utf8'),
+    );
+    expect(config.main).toBe('./worker/index.js');
+    expect(readFileSync(join(data.state, 'config', 'captured-main.js'), 'utf8')).toContain(
+      "from './helper.js'",
+    );
+    expect(readFileSync(join(data.state, 'config', 'captured-helper.js'), 'utf8')).toContain(
+      'module-ok',
+    );
+  });
+
+  it('rejects mixed canonical and legacy layouts', () => {
+    const data = fixture();
+    mkdirSync(join(data.site, 'public'));
+    writeFileSync(join(data.site, 'public', 'index.html'), '<h1>Mixed</h1>');
+    const result = runCli(['deploy', data.site, 'mixed-app', accepted], data);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Do not mix canonical');
   });
 
   it('rejects duplicate binding declarations', () => {

@@ -193,10 +193,11 @@ type BindingManifest = {
 
 type StagedFolder = {
   directory: string;
-  deployTarget: string;
-  config?: string;
+  config: string;
   fileCount: number;
+  moduleCount: number;
   dynamic: boolean;
+  layout: 'canonical' | 'legacy';
   bindings: BindingManifest;
 };
 
@@ -220,7 +221,7 @@ async function bindingManifest(root: string, dynamic: boolean): Promise<BindingM
     await handle.close();
   }
   if (!source) return emptyBindings();
-  if (!dynamic) throw new Error('up.json bindings require a root _worker.js.');
+  if (!dynamic) throw new Error('up.json bindings require worker/index.js (or legacy _worker.js).');
   let parsed: unknown;
   try {
     parsed = JSON.parse(source);
@@ -304,64 +305,122 @@ async function copyStableFile(source: string, destination: string, root: string)
 
 async function stageAnonymousFolder(root: string, stateRoot: string): Promise<StagedFolder> {
   const directory = await mkdtemp(join(stateRoot, 'deploy-'));
-  const workerPath = join(root, '_worker.js');
-  const workerInfo = await lstat(workerPath).catch(() => null);
-  if (workerInfo?.isSymbolicLink()) throw new Error('Symbolic links are not supported: _worker.js');
-  if (workerInfo && !workerInfo.isFile()) throw new Error('_worker.js must be a regular file.');
-  const dynamic = workerInfo?.isFile() === true;
+  const publicPath = join(root, 'public');
+  const workerDirectoryPath = join(root, 'worker');
+  const legacyIndexPath = join(root, 'index.html');
+  const legacyWorkerPath = join(root, '_worker.js');
+  const [publicInfo, workerDirectoryInfo, legacyIndexInfo, legacyWorkerInfo] = await Promise.all([
+    lstat(publicPath).catch(() => null),
+    lstat(workerDirectoryPath).catch(() => null),
+    lstat(legacyIndexPath).catch(() => null),
+    lstat(legacyWorkerPath).catch(() => null),
+  ]);
+
+  const canonical = Boolean(publicInfo || workerDirectoryInfo);
+  if (canonical && (legacyIndexInfo || legacyWorkerInfo))
+    throw new Error(
+      'Do not mix canonical public/ + worker/ layout with legacy root index.html or _worker.js.',
+    );
+  if (publicInfo?.isSymbolicLink() || workerDirectoryInfo?.isSymbolicLink())
+    throw new Error('Symbolic links are not supported for public/ or worker/.');
+  if (canonical && !publicInfo?.isDirectory()) throw new Error('public/ must be a directory.');
+  if (workerDirectoryInfo && !workerDirectoryInfo.isDirectory())
+    throw new Error('worker/ must be a directory.');
+  if (legacyWorkerInfo?.isSymbolicLink())
+    throw new Error('Symbolic links are not supported: _worker.js');
+  if (legacyWorkerInfo && !legacyWorkerInfo.isFile())
+    throw new Error('_worker.js must be a regular file.');
+
+  const layout: StagedFolder['layout'] = canonical ? 'canonical' : 'legacy';
+  const workerEntry = canonical ? join(workerDirectoryPath, 'index.js') : legacyWorkerPath;
+  const workerEntryInfo = await lstat(workerEntry).catch(() => null);
+  if (workerEntryInfo?.isSymbolicLink())
+    throw new Error(
+      `Symbolic links are not supported: ${canonical ? 'worker/index.js' : '_worker.js'}`,
+    );
+  if (workerEntryInfo && !workerEntryInfo.isFile())
+    throw new Error(`${canonical ? 'worker/index.js' : '_worker.js'} must be a regular file.`);
+  if (workerDirectoryInfo && !workerEntryInfo)
+    throw new Error('worker/index.js is required when worker/ exists.');
+
+  const dynamic = workerEntryInfo?.isFile() === true;
   const bindings = await bindingManifest(root, dynamic);
-  const assetsDirectory = dynamic ? join(directory, 'assets') : directory;
-  if (dynamic) await mkdir(assetsDirectory, { recursive: true, mode: 0o700 });
+  const assetsDirectory = join(directory, 'assets');
+  const stagedWorkerDirectory = join(directory, 'worker');
+  await mkdir(assetsDirectory, { recursive: true, mode: 0o700 });
+  if (dynamic) await mkdir(stagedWorkerDirectory, { recursive: true, mode: 0o700 });
   let fileCount = 0;
+  let moduleCount = 0;
   let hasIndex = false;
 
-  async function visit(sourceDirectory: string, destinationDirectory: string): Promise<void> {
+  async function visit(
+    sourceRoot: string,
+    sourceDirectory: string,
+    destinationDirectory: string,
+    purpose: 'assets' | 'modules',
+  ): Promise<void> {
     for (const entry of await readdir(sourceDirectory, { withFileTypes: true })) {
-      const sourceRelative = relative(root, join(sourceDirectory, entry.name)).replaceAll(
-        '\\',
-        '/',
-      );
+      const source = join(sourceDirectory, entry.name);
+      const sourceRelative = relative(sourceRoot, source).replaceAll('\\', '/');
+      if (entry.name === '.git' || entry.name === 'node_modules') continue;
       if (
-        entry.name === '.git' ||
-        entry.name === 'node_modules' ||
-        (dynamic && ['_worker.js', 'up.json'].includes(sourceRelative))
+        purpose === 'assets' &&
+        layout === 'legacy' &&
+        ['_worker.js', 'up.json'].includes(sourceRelative)
       )
         continue;
+      if (purpose === 'modules' && layout === 'legacy' && sourceRelative === 'up.json') continue;
       if (entry.name.startsWith('.') && entry.name !== '.well-known') {
         if (entry.name === '.env' || entry.name.startsWith('.env.') || entry.name === '.dev.vars')
-          throw new Error(`Refusing to deploy sensitive file: ${entry.name}`);
+          throw new Error(`Refusing to deploy sensitive file: ${relative(root, source)}`);
         continue;
       }
-      const source = join(sourceDirectory, entry.name);
       const destination = join(destinationDirectory, entry.name);
       const info = await lstat(source);
       if (info.isSymbolicLink())
         throw new Error(`Symbolic links are not supported: ${relative(root, source)}`);
       if (info.isDirectory()) {
         await mkdir(destination, { recursive: true, mode: 0o700 });
-        await visit(source, destination);
+        await visit(sourceRoot, source, destination, purpose);
         continue;
       }
-      fileCount += 1;
-      if (fileCount > MAX_TEMPORARY_FILES)
-        throw new Error(`Temporary deployments support at most ${MAX_TEMPORARY_FILES} files.`);
+      if (!info.isFile()) throw new Error(`Unsupported file type: ${relative(root, source)}`);
+      if (purpose === 'assets') {
+        fileCount += 1;
+        if (fileCount > MAX_TEMPORARY_FILES)
+          throw new Error(`Temporary deployments support at most ${MAX_TEMPORARY_FILES} assets.`);
+        if (sourceRelative === 'index.html') hasIndex = true;
+      } else {
+        moduleCount += 1;
+      }
       await copyStableFile(source, destination, root);
-      if (sourceRelative === 'index.html') hasIndex = true;
     }
   }
 
   try {
-    await visit(root, assetsDirectory);
-    if (!hasIndex) throw new Error('index.html is required');
-    if (!dynamic) return { directory, deployTarget: directory, fileCount, dynamic, bindings };
+    if (layout === 'canonical') {
+      await visit(publicPath, publicPath, assetsDirectory, 'assets');
+      if (dynamic)
+        await visit(workerDirectoryPath, workerDirectoryPath, stagedWorkerDirectory, 'modules');
+    } else {
+      await visit(root, root, assetsDirectory, 'assets');
+      // Legacy folders have no module/asset boundary. Copy every safe file into the
+      // module tree too so sibling imports continue to resolve during migration.
+      if (dynamic) await visit(root, root, stagedWorkerDirectory, 'modules');
+    }
+    if (!hasIndex) throw new Error(`${canonical ? 'public/index.html' : 'index.html'} is required`);
 
-    await copyStableFile(workerPath, join(directory, '_worker.js'), root);
     const configPath = join(directory, 'wrangler.jsonc');
     const classes = [...new Set(bindings.durableObjects.map((item) => item.className))];
     const config = {
-      main: './_worker.js',
+      ...(dynamic
+        ? { main: layout === 'canonical' ? './worker/index.js' : './worker/_worker.js' }
+        : {}),
       compatibility_date: TEMPORARY_COMPATIBILITY_DATE,
-      assets: { directory: './assets', binding: 'ASSETS', run_worker_first: true },
+      assets: {
+        directory: './assets',
+        ...(dynamic ? { binding: 'ASSETS', run_worker_first: true } : {}),
+      },
       ...(bindings.kv.length ? { kv_namespaces: bindings.kv.map((binding) => ({ binding })) } : {}),
       ...(bindings.d1.length ? { d1_databases: bindings.d1.map((binding) => ({ binding })) } : {}),
       ...(bindings.durableObjects.length
@@ -377,14 +436,7 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
         : {}),
     };
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-    return {
-      directory,
-      deployTarget: join(directory, '_worker.js'),
-      config: configPath,
-      fileCount,
-      dynamic,
-      bindings,
-    };
+    return { directory, config: configPath, fileCount, moduleCount, dynamic, layout, bindings };
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
     throw error;
@@ -547,8 +599,8 @@ async function deployAnonymous(): Promise<void> {
       wranglerBinary(),
       [
         'deploy',
-        staged.deployTarget,
-        ...(staged.config ? ['--config', staged.config] : []),
+        '--config',
+        staged.config,
         '--temporary',
         '--name',
         name,
@@ -615,8 +667,8 @@ async function handoff(): Promise<void> {
       wranglerBinary(),
       [
         'deploy',
-        staged.deployTarget,
-        ...(staged.config ? ['--config', staged.config] : []),
+        '--config',
+        staged.config,
         '--name',
         name,
         '--compatibility-date',

@@ -2,12 +2,17 @@
 
 ## Folder
 
-| File | Contract |
+Canonical layout:
+
+| Path | Contract |
 |---|---|
-| `index.html` | Required browser entry point |
-| `_worker.js` | Optional Worker entry point and Durable Object class exports |
-| `up.json` | Optional anonymous binding declaration; requires `_worker.js` |
-| other files | Static Assets available through `env.ASSETS` |
+| `public/index.html` | Required browser entry point |
+| `public/**` | Static Assets available through `env.ASSETS` |
+| `worker/index.js` | Optional module Worker entry point and Durable Object exports |
+| `worker/**` | Worker module graph preserved for Wrangler bundling |
+| `up.json` | Optional anonymous binding declaration; requires a Worker |
+
+Legacy root `index.html` + `_worker.js` folders remain accepted as a migration path. Do not mix canonical and legacy layouts. Up rejects symbolic links, sensitive dotfiles, and special files in both asset and Worker trees.
 
 ## `up.json`
 
@@ -26,7 +31,7 @@ No other root or binding fields are accepted in 0.0.1.
 - Binding names: uppercase letter followed by up to 47 uppercase letters, digits, or `_`.
 - Binding names must be unique across KV, D1, and Durable Objects.
 - Durable Object class names must be valid JavaScript identifiers.
-- Up generates one SQLite migration containing the distinct class names.
+- Up currently generates one SQLite migration containing the initial distinct class names.
 
 ## Commands
 
@@ -34,46 +39,45 @@ No other root or binding fields are accepted in 0.0.1.
 |---|---|
 | `up deploy <folder> [name]` | Provision and deploy one public Temporary Account graph |
 | `up deploy … --accept-cloudflare-terms` | Explicit non-interactive Terms acceptance |
-| `up claim` | Show claim timing without printing the ownership link |
+| `up claim` | Show ownership timing without printing the ownership link |
 | `up claim --open` | Open the ownership flow without printing the link |
 | `up claim --show` | Explicitly reveal the sensitive ownership link |
 | `up handoff <folder> <name> --account-id <id>` | Continue an existing claimed Worker through normal Wrangler OAuth |
 | `up init [directory]` | Install `.up/SKILL.md`, `.up/HANDOFF.md`, and client types |
-| `up private <folder> <name>` | Explicit secondary company-mode deployment |
+| `up private <folder> <name>` | Legacy company-mode deployment; scheduled for removal |
 
 ## Anonymous defaults
 
 - public `workers.dev` URL and API;
-- up to/about 60 minutes unless claimed;
+- about 60 minutes unless kept;
 - 1,000 Static Asset files;
-- 5 MiB per Static Asset;
+- 5 MiB per staged file;
 - symbolic links, special files, and sensitive dotfiles rejected;
 - stable path-fingerprint Worker name when omitted;
 - private staging snapshot removed after deployment;
+- generated Wrangler config for static and dynamic projects;
 - no production or CI/CD promise.
 
 ## Binding matrix
 
 | Product | Up 0.0.1 |
 |---|---|
-| Worker runtime | dynamic `_worker.js` |
-| Static Assets | `env.ASSETS` |
+| Worker runtime | `worker/index.js` module graph (legacy `_worker.js` accepted) |
+| Static Assets | `public/**` through `env.ASSETS` |
 | KV | draft namespace auto-provisioned by Wrangler |
 | D1 | draft database auto-provisioned by Wrangler |
-| Durable Objects | generated class binding and SQLite migration |
-| Queues | supported by Temporary Accounts; `up.json` wiring not shipped yet |
-| Hyperdrive | supported by Temporary Accounts; `up.json` wiring not shipped yet; requires an existing database |
+| Durable Objects | initial class bindings and SQLite migration |
+| Queues | supported by Temporary Accounts; Up wiring not shipped yet |
+| Hyperdrive | supported by Temporary Accounts; Up wiring not shipped yet; requires an existing database |
 | Certificates | supported account operation; configured outside `up.json` |
 | R2, Workers AI, Access | unavailable in current Temporary Account matrix |
 | Workflows, Browser Rendering, Containers, Sandboxes, Dispatch | unavailable in current matrix |
 
 ## Connected services with Capa
 
-Capa is the path from platform bindings to the services an app already uses. GitHub, Stripe, and other APIs run in a separate Worker beside the app. Capa keeps the provider API key out of app code, limits the available actions, and returns both the answer and a record of what happened.
-
 Capa currently contains 14 generated bindings: Box, Discord, GitHub, GitLab, Jira, Kubernetes, Sentry, Slack, Stripe, Twilio, Twilio Messaging, Twilio Verify, Twitch, and Zoom.
 
-The same-account design passed a live Temporary Account test: app Worker → private Capa Worker → upstream API. The credential stayed out of the app and response. The simple installer is not shipped yet; it depends on immutable, hash-verified Capa bundles.
+A manual same-account research spike passed: app Worker → private Capa Worker → upstream API. Up does not install or configure Capa bindings yet. The user-facing installer depends on immutable, hash-verified Capa bundles.
 
 See the [Capa integration contract](../capa-integration.md) and [live spike receipt](../../receipts/2026-06-23-capa-temporary-account-spike.md).
 
@@ -85,10 +89,6 @@ No Up API key is involved. A scoped Cloudflare API token is only needed later fo
 
 ## Credential behavior
 
-Up starts Wrangler under `~/.up/anonymous`, sets isolated home/config variables for Windows, macOS, and Linux, and removes current plus deprecated Cloudflare credential variables.
+Up starts anonymous Wrangler under `~/.up/anonymous`, sets isolated home/config variables for Windows, macOS, and Linux, and removes current plus deprecated Cloudflare credential variables.
 
-Wrangler can reuse its temporary account cache during the active session. This means one claim URL transfers every deployment and supported resource in that session.
-
-## Secondary company mode
-
-Company mode retains its Access-authenticated router, private R2 deployments, document Durable Object, realtime Durable Object, Workers AI binding, and fixed same-origin client API. Those contracts do not apply to anonymous mode.
+Wrangler can reuse its temporary account cache during the active session. This means one ownership link controls every deployment and supported resource in that session.

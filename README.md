@@ -18,9 +18,12 @@ A dynamic Up app is an ordinary folder:
 
 ```text
 my-app/
-├── index.html       browser UI
-├── app.js
-├── _worker.js       dynamic Worker entry point
+├── public/
+│   ├── index.html   browser UI
+│   └── app.js
+├── worker/
+│   ├── index.js     dynamic Worker entry point
+│   └── helpers.js   normal module imports work
 └── up.json          platform bindings
 ```
 
@@ -140,7 +143,7 @@ export default {
 };
 ```
 
-Browser code gets a normal same-origin API. Worker code gets real Cloudflare bindings. Using the ownership flow keeps the entire Temporary Account and the supported resources created inside it.
+Browser code in `public/` gets a normal same-origin API. Worker modules in `worker/` get real Cloudflare bindings. Legacy root `index.html` + `_worker.js` folders remain accepted as a migration path, but cannot be mixed with the canonical layout. Using the ownership flow keeps the entire Temporary Account and the supported resources created inside it.
 
 ## Binding spectrum
 
