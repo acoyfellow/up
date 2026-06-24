@@ -140,7 +140,7 @@ export default {
 };
 ```
 
-Browser code gets a normal same-origin API. Worker code gets real Cloudflare bindings. Claiming transfers the entire Temporary Account and the supported resources created inside it.
+Browser code gets a normal same-origin API. Worker code gets real Cloudflare bindings. Using the ownership flow keeps the entire Temporary Account and the supported resources created inside it.
 
 ## Binding spectrum
 
@@ -151,9 +151,9 @@ Browser code gets a normal same-origin API. Worker code gets real Cloudflare bin
 | KV | **Yes** | Auto-provisioned from `up.json` |
 | D1 | **Yes** | One database; 100 MB total |
 | Durable Objects | **Yes** | Class binding plus SQLite migration |
-| Queues | Next | Temporary Accounts allow up to 10 |
-| Hyperdrive | Connect later | Two configs; requires an existing database |
-| Certificates | Claim-time concern | Supported command family |
+| Queues | Supported upstream; Up wiring next | Temporary Accounts allow up to 10 |
+| Hyperdrive | Supported upstream; Up wiring next | Two configs; requires an existing database |
+| Certificates | Account operation | Supported by Temporary Accounts; configured outside `up.json` |
 | R2, Workers AI, Access | **No** | Not in the current Temporary Account matrix |
 | Workflows, Browser Rendering, Containers, Sandboxes | **No** | Not in the current matrix |
 
@@ -210,7 +210,7 @@ Up deliberately stays close to Cloudflare’s bleeding edge instead of recreatin
 
 Wrangler owns proof-of-work, Terms acceptance, short-lived credentials, resource provisioning, upload, account reuse, and dashboard claiming. Up does not reimplement the unpublished provisioning protocol.
 
-The isolated state lives under `~/.up/anonymous` with private permissions. Repeated deploys during one active session reuse the Temporary Account, so **the claim URL claims every app and binding in that session**.
+The isolated state lives under `~/.up/anonymous` with private permissions. Repeated deploys during one active session reuse the Temporary Account, so **one sensitive ownership link controls every app and binding in that session**.
 
 ## The temporary contract
 

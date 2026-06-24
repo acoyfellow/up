@@ -1,7 +1,7 @@
 {
   "name": "Up — dynamic stacks before signup",
   "short_name": "Up",
-  "description": "Deploy Worker code, assets, and platform bindings before signup, then claim the stack.",
+  "description": "Run a Cloudflare app with Worker code, assets, and platform bindings before signup, then keep it if it works.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

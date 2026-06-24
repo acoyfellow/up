@@ -91,9 +91,9 @@ Wrangler inherits existing KV and D1 bindings from the Worker's settings by bind
 | KV | implemented | draft namespace auto-provisioned by Wrangler |
 | D1 | implemented | one draft database; current Temporary Account total 100 MB |
 | Durable Objects | implemented | named class binding and SQLite migration |
-| Queues | next | requires explicit queue lifecycle orchestration |
-| Hyperdrive | later | needs an existing external database and connection policy |
-| Certificates | later | claim/ownership operation, not app-local API |
+| Queues | supported upstream; Up wiring next | requires explicit queue lifecycle orchestration |
+| Hyperdrive | supported upstream; Up wiring next | needs an existing external database and connection policy |
+| Certificates | supported account operation | ownership/account operation, not app-local API |
 | R2, Workers AI, Access | excluded | absent from current Temporary Account matrix |
 | Workflows, Browser Rendering, Containers, Sandboxes, Dispatch | excluded | absent from current matrix |
 

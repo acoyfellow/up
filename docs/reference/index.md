@@ -61,14 +61,17 @@ No other root or binding fields are accepted in 0.0.1.
 | KV | draft namespace auto-provisioned by Wrangler |
 | D1 | draft database auto-provisioned by Wrangler |
 | Durable Objects | generated class binding and SQLite migration |
-| Queues | upstream Temporary Account support; not exposed yet |
-| Hyperdrive | upstream support; not exposed yet |
+| Queues | supported by Temporary Accounts; `up.json` wiring not shipped yet |
+| Hyperdrive | supported by Temporary Accounts; `up.json` wiring not shipped yet; requires an existing database |
+| Certificates | supported account operation; configured outside `up.json` |
 | R2, Workers AI, Access | unavailable in current Temporary Account matrix |
 | Workflows, Browser Rendering, Containers, Sandboxes, Dispatch | unavailable in current matrix |
 
 ## Connected services with Capa
 
 Capa is the path from platform bindings to the services an app already uses. GitHub, Stripe, and other APIs run in a separate Worker beside the app. Capa keeps the provider API key out of app code, limits the available actions, and returns both the answer and a record of what happened.
+
+Capa currently contains 14 generated bindings: Box, Discord, GitHub, GitLab, Jira, Kubernetes, Sentry, Slack, Stripe, Twilio, Twilio Messaging, Twilio Verify, Twitch, and Zoom.
 
 The same-account design passed a live Temporary Account test: app Worker → private Capa Worker → upstream API. The credential stayed out of the app and response. The simple installer is not shipped yet; it depends on immutable, hash-verified Capa bundles.
 

@@ -62,6 +62,16 @@
 
   const deployUrl =
     'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up';
+  const nativeCatalog = [
+    { name: 'Worker', slug: 'workers', action: 'Run code', status: 'Included in Up', detail: 'Dynamic request handling at a public workers.dev URL.' },
+    { name: 'Static Assets', slug: 'assets', action: 'Serve the page', status: 'Included in Up', detail: 'HTML, CSS, JavaScript, images, and other browser files.' },
+    { name: 'KV', slug: 'kv', action: 'Store keys', status: 'Included in Up', detail: 'Fast key-value reads and writes, provisioned from up.json.' },
+    { name: 'D1', slug: 'd1', action: 'Query SQL', status: 'Included in Up', detail: 'A SQLite database that stays with the app if you keep it.' },
+    { name: 'Durable Objects', slug: 'durableObjects', action: 'Coordinate state', status: 'Included in Up', detail: 'Storage, coordination, and WebSockets with SQLite migrations.' },
+    { name: 'Queues', slug: 'queues', action: 'Process work later', status: 'Temporary Account ready', detail: 'Supported upstream; Up’s up.json wiring is next.' },
+    { name: 'Hyperdrive', slug: 'hyperdrive', action: 'Reach an existing database', status: 'Temporary Account ready', detail: 'Supported upstream; requires a database connection policy.' },
+    { name: 'Certificates', slug: 'certificates', action: 'Use client certificates', status: 'Account operation', detail: 'Supported by Temporary Accounts; configured outside the app manifest.' },
+  ];
   const capaCatalog = [
     { name: 'GitHub', slug: 'github' },
     { name: 'GitLab', slug: 'gitlab' },
@@ -72,7 +82,9 @@
     { name: 'Box', slug: 'box' },
     { name: 'Kubernetes', slug: 'kubernetes' },
     { name: 'Sentry', slug: 'sentry' },
-    { name: 'Twilio', slug: 'twilio', detail: '3 bindings' },
+    { name: 'Twilio', slug: 'twilio' },
+    { name: 'Twilio Messaging', slug: 'twilio' },
+    { name: 'Twilio Verify', slug: 'twilio' },
     { name: 'Twitch', slug: 'twitch' },
     { name: 'Zoom', slug: 'zoom' },
   ];
@@ -285,8 +297,8 @@
       <section class="home-hero" aria-labelledby="home-title">
         <div class="home-hero-copy">
           <div class="home-kicker"><span>Deploy without an account</span></div>
-          <h1 id="home-title">A real Cloudflare URL<br /><span class="accent">without the signup.</span></h1>
-          <p class="home-tagline">Run <code>up deploy</code> on a folder and get a live Worker at a public URL. Add KV, D1, or Durable Objects when you want them. It runs for about an hour, then it&rsquo;s yours to keep or gone.</p>
+          <h1 id="home-title">Your app is live<br /><span class="accent">before you sign up.</span></h1>
+          <p class="home-tagline">Worker code, browser assets, KV, D1, and Durable Objects—running together on Cloudflare for about an hour. Keep the whole thing, or let it disappear.</p>
           <div class="home-actions">
             <a class="primary link-button" href="https://github.com/acoyfellow/up#deploy-first">Get the CLI <span aria-hidden="true">→</span></a>
             <a class="home-secondary" href="/tutorial">See it work</a>
@@ -316,14 +328,21 @@
         <div class="shelf-head">
           <p class="section-index">01 / DYNAMIC</p>
           <h2 id="shelf-title">Bindings off the shelf.</h2>
-          <p>Name a binding in <code>up.json</code> and Wrangler provisions and binds it. You call real Worker, KV, D1, and Durable Object semantics from the first deploy — then claim the whole graph or let it vanish.</p>
+          <p>Up wires Worker, Static Assets, KV, D1, and Durable Objects now. Temporary Accounts also support Queues, Hyperdrive, and certificates; the catalog below shows what works in Up today and what the platform is ready for next.</p>
         </div>
-        <div class="feature-grid">
-          <article><span>WORKER</span><h3>Run code</h3><p>A root <code>_worker.js</code> serves dynamic routes and exports Durable Object classes.</p></article>
-          <article><span>ASSETS</span><h3>Serve the page</h3><p>HTML, CSS, JavaScript, and images through <code>env.ASSETS</code>.</p></article>
-          <article><span>KV</span><h3>Store keys</h3><p>A namespace, provisioned and bound from one line of <code>up.json</code>.</p></article>
-          <article><span>D1</span><h3>Query SQL</h3><p>A real SQLite database that stays with the app if you keep it.</p></article>
-          <article><span>DURABLE OBJECTS</span><h3>Coordinate state</h3><p>Storage and WebSockets with a generated SQLite migration.</p></article>
+        <p class="catalog-label native-label">In Temporary Accounts today · 8 primitives</p>
+        <div class="feature-grid" aria-label="Cloudflare primitives available in Temporary Accounts">
+          {#each nativeCatalog as product}
+            <article class:pending={product.status !== 'Included in Up'}>
+              <div class="native-title">
+                <img src={`/images/cloudflare/${product.slug}.svg`} alt="" width="30" height="30" />
+                <span>{product.name}</span>
+              </div>
+              <small>{product.status}</small>
+              <h3>{product.action}</h3>
+              <p>{product.detail}</p>
+            </article>
+          {/each}
         </div>
         <div class="connected-services">
           <div>
@@ -336,7 +355,6 @@
                 <li>
                   <img src={`/images/capa/${service.slug}.svg`} alt="" width="24" height="24" />
                   <span>{service.name}</span>
-                  {#if service.detail}<small>{service.detail}</small>{/if}
                 </li>
               {/each}
             </ul>
@@ -489,7 +507,7 @@ up handoff ./dist exact-worker-name \
           </article>
         </div>
       {:else if section === 'reference'}
-        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the ownership flow without printing the sensitive link</td></tr><tr><th><code>up claim --show</code></th><td>Explicitly reveal the ownership link</td></tr><tr><th><code>up handoff &lt;folder&gt; &lt;name&gt; --account-id &lt;id&gt;</code></th><td>Continue the existing Worker after ownership using normal Wrangler OAuth</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are in the upstream matrix but not yet exposed by Up</li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul><h2>Connected services with Capa</h2><p>Capa keeps provider API keys out of app code and gives the Worker a smaller set of allowed actions for services such as GitHub and Stripe. A live same-account test passed; the simple installer is not shipped yet. <a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract →</a></p>
+        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the ownership flow without printing the sensitive link</td></tr><tr><th><code>up claim --show</code></th><td>Explicitly reveal the ownership link</td></tr><tr><th><code>up handoff &lt;folder&gt; &lt;name&gt; --account-id &lt;id&gt;</code></th><td>Continue the existing Worker after ownership using normal Wrangler OAuth</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are supported by Temporary Accounts; Up wiring is not shipped yet</li><li>Certificates are a supported account operation outside <code>up.json</code></li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul><h2>Connected services with Capa</h2><p>Capa keeps provider API keys out of app code and gives the Worker a smaller set of allowed actions for services such as GitHub and Stripe. A live same-account test passed; the simple installer is not shipped yet. <a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract →</a></p>
       {:else if section === 'explanation'}
         <h1>The dynamic graph comes first.</h1><p class="summary">Worker code and platform bindings exist before the deployer has a Cloudflare identity. That inversion is the product.</p><h2>Agents need real behavior</h2><p>A screenshot of static output cannot validate data, coordination, or API logic. Temporary Accounts let an agent exercise Worker, KV, D1, and Durable Object semantics in the real runtime.</p><h2>Bindings travel together</h2><p>The claim URL transfers the whole account, including the supported resources and data produced during the experiment. The app is not reconstructed after signup.</p><h2>Public is explicit</h2><p>The generated Worker URL has no Access boundary. Anyone with it can call the app. Up labels that fact instead of pretending a hard-to-guess hostname is private.</p><h2>Credentials stay isolated</h2><p>Up snapshots the folder, launches Wrangler in a separate home, and removes inherited Cloudflare credentials so the anonymous graph cannot mutate a permanent account.</p>
       {:else if section === 'offline'}
@@ -502,7 +520,7 @@ up handoff ./dist exact-worker-name \
   {/if}
 </main>
 
-<footer><span>Up 0.0.1 · Deploy first, claim later</span><nav><a href="/tutorial">Start</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
+<footer><span>Up 0.0.1 · Your app before signup</span><nav><a href="/tutorial">Start</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
 
 <style>
   :global(:root) {
@@ -595,7 +613,6 @@ up handoff ./dist exact-worker-name \
   .home-hero h1 { max-width: 580px; margin: 22px 0 20px; font-size: clamp(2.6rem, 5.2vw, 4rem); font-weight: 640; line-height: 1.02; letter-spacing: -.032em; }
   .home-hero h1 .accent { color: var(--blue); }
   .home-tagline { max-width: 470px; margin: 0; color: var(--muted); font-size: clamp(.98rem, 1.4vw, 1.1rem); line-height: 1.64; }
-  .home-tagline code { padding: .08em .32em; border-radius: 4px; background: var(--paper); font-size: .92em; }
   .home-actions { display: flex; align-items: center; gap: 28px; margin-top: 32px; }
   .home-actions .primary { min-width: 136px; justify-content: space-between; gap: 28px; }
   .home-secondary { padding: 10px 0 7px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: .78rem; text-decoration: none; }
@@ -608,26 +625,30 @@ up handoff ./dist exact-worker-name \
   .shelf-head { max-width: 760px; margin-bottom: 42px; }
   .shelf-head h2 { margin: 16px 0 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
   .shelf-head > p { margin: 22px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
-  .shelf-head code { font-size: .82rem; }
-  .feature-grid { display: grid; grid-template-columns: repeat(5, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
-  .feature-grid article { min-height: 210px; padding: 24px; border-right: 1px solid var(--line); }
-  .feature-grid article:last-child { border-right: 0; }
-  .feature-grid article > span { color: var(--orange); font: 500 .6rem var(--mono); letter-spacing: .04em; }
-  .feature-grid h3 { margin: 24px 0 10px; font-size: .96rem; letter-spacing: -.018em; }
+  .native-label { margin-top: 0; }
+  .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
+  .feature-grid article { min-height: 230px; padding: 24px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .feature-grid article:nth-child(4n) { border-right: 0; }
+  .feature-grid article:nth-child(n+5) { border-bottom: 0; }
+  .feature-grid article.pending { background: var(--paper); }
+  .native-title { display: flex; align-items: center; gap: 10px; }
+  .native-title img { width: 30px; height: 30px; object-fit: contain; }
+  .native-title span { font-size: .82rem; font-weight: 680; }
+  .feature-grid small { display: block; width: fit-content; margin-top: 18px; padding: 4px 6px; border: 1px solid #f6821f55; border-radius: 3px; color: #9a4c08; font: 500 .54rem var(--mono); letter-spacing: .03em; }
+  .feature-grid article.pending small { border-color: var(--line-strong); color: var(--quiet); }
+  .feature-grid h3 { margin: 20px 0 10px; font-size: .96rem; letter-spacing: -.018em; }
   .feature-grid p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.62; }
-  .feature-grid code { font-size: .7rem; }
-  .connected-services { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(230px, .55fr); gap: 42px; margin-top: 28px; padding: 30px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--paper); }
+  .connected-services { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 28px; padding: 30px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--paper); }
   .connected-services h3 { margin: 16px 0 10px; font-size: clamp(1.2rem, 2vw, 1.55rem); letter-spacing: -.022em; }
   .connected-copy { max-width: 660px; margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.68; }
   .catalog-label { margin: 26px 0 10px; color: var(--quiet); font: 500 .6rem var(--mono); letter-spacing: .07em; text-transform: uppercase; }
-  .capa-catalog { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); list-style: none; }
-  .capa-catalog li { display: grid; min-height: 66px; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 9px; padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
-  .capa-catalog li:nth-child(4n) { border-right: 0; }
-  .capa-catalog li:nth-last-child(-n+4) { border-bottom: 0; }
+  .capa-catalog { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); list-style: none; }
+  .capa-catalog li { display: grid; min-height: 78px; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
+  .capa-catalog li:nth-child(7n) { border-right: 0; }
+  .capa-catalog li:nth-child(n+8) { border-bottom: 0; }
   .capa-catalog img { width: 22px; height: 22px; object-fit: contain; }
-  .capa-catalog span { overflow: hidden; font-size: .7rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-  .capa-catalog small { grid-column: 2; margin-top: -7px; color: var(--quiet); font: 500 .54rem var(--mono); }
-  .connected-status { display: grid; align-content: center; gap: 10px; padding-left: 28px; border-left: 1px solid var(--line); }
+  .capa-catalog span { overflow: hidden; font-size: .66rem; font-weight: 650; line-height: 1.25; text-overflow: ellipsis; }
+  .connected-status { display: grid; align-content: center; gap: 10px; padding-top: 22px; border-top: 1px solid var(--line); }
   .connected-status strong { font-size: .82rem; }
   .connected-status span { color: var(--muted); font-size: .7rem; line-height: 1.55; }
   .connected-status a { width: fit-content; margin-top: 5px; color: var(--blue); font-size: .72rem; text-decoration: none; }
@@ -745,11 +766,13 @@ up handoff ./dist exact-worker-name \
     .ambient-mark { top:-32px; right:-24px; width:260px; opacity:.1; }
     .paint-pattern { top:74px; right:-18px; bottom:auto; width:270px; grid-template-columns:repeat(2,1fr); gap:20px; opacity:.58; }
     .feature-grid { grid-template-columns: repeat(2, 1fr); }
-    .feature-grid article { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .feature-grid article:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
     .feature-grid article:nth-child(2n) { border-right: 0; }
-    .feature-grid article:last-child { border-right: 0; border-bottom: 0; }
-    .connected-services { grid-template-columns: 1fr; gap: 24px; }
-    .connected-status { padding: 22px 0 0; border-top: 1px solid var(--line); border-left: 0; }
+    .feature-grid article:nth-last-child(-n+2) { border-bottom: 0; }
+    .capa-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .capa-catalog li:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .capa-catalog li:nth-child(2n) { border-right: 0; }
+    .capa-catalog li:nth-last-child(-n+2) { border-bottom: 0; }
     .docs-shell { grid-template-columns: 1fr; gap: 40px; }
     .docs-nav { position: static; min-height: 0; padding: 0 0 12px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--line); }
     .docs-nav > p { margin-bottom: 12px; }
@@ -778,14 +801,10 @@ up handoff ./dist exact-worker-name \
     .paint-pattern { top:92px; right:-16px; width:200px; gap:14px; opacity:.6; }
     .shelf { padding: 56px 14px; }
     .feature-grid { grid-template-columns: 1fr; }
-    .feature-grid article { min-height: 178px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .feature-grid article:nth-child(n) { min-height: 210px; border-right: 0; border-bottom: 1px solid var(--line); }
     .feature-grid article:last-child { border-bottom: 0; }
     .feature-grid h3 { margin-top: 20px; }
     .connected-services { padding: 22px; }
-    .capa-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .capa-catalog li:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-    .capa-catalog li:nth-child(2n) { border-right: 0; }
-    .capa-catalog li:nth-last-child(-n+2) { border-bottom: 0; }
     .after-keep { grid-template-columns: 1fr; gap: 8px; }
     .doc h1 { font-size: clamp(2.2rem, 13vw, 3rem); }
     .doc .summary { margin-bottom: 36px; padding-bottom: 28px; font-size: .94rem; }

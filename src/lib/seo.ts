@@ -9,22 +9,22 @@ export type PageMetadata = {
 
 export const metadata = {
   '/': {
-    title: 'Up — Deploy a Dynamic Stack Before Signup',
+    title: 'Up — Your Cloudflare App Before Signup',
     description:
-      'Deploy Worker code, Static Assets, KV, D1, and Durable Objects before creating a Cloudflare account. Claim the whole stack later.',
-    eyebrow: 'Dynamic Worker · platform bindings · claim later',
+      'Run Worker code, Static Assets, KV, D1, and Durable Objects together on Cloudflare before creating an account. Keep the whole app if it works.',
+    eyebrow: 'A live app · platform bindings · no account yet',
   },
   '/tutorial': {
     title: 'Deploy a Dynamic Stack Before Signup — Up Tutorial',
     description:
-      'Publish Worker code, browser assets, and platform bindings through a Temporary Account, then claim the whole graph.',
+      'Publish Worker code, browser assets, and platform bindings through a Temporary Account, then keep the whole app or let it disappear.',
     eyebrow: 'Tutorial · deploy before signup',
   },
   '/how-to': {
-    title: 'Redeploy and Claim — Up How-to Guides',
+    title: 'Iterate, Keep, and Continue — Up How-to Guides',
     description:
-      'Iterate on a disposable deployment, protect its ownership link, and claim the temporary Cloudflare account.',
-    eyebrow: 'How-to · iterate and claim',
+      'Iterate on a temporary app, protect its ownership link, keep the account, and hand the same Worker back to your agent.',
+    eyebrow: 'How-to · iterate and continue',
   },
   '/examples': {
     title: 'Apps Built with Up — Examples',
@@ -32,9 +32,9 @@ export const metadata = {
     eyebrow: 'Examples · built with Up',
   },
   '/reference': {
-    title: 'Up Reference — Dynamic Apps, Bindings, and Claim Semantics',
+    title: 'Up Reference — Dynamic Apps, Bindings, and Ownership',
     description:
-      'Exact contracts for Worker code, Static Assets, KV, D1, Durable Objects, public URLs, expiry, and account claiming.',
+      'Exact contracts for Worker code, Static Assets, KV, D1, Durable Objects, public URLs, expiry, and account ownership.',
     eyebrow: 'Reference · anonymous deployment contract',
   },
   '/explanation': {

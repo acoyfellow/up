@@ -9,24 +9,20 @@ try {
   await page.goto(origin, { waitUntil: 'networkidle' });
   if (browserErrors.length) throw Error(`browser hydration failed: ${browserErrors.join('; ')}`);
   if (
-    !(await page
-      .getByRole('heading', { name: 'Ship the whole stack. Claim it if it works.' })
-      .isVisible())
+    !(await page.getByRole('heading', { name: 'Your app is live before you sign up.' }).isVisible())
   )
     throw Error('product front door missing');
   if (!(await page.getByRole('link', { name: 'Get the CLI', exact: true }).isVisible()))
     throw Error('CLI CTA missing');
-  if (!(await page.getByRole('link', { name: 'See the flow', exact: true }).isVisible()))
+  if (!(await page.getByRole('link', { name: 'See it work', exact: true }).isVisible()))
     throw Error('tutorial CTA missing');
   if (
-    !(await page
-      .getByText('Independent user-land experiment. Not an official Cloudflare product.')
-      .isVisible())
+    !(await page.getByText('Independent project. Not an official Cloudflare product.').isVisible())
   )
     throw Error('independent-project qualifier missing');
-  for (const name of ['Tutorial', 'How-to guides', 'Reference', 'Explanation']) {
+  for (const name of ['Docs', 'How it works', 'Get the CLI']) {
     if (!(await page.getByRole('link', { name }).first().isVisible()))
-      throw Error(`Diátaxis entry missing: ${name}`);
+      throw Error(`primary navigation entry missing: ${name}`);
   }
   await page.goto(`${origin}/tutorial`);
   if (!(await page.getByRole('heading', { name: 'Deploy the stack before signup' }).isVisible()))
@@ -40,9 +36,7 @@ try {
   const noJs = await browser.newPage({ javaScriptEnabled: false });
   await noJs.goto(origin, { waitUntil: 'load' });
   if (
-    !(await noJs
-      .getByRole('heading', { name: 'Ship the whole stack. Claim it if it works.' })
-      .isVisible())
+    !(await noJs.getByRole('heading', { name: 'Your app is live before you sign up.' }).isVisible())
   )
     throw Error('SSR front door missing without JavaScript');
   const description = await noJs.locator('meta[name="description"]').getAttribute('content');
