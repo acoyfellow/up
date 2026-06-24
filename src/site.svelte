@@ -523,7 +523,7 @@ up handoff ./dist exact-worker-name \
   {/if}
 </main>
 
-<footer><span>Up 0.0.1 · Your app before signup</span><nav><a href="/tutorial">Start</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
+<footer><span>{isProduct ? 'Up · Private workspace' : 'Up 0.0.1 · Documentation'}</span><nav><a href="/tutorial">Docs</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">Source</a></nav></footer>
 
 <style>
   :global(:root) {
