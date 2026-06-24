@@ -50,29 +50,31 @@ Do not claim R2, Workers AI, Access, Workflows, Browser Rendering, Containers, S
 1. Keep the browser folder under 1,000 files and every file under 5 MiB.
 2. Do not include credentials, private data, source maps with secrets, `.env` files, or internal-only content. The resulting URL and API are public.
 3. Do not include symbolic links.
-4. Test locally.
-5. Ask the user to approve:
+4. Run `up inspect ./dist [name]` and review the exact assets, Worker modules, bindings, and exclusions. This creates no account.
+5. Test locally.
+6. Ask the user to approve:
    - making the app public for up to/about 60 minutes;
    - Cloudflare’s Terms of Service and Privacy Policy;
    - the declared platform bindings.
-6. After approval, deploy:
+7. After approval, deploy:
 
 ```sh
 up deploy ./dist [name] --accept-cloudflare-terms
 ```
 
-7. Fetch both the page and dynamic API routes. Exercise each declared binding.
-8. Return the public deployment URL.
-9. Return the claim URL only through the active user conversation and label it sensitive.
-10. Explain that every app and binding in the temporary session disappears unless the account is claimed.
+8. Fetch both the page and dynamic API routes. Exercise each declared binding.
+9. Return the public deployment URL.
+10. Do not print or repeat the ownership link. Use `up claim ./dist --open`; reveal it only when the human explicitly requests `--show`.
+11. Explain that every app and binding in the project-scoped temporary session disappears unless the account is kept.
 
 ## Claim contract
 
 ```sh
-up claim --open
+up status ./dist
+up claim ./dist --open
 ```
 
-The claim URL grants ownership of the entire Temporary Account. Never commit it, put it in a screenshot, send it to another agent, or include it in a public log.
+The ownership URL grants ownership of the entire project Temporary Account. Up stores it in project-scoped local state and withholds it by default. Never commit it, put it in a screenshot, send it to another agent, or include it in a public log. `up forget ./dist` removes only local state and never changes remote resources.
 
 ## Important behavior
 

@@ -46,10 +46,10 @@ const forbidden = ${JSON.stringify(credentialNames)};
 if (forbidden.some((name) => process.env[name])) process.exit(41);
 const args = process.argv.slice(2);
 if (args[0] !== 'deploy' || !args.includes('--temporary') || !args.includes('--name') || !args.includes('--no-autoconfig') || !args.includes('--experimental-provision') || !args.includes('--experimental-auto-create')) process.exit(42);
-if (!process.env.HOME?.includes('state/home') || !process.env.USERPROFILE?.includes('state/home')) process.exit(43);
-if (!process.env.XDG_CONFIG_HOME?.includes('state/config') || !process.env.APPDATA?.includes('state/config') || !process.env.LOCALAPPDATA?.includes('state/config')) process.exit(44);
+if (!process.env.HOME?.includes('state/projects/') || !process.env.HOME?.endsWith('/home') || process.env.USERPROFILE !== process.env.HOME) process.exit(43);
+if (!process.env.XDG_CONFIG_HOME?.includes('state/projects/') || !process.env.XDG_CONFIG_HOME?.endsWith('/config') || process.env.APPDATA !== process.env.XDG_CONFIG_HOME || process.env.LOCALAPPDATA !== process.env.XDG_CONFIG_HOME) process.exit(44);
 const configPath = args[args.indexOf('--config') + 1];
-if (!configPath?.includes('state/deploy-')) process.exit(45);
+if (!configPath?.includes('state/projects/') || !configPath?.includes('/deploy-')) process.exit(45);
 const name = args[args.indexOf('--name') + 1];
 const directory = join(process.env.XDG_CONFIG_HOME, '.wrangler');
 mkdirSync(directory, { recursive: true });
@@ -70,6 +70,19 @@ console.log('\\u001b[36m  https://' + name + '.authoritative-target.workers.dev\
   );
   chmodSync(fakeWrangler, 0o755);
   return { root, site, state, fakeWrangler };
+}
+
+function projectState(data: ReturnType<typeof fixture>) {
+  const projects = join(data.state, 'projects');
+  const entries = readdirSync(projects);
+  expect(entries).toHaveLength(1);
+  const root = join(projects, entries[0] as string);
+  return {
+    root,
+    config: join(root, 'config'),
+    account: join(root, 'config', '.wrangler', 'wrangler-temporary-account.toml'),
+    metadata: join(root, 'project.json'),
+  };
 }
 
 function runCli(arguments_: string[], fixtureData: ReturnType<typeof fixture>) {
@@ -152,8 +165,9 @@ describe('anonymous-first CLI', () => {
     expect(result.stdout).toContain('https://demo.authoritative-target.workers.dev');
     expect(result.stdout).not.toContain('https://demo.display-name-is-not-the-host.workers.dev');
     expect(result.stdout).toContain('Public: anyone with this URL can open it.');
+    const paths = projectState(data);
     const staticConfig = JSON.parse(
-      readFileSync(join(data.state, 'config', 'captured-config.json'), 'utf8'),
+      readFileSync(join(paths.config, 'captured-config.json'), 'utf8'),
     );
     expect(staticConfig).toMatchObject({
       assets: { directory: './assets' },
@@ -164,16 +178,63 @@ describe('anonymous-first CLI', () => {
     expect(result.stdout).not.toContain('claimToken=fake-sensitive-token');
     expect(result.stdout).toContain('up claim --show');
     expect(result.stderr).not.toContain('fake-sensitive-token');
-    const accountPath = join(data.state, 'config', '.wrangler', 'wrangler-temporary-account.toml');
+    const accountPath = paths.account;
     const accountFile = readFileSync(accountPath, 'utf8');
     expect(accountFile).toContain('temporary-secret');
     // It is stored locally instead of printed.
     expect(accountFile).toContain('claimToken=fake-sensitive-token');
-    expect(readdirSync(data.state).some((name) => name.startsWith('deploy-'))).toBe(false);
+    expect(readdirSync(paths.root).some((name) => name.startsWith('deploy-'))).toBe(false);
     if (process.platform !== 'win32') {
       expect(statSync(data.state).mode & 0o777).toBe(0o700);
       expect(statSync(accountPath).mode & 0o777).toBe(0o600);
     }
+  });
+
+  it('inspects locally without creating account state or exposing credentials', () => {
+    const data = fixture();
+    const result = runCli(['inspect', data.site, 'inspect-demo', '--json'], data);
+
+    expect(result.status, result.stderr).toBe(0);
+    const inspected = JSON.parse(result.stdout);
+    expect(inspected).toMatchObject({
+      projectRoot: data.site,
+      workerName: 'inspect-demo',
+      layout: 'legacy',
+      public: true,
+      temporary: true,
+      accountCredentialsInherited: false,
+      assets: ['index.html'],
+      workerModules: [],
+      bindings: { kv: [], d1: [], durableObjects: [] },
+    });
+    expect(existsSync(data.state)).toBe(false);
+  });
+
+  it('isolates project status and forgets only local state without leaking ownership', () => {
+    const data = fixture();
+    const other = join(data.root, 'other');
+    mkdirSync(other);
+    writeFileSync(join(other, 'index.html'), '<h1>Other</h1>');
+    expect(runCli(['deploy', data.site, 'first', accepted], data).status).toBe(0);
+    expect(runCli(['deploy', other, 'second', accepted], data).status).toBe(0);
+    expect(readdirSync(join(data.state, 'projects'))).toHaveLength(2);
+
+    const firstStatus = runCli(['status', data.site, '--json'], data);
+    expect(firstStatus.status, firstStatus.stderr).toBe(0);
+    expect(firstStatus.stdout).not.toContain('claimToken');
+    expect(JSON.parse(firstStatus.stdout)).toMatchObject({
+      projectRoot: data.site,
+      workerName: 'first',
+      state: 'active',
+    });
+
+    const forgotten = runCli(['forget', data.site], data);
+    expect(forgotten.status, forgotten.stderr).toBe(0);
+    expect(forgotten.stdout).toContain('Remote resources were not changed');
+    expect(readdirSync(join(data.state, 'projects'))).toHaveLength(1);
+    const otherStatus = runCli(['status', other, '--json'], data);
+    expect(otherStatus.status, otherStatus.stderr).toBe(0);
+    expect(JSON.parse(otherStatus.stdout)).toMatchObject({ workerName: 'second', state: 'active' });
   });
 
   it('uses a non-identifying path fingerprint when the name is omitted', () => {
@@ -259,7 +320,7 @@ describe('anonymous-first CLI', () => {
     expect(result.stdout).toContain('Deploying dynamic app with 1 assets');
     expect(result.stdout).toContain('Bindings: CACHE, DB, ROOMS');
     const config = JSON.parse(
-      readFileSync(join(data.state, 'config', 'captured-config.json'), 'utf8'),
+      readFileSync(join(projectState(data).config, 'captured-config.json'), 'utf8'),
     );
     expect(config).toMatchObject({
       main: './worker/_worker.js',
@@ -285,16 +346,13 @@ describe('anonymous-first CLI', () => {
     const result = runCli(['deploy', data.site, 'module-app', accepted], data);
 
     expect(result.status, result.stderr).toBe(0);
-    const config = JSON.parse(
-      readFileSync(join(data.state, 'config', 'captured-config.json'), 'utf8'),
-    );
+    const paths = projectState(data);
+    const config = JSON.parse(readFileSync(join(paths.config, 'captured-config.json'), 'utf8'));
     expect(config.main).toBe('./worker/index.js');
-    expect(readFileSync(join(data.state, 'config', 'captured-main.js'), 'utf8')).toContain(
+    expect(readFileSync(join(paths.config, 'captured-main.js'), 'utf8')).toContain(
       "from './helper.js'",
     );
-    expect(readFileSync(join(data.state, 'config', 'captured-helper.js'), 'utf8')).toContain(
-      'module-ok',
-    );
+    expect(readFileSync(join(paths.config, 'captured-helper.js'), 'utf8')).toContain('module-ok');
   });
 
   it('rejects mixed canonical and legacy layouts', () => {
@@ -329,7 +387,7 @@ describe('anonymous-first CLI', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('--accept-cloudflare-terms');
-    expect(existsSync(join(data.state, 'config', '.wrangler'))).toBe(false);
+    expect(existsSync(join(data.state, 'projects'))).toBe(false);
   });
 
   it('rejects invalid explicit names rather than silently rewriting them', () => {
@@ -355,12 +413,7 @@ describe('anonymous-first CLI', () => {
   it('rejects invalid, expired, or untrusted cached claim state', () => {
     const invalid = fixture();
     expect(runCli(['deploy', invalid.site, 'demo', accepted], invalid).status).toBe(0);
-    const invalidPath = join(
-      invalid.state,
-      'config',
-      '.wrangler',
-      'wrangler-temporary-account.toml',
-    );
+    const invalidPath = projectState(invalid).account;
     writeFileSync(
       invalidPath,
       readFileSync(invalidPath, 'utf8').replace(
@@ -374,12 +427,7 @@ describe('anonymous-first CLI', () => {
 
     const expired = fixture();
     expect(runCli(['deploy', expired.site, 'demo', accepted], expired).status).toBe(0);
-    const expiredPath = join(
-      expired.state,
-      'config',
-      '.wrangler',
-      'wrangler-temporary-account.toml',
-    );
+    const expiredPath = projectState(expired).account;
     writeFileSync(
       expiredPath,
       readFileSync(expiredPath, 'utf8').replaceAll(

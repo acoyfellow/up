@@ -15,7 +15,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import http from 'node:http';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import type { Readable } from 'node:stream';
 import { stripVTControlCharacters } from 'node:util';
@@ -30,9 +30,12 @@ const args = process.argv.slice(3);
 function usage(): never {
   console.error(`up 0.0.1
 
+up inspect <folder> [name]      Local preflight; no account or remote mutation
 up deploy <folder> [name]       Deploy now without a Cloudflare account
   --accept-cloudflare-terms     Required for agents and non-interactive use
-up claim [--open|--show]        Open or explicitly reveal the ownership link
+up status [folder]              Show local project session without ownership link
+up claim [folder] [--open|--show] Open or explicitly reveal the ownership link
+up forget [folder]              Remove local Up state only; never remote resources
 up handoff <folder> <name>      Continue after ownership with normal Wrangler
   --account-id <id>             Claimed Cloudflare account (from wrangler whoami)
 up init [directory]             Install instructions for a coding agent
@@ -58,9 +61,12 @@ function normalizeName(value: string): string {
     .slice(0, 63);
 }
 
+function projectFingerprint(root: string): string {
+  return createHash('sha256').update(resolve(root)).digest('hex').slice(0, 16);
+}
+
 function defaultName(root: string): string {
-  const fingerprint = createHash('sha256').update(resolve(root)).digest('hex').slice(0, 10);
-  return `up-${fingerprint}`;
+  return `up-${projectFingerprint(root).slice(0, 10)}`;
 }
 
 function validName(name: string): boolean {
@@ -71,13 +77,17 @@ function anonymousStateDirectory(): string {
   return resolve(process.env.UP_STATE_DIR || join(homedir(), '.up', 'anonymous'));
 }
 
-function anonymousPaths() {
-  const root = anonymousStateDirectory();
+function anonymousPaths(projectRoot: string) {
+  const base = anonymousStateDirectory();
+  const root = join(base, 'projects', projectFingerprint(projectRoot));
   return {
+    base,
     root,
     home: join(root, 'home'),
     config: join(root, 'config'),
     account: join(root, 'config', '.wrangler', 'wrangler-temporary-account.toml'),
+    metadata: join(root, 'project.json'),
+    lastProject: join(base, 'last-project.json'),
   };
 }
 
@@ -196,8 +206,20 @@ type StagedFolder = {
   config: string;
   fileCount: number;
   moduleCount: number;
+  assetFiles: string[];
+  moduleFiles: string[];
+  excluded: string[];
   dynamic: boolean;
   layout: 'canonical' | 'legacy';
+  bindings: BindingManifest;
+};
+
+type ProjectMetadata = {
+  projectRoot: string;
+  workerName: string;
+  liveUrl: string;
+  deployedAt: string;
+  layout: StagedFolder['layout'];
   bindings: BindingManifest;
 };
 
@@ -351,6 +373,9 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
   if (dynamic) await mkdir(stagedWorkerDirectory, { recursive: true, mode: 0o700 });
   let fileCount = 0;
   let moduleCount = 0;
+  const assetFiles: string[] = [];
+  const moduleFiles: string[] = [];
+  const excluded: string[] = [];
   let hasIndex = false;
 
   async function visit(
@@ -362,7 +387,10 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
     for (const entry of await readdir(sourceDirectory, { withFileTypes: true })) {
       const source = join(sourceDirectory, entry.name);
       const sourceRelative = relative(sourceRoot, source).replaceAll('\\', '/');
-      if (entry.name === '.git' || entry.name === 'node_modules') continue;
+      if (entry.name === '.git' || entry.name === 'node_modules') {
+        excluded.push(`${relative(root, source).replaceAll('\\', '/')}/**`);
+        continue;
+      }
       if (
         purpose === 'assets' &&
         layout === 'legacy' &&
@@ -373,6 +401,7 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
       if (entry.name.startsWith('.') && entry.name !== '.well-known') {
         if (entry.name === '.env' || entry.name.startsWith('.env.') || entry.name === '.dev.vars')
           throw new Error(`Refusing to deploy sensitive file: ${relative(root, source)}`);
+        excluded.push(relative(root, source).replaceAll('\\', '/'));
         continue;
       }
       const destination = join(destinationDirectory, entry.name);
@@ -390,8 +419,10 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
         if (fileCount > MAX_TEMPORARY_FILES)
           throw new Error(`Temporary deployments support at most ${MAX_TEMPORARY_FILES} assets.`);
         if (sourceRelative === 'index.html') hasIndex = true;
+        assetFiles.push(relative(root, source).replaceAll('\\', '/'));
       } else {
         moduleCount += 1;
+        moduleFiles.push(relative(root, source).replaceAll('\\', '/'));
       }
       await copyStableFile(source, destination, root);
     }
@@ -436,7 +467,18 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
         : {}),
     };
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-    return { directory, config: configPath, fileCount, moduleCount, dynamic, layout, bindings };
+    return {
+      directory,
+      config: configPath,
+      fileCount,
+      moduleCount,
+      assetFiles: [...new Set(assetFiles)].sort(),
+      moduleFiles: [...new Set(moduleFiles)].sort(),
+      excluded: [...new Set(excluded)].sort(),
+      dynamic,
+      layout,
+      bindings,
+    };
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
     throw error;
@@ -493,8 +535,11 @@ function tomlSections(source: string): Map<string, Map<string, string>> {
   return sections;
 }
 
-async function readTemporaryAccount(): Promise<TemporaryAccount> {
-  const source = await readFile(anonymousPaths().account, 'utf8').catch(() => '');
+async function readTemporaryAccount(
+  paths: ReturnType<typeof anonymousPaths>,
+  allowExpired = false,
+): Promise<TemporaryAccount> {
+  const source = await readFile(paths.account, 'utf8').catch(() => '');
   const sections = tomlSections(source);
   const accountName = sections.get('account')?.get('name') || '';
   const accountExpiresAt = sections.get('account')?.get('expiresAt') || '';
@@ -506,10 +551,10 @@ async function readTemporaryAccount(): Promise<TemporaryAccount> {
   const claimExpiry = Date.parse(claimExpiresAt);
   if (!Number.isFinite(accountExpiry) || !Number.isFinite(claimExpiry))
     throw new Error('The anonymous deployment state has invalid expiration data.');
-  if (accountExpiry <= Date.now())
+  if (!allowExpired && accountExpiry <= Date.now())
     throw new Error('The anonymous deployment expired. Run `up deploy <folder>` again.');
-  if (claimExpiry <= Date.now())
-    throw new Error('The claim link expired. Run `up deploy <folder>` again.');
+  if (!allowExpired && claimExpiry <= Date.now())
+    throw new Error('The ownership link expired. Run `up deploy <folder>` again.');
   let parsedClaim: URL;
   try {
     parsedClaim = new URL(claimUrl);
@@ -547,6 +592,155 @@ function minutesRemaining(timestamp: string): number {
   return Math.max(0, Math.ceil((Date.parse(timestamp) - Date.now()) / 60_000));
 }
 
+async function prepareProjectState(paths: ReturnType<typeof anonymousPaths>): Promise<void> {
+  await Promise.all([
+    mkdir(paths.base, { recursive: true, mode: 0o700 }),
+    mkdir(paths.root, { recursive: true, mode: 0o700 }),
+    mkdir(paths.home, { recursive: true, mode: 0o700 }),
+    mkdir(paths.config, { recursive: true, mode: 0o700 }),
+  ]);
+  await Promise.all([
+    chmod(paths.base, 0o700),
+    chmod(paths.root, 0o700),
+    chmod(paths.home, 0o700),
+    chmod(paths.config, 0o700),
+  ]);
+}
+
+async function writeProjectMetadata(
+  paths: ReturnType<typeof anonymousPaths>,
+  metadata: ProjectMetadata,
+): Promise<void> {
+  await writeFile(paths.metadata, `${JSON.stringify(metadata, null, 2)}\n`, { mode: 0o600 });
+  await writeFile(
+    paths.lastProject,
+    `${JSON.stringify({ projectRoot: metadata.projectRoot }, null, 2)}\n`,
+    { mode: 0o600 },
+  );
+  await Promise.all([chmod(paths.metadata, 0o600), chmod(paths.lastProject, 0o600)]);
+}
+
+async function readProjectMetadata(
+  paths: ReturnType<typeof anonymousPaths>,
+): Promise<ProjectMetadata | null> {
+  const source = await readFile(paths.metadata, 'utf8').catch(() => '');
+  if (!source) return null;
+  const parsed = JSON.parse(source) as Partial<ProjectMetadata>;
+  if (
+    typeof parsed.projectRoot !== 'string' ||
+    typeof parsed.workerName !== 'string' ||
+    typeof parsed.liveUrl !== 'string' ||
+    typeof parsed.deployedAt !== 'string' ||
+    !parsed.bindings
+  )
+    throw new Error('Local project metadata is invalid. Run `up forget <folder>` to remove it.');
+  return parsed as ProjectMetadata;
+}
+
+async function resolveSessionProject(positionals: string[]): Promise<string> {
+  if (positionals.length > 1) usage();
+  if (positionals[0]) return resolve(positionals[0]);
+  const pointerPath = join(anonymousStateDirectory(), 'last-project.json');
+  const source = await readFile(pointerPath, 'utf8').catch(() => '');
+  if (source) {
+    const parsed = JSON.parse(source) as { projectRoot?: unknown };
+    if (typeof parsed.projectRoot === 'string') return resolve(parsed.projectRoot);
+  }
+  return resolve('.');
+}
+
+async function inspectProject(): Promise<void> {
+  const positionals = args.filter((value) => value !== '--json');
+  if (positionals.some((value) => value.startsWith('-')) || positionals.length > 2) usage();
+  const root = resolve(positionals[0] || '.');
+  if (!(await stat(root).catch(() => null))?.isDirectory())
+    throw new Error(`Folder not found: ${root}`);
+  const name = positionals[1] || defaultName(root);
+  if (!validName(name)) throw new Error('Invalid Worker name.');
+  const temporary = await mkdtemp(join(tmpdir(), 'up-inspect-'));
+  try {
+    const staged = await stageAnonymousFolder(root, temporary);
+    const result = {
+      projectRoot: root,
+      workerName: name,
+      layout: staged.layout,
+      public: true,
+      temporary: true,
+      accountCredentialsInherited: false,
+      assets: staged.assetFiles,
+      workerModules: staged.moduleFiles,
+      excluded: staged.excluded,
+      bindings: staged.bindings,
+      command: `up deploy ${root} ${name} --accept-cloudflare-terms`,
+    };
+    if (hasFlag('--json')) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    const bindingNames = [
+      ...staged.bindings.kv,
+      ...staged.bindings.d1,
+      ...staged.bindings.durableObjects.map((item) => item.binding),
+    ];
+    console.log(`Project: ${root}
+Worker: ${name}
+Layout: ${staged.layout}
+Public assets (${staged.assetFiles.length}): ${staged.assetFiles.join(', ') || 'none'}
+Worker modules (${staged.moduleFiles.length}): ${staged.moduleFiles.join(', ') || 'none'}
+Bindings: ${bindingNames.join(', ') || 'none'}
+Excluded: ${staged.excluded.join(', ') || 'none'}
+
+No account was created. Existing Cloudflare credentials will not be inherited.
+Deploy plan: ${result.command}`);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+}
+
+async function projectStatus(): Promise<void> {
+  const positionals = args.filter((value) => value !== '--json');
+  if (positionals.some((value) => value.startsWith('-')) || positionals.length > 1) usage();
+  const root = await resolveSessionProject(positionals);
+  const paths = anonymousPaths(root);
+  const metadata = await readProjectMetadata(paths);
+  if (!metadata) {
+    const empty = { projectRoot: root, state: 'none' };
+    console.log(
+      hasFlag('--json') ? JSON.stringify(empty, null, 2) : `No local Up session for ${root}`,
+    );
+    return;
+  }
+  const account = await readTemporaryAccount(paths, true);
+  const active = Date.parse(account.accountExpiresAt) > Date.now();
+  const result = {
+    projectRoot: metadata.projectRoot,
+    workerName: metadata.workerName,
+    liveUrl: metadata.liveUrl,
+    state: active ? 'active' : 'expired',
+    expiresInMinutes: minutesRemaining(account.accountExpiresAt),
+    bindings: metadata.bindings,
+  };
+  console.log(
+    hasFlag('--json')
+      ? JSON.stringify(result, null, 2)
+      : `Project: ${result.projectRoot}\nWorker: ${result.workerName}\nURL: ${result.liveUrl}\nState: ${result.state}\nExpires in: ${result.expiresInMinutes} minutes\nOwnership link: stored locally, not shown`,
+  );
+}
+
+async function forgetProject(): Promise<void> {
+  const positionals = args.filter((value) => value !== '--yes');
+  if (positionals.some((value) => value.startsWith('-')) || positionals.length > 1) usage();
+  const root = await resolveSessionProject(positionals);
+  const paths = anonymousPaths(root);
+  await rm(paths.root, { recursive: true, force: true });
+  const pointer = await readFile(paths.lastProject, 'utf8').catch(() => '');
+  if (pointer) {
+    const parsed = JSON.parse(pointer) as { projectRoot?: unknown };
+    if (parsed.projectRoot === root) await rm(paths.lastProject, { force: true });
+  }
+  console.log(`Forgot local Up state for ${root}. Remote resources were not changed.`);
+}
+
 async function deployAnonymous(): Promise<void> {
   const positionals = args.filter((value) => value !== '--accept-cloudflare-terms');
   if (positionals.some((value) => value.startsWith('-')) || positionals.length > 2) usage();
@@ -572,17 +766,8 @@ async function deployAnonymous(): Promise<void> {
       'Continuing means you accept Cloudflare’s Terms of Service (https://www.cloudflare.com/terms/) and Privacy Policy (https://www.cloudflare.com/privacypolicy/).\n',
     );
 
-  const state = anonymousPaths();
-  await Promise.all([
-    mkdir(state.root, { recursive: true, mode: 0o700 }),
-    mkdir(state.home, { recursive: true, mode: 0o700 }),
-    mkdir(state.config, { recursive: true, mode: 0o700 }),
-  ]);
-  await Promise.all([
-    chmod(state.root, 0o700),
-    chmod(state.home, 0o700),
-    chmod(state.config, 0o700),
-  ]);
+  const state = anonymousPaths(root);
+  await prepareProjectState(state);
 
   const staged = await stageAnonymousFolder(root, state.root);
   let output: string;
@@ -616,8 +801,16 @@ async function deployAnonymous(): Promise<void> {
     await rm(staged.directory, { recursive: true, force: true });
   }
 
-  const temporary = await readTemporaryAccount();
+  const temporary = await readTemporaryAccount(state);
   const liveUrl = deploymentUrl(output, name);
+  await writeProjectMetadata(state, {
+    projectRoot: root,
+    workerName: name,
+    liveUrl,
+    deployedAt: new Date().toISOString(),
+    layout: staged.layout,
+    bindings: staged.bindings,
+  });
   console.log(
     `\nLive now\n\n${liveUrl}\n\nExpires in about ${minutesRemaining(temporary.accountExpiresAt)} minutes unless claimed.\nPublic: anyone with this URL can open it.\n\nKeep it: run \`up claim --open\` to open the ownership flow,\nor \`up claim --show\` to reveal the link. Up stores it locally and does not print it.`,
   );
@@ -657,8 +850,8 @@ async function handoff(): Promise<void> {
     );
   }
 
-  const state = anonymousPaths();
-  await mkdir(state.root, { recursive: true, mode: 0o700 });
+  const state = anonymousPaths(root);
+  await prepareProjectState(state);
   const staged = await stageAnonymousFolder(root, state.root);
   let output: string;
   try {
@@ -696,7 +889,10 @@ Continue this existing Cloudflare Worker from ${root}. Use account ${accountId} 
 }
 
 async function claim(): Promise<void> {
-  const temporary = await readTemporaryAccount();
+  const positionals = args.filter((value) => !['--open', '--show'].includes(value));
+  if (positionals.some((value) => value.startsWith('-')) || positionals.length > 1) usage();
+  const root = await resolveSessionProject(positionals);
+  const temporary = await readTemporaryAccount(anonymousPaths(root));
   const minutes = minutesRemaining(temporary.claimExpiresAt);
   if (hasFlag('--open')) {
     const opened = await openUrl(temporary.claimUrl);
@@ -904,8 +1100,11 @@ async function deployPrivate(): Promise<void> {
 
 try {
   if (command === 'init') await init();
+  else if (command === 'inspect') await inspectProject();
   else if (command === 'deploy') await deployAnonymous();
+  else if (command === 'status') await projectStatus();
   else if (command === 'claim') await claim();
+  else if (command === 'forget') await forgetProject();
   else if (command === 'handoff') await handoff();
   else if (command === 'private') await deployPrivate();
   else usage();

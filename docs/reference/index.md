@@ -37,11 +37,14 @@ No other root or binding fields are accepted in 0.0.1.
 
 | Command | Contract |
 |---|---|
+| `up inspect <folder> [name]` | Local staging preflight; lists exact assets, modules, bindings, exclusions, and command plan |
 | `up deploy <folder> [name]` | Provision and deploy one public Temporary Account graph |
+| `up status [folder]` | Show project-scoped URL, expiry, and bindings without ownership authority |
 | `up deploy … --accept-cloudflare-terms` | Explicit non-interactive Terms acceptance |
 | `up claim` | Show ownership timing without printing the ownership link |
 | `up claim --open` | Open the ownership flow without printing the link |
 | `up claim --show` | Explicitly reveal the sensitive ownership link |
+| `up forget [folder]` | Remove only that project's local Up/Wrangler cache; never remote resources |
 | `up handoff <folder> <name> --account-id <id>` | Continue an existing claimed Worker through normal Wrangler OAuth |
 | `up init [directory]` | Install `.up/SKILL.md`, `.up/HANDOFF.md`, and client types |
 | `up private <folder> <name>` | Legacy company-mode deployment; scheduled for removal |
@@ -54,6 +57,8 @@ No other root or binding fields are accepted in 0.0.1.
 - 5 MiB per staged file;
 - symbolic links, special files, and sensitive dotfiles rejected;
 - stable path-fingerprint Worker name when omitted;
+- each absolute project path receives an isolated Wrangler home/cache;
+- no-folder session commands resolve to the most recently deployed project;
 - private staging snapshot removed after deployment;
 - generated Wrangler config for static and dynamic projects;
 - no production or CI/CD promise.

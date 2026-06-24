@@ -58,17 +58,21 @@ Worker code uses `env.ASSETS.fetch(request)` for browser assets and normal bindi
 ## Default commands
 
 ```sh
+up inspect <folder> [name]
 up deploy <folder> [name]
 up deploy <folder> [name] --accept-cloudflare-terms  # agents/non-interactive
-up claim [--open|--show]
+up status [folder]
+up claim [folder] [--open|--show]
+up forget [folder]
 up handoff <folder> <exact-worker-name> --account-id <claimed-account-id>
 ```
 
 - The deployment is public.
 - Existing and deprecated Cloudflare credentials are removed.
-- Up state is isolated under `~/.up/anonymous` across supported home/config variables.
+- Up state is isolated per absolute project path under `~/.up/anonymous/projects/` across supported home/config variables.
 - An omitted Worker name is a stable fingerprint of the local path, not the folder name.
 - Explicit invalid names are rejected rather than silently rewritten.
+- `up inspect` runs the same no-follow staging validation without an account or remote mutation.
 - The app is copied through no-follow file handles into a private staging snapshot.
 - Wrangler output is filtered so its ownership link is withheld; Up stores it locally and reveals it only with explicit `up claim --show`.
 - Up consumes the authoritative `workers.dev` target from Wrangler output.

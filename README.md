@@ -27,6 +27,14 @@ my-app/
 └── up.json          platform bindings
 ```
 
+Inspect first; this creates no account and makes no remote request:
+
+```sh
+bunx github:acoyfellow/up inspect ./my-app
+```
+
+Then deploy:
+
 ```sh
 bunx github:acoyfellow/up deploy ./my-app
 ```
@@ -42,8 +50,8 @@ https://up-a1b2c3d4e5.example-account.workers.dev
 Expires in about 60 minutes unless claimed.
 Public: anyone with this URL can open it.
 
-Keep it: run `up claim --open` to open the ownership flow.
-Up stores the sensitive link locally and does not print it.
+Keep it: run `up claim ./my-app --open` to open the ownership flow.
+Up stores the sensitive link in project-scoped local state and does not print it.
 ```
 
 No signup, login, permanent token, repository, or Up server is involved. Interactive use asks you to accept Cloudflare’s Terms and Privacy Policy. Agents and other non-interactive sessions must pass the explicit approval flag:
@@ -55,7 +63,14 @@ up deploy ./my-app --accept-cloudflare-terms
 To keep the account:
 
 ```sh
-up claim --open
+up status ./my-app
+up claim ./my-app --open
+```
+
+Remove only the local cache and ownership metadata—never remote resources:
+
+```sh
+up forget ./my-app
 ```
 
 If it is not claimed within about 60 minutes, Cloudflare deletes the Temporary Account, Worker, bindings, and data.

@@ -7,7 +7,7 @@ Production boundary: personal account `bfcb6ac5b3ceaf42a09607f6f7925823` only.
 
 - [x] Canonical `public/` + `worker/` layout preserves Worker sibling modules; legacy flat folders remain an explicit migration path; mixed layouts/symlinks/sensitive files fail closed. Evidence: `cli/up.ts`, `tests/anonymous-cli.test.ts` canonical module-graph and mixed-layout subprocess tests.
 - [x] Static-only non-interactive deploy uses generated Wrangler config and `assets.directory`; no interactive directory positional. Evidence: static subprocess captures config with no `main` and deploy invocation always uses `--config`.
-- [ ] Project-scoped state with inspect/status/forget commands and no ownership-link leakage.
+- [x] Project-scoped state with `inspect`/`status`/`forget` and no ownership-link leakage. Evidence: path-fingerprinted Wrangler homes under `~/.up/anonymous/projects/`; non-secret last-project pointer; local inspect JSON/human plan; status omits authority; forget is local-only; two-project isolation subprocess test.
 - [ ] Append-only Durable Object migration history across redeploys; reject class rename/deletion.
 
 ## B. Friendly new-user flow
