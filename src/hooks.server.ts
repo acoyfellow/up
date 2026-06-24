@@ -11,14 +11,17 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (env && context && isCoreRequest(event.request, env))
     return coreWorker.fetch(event.request, env, context);
 
-  if (event.url.pathname === '/app') {
-    if (!env || configurationError(env)) throw error(503, 'Cloudflare Access is not configured');
+  if (env && !configurationError(env)) {
     try {
       event.locals.identity = await verifyAccessIdentity(event.request, env);
     } catch {
       throw error(403, 'Authentication required');
     }
+  } else if (env?.CONTROL_HOST !== '127.0.0.1') {
+    throw error(503, 'Cloudflare Access is not configured');
   } else {
+    // Local mode renders the tool shell only. Core APIs still fail closed because
+    // Access is unconfigured; this is not an authentication bypass.
     event.locals.identity = null;
   }
 

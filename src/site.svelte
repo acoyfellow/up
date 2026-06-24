@@ -286,6 +286,8 @@
       <a href="/explanation">How it works</a>
       <a href="https://github.com/acoyfellow/up">Get the CLI ↗</a>
     {:else}
+      <a href="/tutorial">Docs</a>
+      <a href="https://github.com/acoyfellow/up">Source ↗</a>
       <span class="identity"><i aria-hidden="true"></i>{identity}</span>
     {/if}
   </nav>
@@ -373,7 +375,7 @@
       </section>
     </div>
   {:else if section === 'app'}
-    <section class="workspace" aria-label="Up publisher">
+    <section class="workspace" aria-label="Private Up workspace">
       {#if view === 'empty'}
         <div
           class:dragging
@@ -388,11 +390,12 @@
           ondrop={drop}
         >
           <div class="empty-copy">
-            <p class="state-label">{isProduct ? 'Private workspace' : 'Ready to publish'}</p>
-            <h1>Publish a site.</h1>
-            <p>Choose a static folder. Up gives it a company-private URL.</p>
-            <button class="primary choose" onclick={chooseFolder}>Choose a folder <span aria-hidden="true">↗</span></button>
-            <small><i aria-hidden="true"></i> Protected by Cloudflare Access</small>
+            <p class="state-label">Coeyman&rsquo;s private Up</p>
+            <h1>What do you want to run?</h1>
+            <p>Publish a private folder here, or open the local composer for a Worker and its bindings.</p>
+            <div class="tool-actions"><button class="primary choose" onclick={chooseFolder}>Publish private folder <span aria-hidden="true">↗</span></button><a class="secondary link-button" href="/tutorial">Open a dynamic app →</a></div>
+            <pre class="tool-command"><code>bunx github:acoyfellow/up open ./app</code></pre>
+            <small><i aria-hidden="true"></i> This workspace is protected by Cloudflare Access</small>
           </div>
           <picture class="brand-stroke" aria-hidden="true">
             <source srcset="/images/up-hero-paint.webp" type="image/webp" />
@@ -402,14 +405,14 @@
       {:else if view === 'list'}
         <div class="list-view">
           <div class="view-heading">
-            <div><p class="state-label">Sites</p><h1>Your sites</h1></div>
-            <button class="primary small" onclick={chooseFolder}>Publish site</button>
+            <div><p class="state-label">Private Up</p><h1>Deployments</h1></div>
+            <button class="primary small" onclick={chooseFolder}>New private site</button>
           </div>
           <div class="site-list">
             {#each sites as site}
               <article>
                 <div><strong>{site.name}</strong><a href={`https://${site.name}.${siteDomain}`} target="_blank" rel="noopener noreferrer"><code>{site.name}.{siteDomain}</code></a></div>
-                <div><span>{site.owner}</span><small>Company · {site.activeDeploymentId ? 'Published' : 'Pending'}</small></div>
+                <div><span>{site.owner}</span><small>Access protected · {site.activeDeploymentId ? 'Live' : 'Pending'}</small></div>
               </article>
             {/each}
           </div>
@@ -705,7 +708,9 @@ up handoff ./dist exact-worker-name \
   .empty-copy { position: relative; z-index: 1; align-self: center; padding: 48px 0 52px 32px; }
   .empty-state h1, .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { margin: 0; font-weight: 640; line-height: 1.04; letter-spacing: -.03em; }
   .empty-state h1 { font-size: clamp(2.6rem, 5vw, 3.7rem); line-height: 1.0; }
-  .empty-copy > p:not(.state-label) { max-width: 390px; margin: 24px 0 32px; color: var(--muted); font-size: .98rem; line-height: 1.64; }
+  .empty-copy > p:not(.state-label) { max-width: 470px; margin: 24px 0 24px; color: var(--muted); font-size: .98rem; line-height: 1.64; }
+  .tool-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .tool-command { width:min(100%,470px); margin:14px 0 0; padding:13px 15px; overflow:auto; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--paper); color:var(--ink); font-size:.73rem; }
   .empty-copy small { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--quiet); font-size: .69rem; }
   .empty-copy small > i, .privacy i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
   .choose { min-width: 184px; justify-content: space-between; gap: 32px; }

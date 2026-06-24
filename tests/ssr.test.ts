@@ -2,7 +2,7 @@ import { env } from 'cloudflare:test';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { Env } from '../src/core-backend';
-import { load } from '../src/routes/app/+page.server';
+import { load } from '../src/routes/+page.server';
 import Site from '../src/site.svelte';
 
 describe('SvelteKit publisher SSR', () => {
@@ -11,11 +11,11 @@ describe('SvelteKit publisher SSR', () => {
     const data = await load({
       locals: { identity: { email: 'owner@example.com', role: 'member' } },
       platform: { env: env as unknown as Env },
-      request: new Request('https://control.example.com/app'),
+      request: new Request('https://control.example.com/'),
       setHeaders(values: Record<string, string>) {
         for (const [name, value] of Object.entries(values)) headers.set(name, value);
       },
-      url: new URL('https://control.example.com/app'),
+      url: new URL('https://control.example.com/'),
     } as never);
 
     expect(data).toMatchObject({
@@ -29,7 +29,7 @@ describe('SvelteKit publisher SSR', () => {
     const result = render(Site, {
       props: {
         section: 'app',
-        eyebrow: 'Control plane · authenticated publisher',
+        eyebrow: 'Private tool · owner@example.com',
         initialIdentity: 'employee@example.com',
         initialSiteDomain: 'up.example.com',
         initialSites: [
@@ -45,7 +45,7 @@ describe('SvelteKit publisher SSR', () => {
 
     expect(result.body).toContain('employee@example.com');
     expect(result.body).toContain('quarterly-report.up.example.com');
-    expect(result.body).toContain('Company · Published');
-    expect(result.body).not.toContain('Publish a site.</h1>');
+    expect(result.body).toContain('Access protected · Live');
+    expect(result.body).not.toContain('What do you want to run?</h1>');
   });
 });

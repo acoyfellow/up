@@ -9,10 +9,10 @@ export type PageMetadata = {
 
 export const metadata = {
   '/': {
-    title: 'Up — Your Cloudflare App Before Signup',
-    description:
-      'Run Worker code, Static Assets, KV, D1, and Durable Objects together on Cloudflare before creating an account. Keep the whole app if it works.',
-    eyebrow: 'A live app · platform bindings · no account yet',
+    title: 'Up — Coeyman’s private workspace',
+    description: 'Private workspace for Coeyman’s Up deployments and local dynamic-app composer.',
+    eyebrow: 'Private tool · coeyman@gmail.com',
+    noindex: true,
   },
   '/tutorial': {
     title: 'Deploy a Dynamic Stack Before Signup — Up Tutorial',
