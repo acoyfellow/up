@@ -22,11 +22,20 @@ Legacy root `index.html` + `_worker.js` folders remain accepted as a migration p
     "kv": ["CACHE"],
     "d1": ["DB"],
     "durableObjects": [{ "binding": "ROOMS", "className": "Room" }]
-  }
+  },
+  "checks": [
+    {
+      "name": "Binding state",
+      "path": "/api/state",
+      "status": 200,
+      "jsonKeys": ["pageViews", "roomVisits", "notes"],
+      "bindings": ["CACHE", "DB", "ROOMS"]
+    }
+  ]
 }
 ```
 
-No other root or binding fields are accepted in 0.0.1.
+No other root or binding fields are accepted in 0.0.1. `checks` allows up to 20 bounded same-origin GET checks. Each check declares an expected HTTP status, optional top-level JSON keys, and the binding names exercised by that app route. Up never follows a check to another origin.
 
 - Binding names: uppercase letter followed by up to 47 uppercase letters, digits, or `_`.
 - Binding names must be unique across KV, D1, and Durable Objects.

@@ -198,10 +198,19 @@ async function run(
   });
 }
 
+type HealthCheck = {
+  name: string;
+  path: string;
+  status: number;
+  jsonKeys: string[];
+  bindings: string[];
+};
+
 type BindingManifest = {
   kv: string[];
   d1: string[];
   durableObjects: Array<{ binding: string; className: string }>;
+  checks: HealthCheck[];
 };
 
 type DurableMigration = { tag: string; new_sqlite_classes: string[] };
@@ -245,7 +254,7 @@ type ProjectMetadata = {
   bindings: BindingManifest;
 };
 
-const emptyBindings = (): BindingManifest => ({ kv: [], d1: [], durableObjects: [] });
+const emptyBindings = (): BindingManifest => ({ kv: [], d1: [], durableObjects: [], checks: [] });
 const bindingNamePattern = /^[A-Z][A-Z0-9_]{0,47}$/;
 const classNamePattern = /^[A-Za-z_$][A-Za-z0-9_$]{0,63}$/;
 
@@ -275,7 +284,7 @@ async function bindingManifest(root: string, dynamic: boolean): Promise<BindingM
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
     throw new Error('up.json must contain an object.');
   const rootValue = parsed as Record<string, unknown>;
-  const unknownRoot = Object.keys(rootValue).filter((key) => key !== 'bindings');
+  const unknownRoot = Object.keys(rootValue).filter((key) => !['bindings', 'checks'].includes(key));
   if (unknownRoot.length) throw new Error(`Unsupported up.json field: ${unknownRoot[0]}`);
   const bindingsValue = rootValue.bindings ?? {};
   if (!bindingsValue || typeof bindingsValue !== 'object' || Array.isArray(bindingsValue))
@@ -313,15 +322,58 @@ async function bindingManifest(root: string, dynamic: boolean): Promise<BindingM
       throw new Error('Invalid Durable Object binding or class name.');
     return { binding: value.binding, className: value.className };
   });
-  const manifest = { kv: names('kv'), d1: names('d1'), durableObjects };
-  const allNames = [
-    ...manifest.kv,
-    ...manifest.d1,
-    ...manifest.durableObjects.map((item) => item.binding),
-  ];
+  const kv = names('kv');
+  const d1 = names('d1');
+  const allNames = [...kv, ...d1, ...durableObjects.map((item) => item.binding)];
   if (new Set(allNames).size !== allNames.length)
     throw new Error('Binding names must be unique across up.json.');
-  return manifest;
+  const checksValue = rootValue.checks ?? [];
+  if (!Array.isArray(checksValue) || checksValue.length > 20)
+    throw new Error('up.json checks must be an array with at most 20 entries.');
+  const checks = checksValue.map((item, index): HealthCheck => {
+    if (!item || typeof item !== 'object' || Array.isArray(item))
+      throw new Error(`up.json checks[${index}] must be an object.`);
+    const value = item as Record<string, unknown>;
+    const unknown = Object.keys(value).filter(
+      (key) => !['name', 'path', 'status', 'jsonKeys', 'bindings'].includes(key),
+    );
+    if (unknown.length) throw new Error(`Unsupported health check field: ${unknown[0]}`);
+    const name = value.name;
+    const path = value.path;
+    const status = value.status ?? 200;
+    const jsonKeys = value.jsonKeys ?? [];
+    const coveredBindings = value.bindings ?? [];
+    if (typeof name !== 'string' || !name.trim() || name.length > 80)
+      throw new Error(`up.json checks[${index}].name is invalid.`);
+    if (
+      typeof path !== 'string' ||
+      !path.startsWith('/') ||
+      path.startsWith('//') ||
+      path.includes('#') ||
+      path.length > 512
+    )
+      throw new Error(`up.json checks[${index}].path must be a same-origin absolute path.`);
+    if (!Number.isInteger(status) || Number(status) < 100 || Number(status) > 599)
+      throw new Error(`up.json checks[${index}].status is invalid.`);
+    if (
+      !Array.isArray(jsonKeys) ||
+      jsonKeys.some((key) => typeof key !== 'string' || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key))
+    )
+      throw new Error(`up.json checks[${index}].jsonKeys must contain top-level JSON keys.`);
+    if (
+      !Array.isArray(coveredBindings) ||
+      coveredBindings.some((binding) => typeof binding !== 'string' || !allNames.includes(binding))
+    )
+      throw new Error(`up.json checks[${index}].bindings contains an unknown binding.`);
+    return {
+      name: name.trim(),
+      path,
+      status: Number(status),
+      jsonKeys: [...new Set(jsonKeys as string[])],
+      bindings: [...new Set(coveredBindings as string[])],
+    };
+  });
+  return { kv, d1, durableObjects, checks };
 }
 
 async function copyStableFile(source: string, destination: string, root: string): Promise<number> {
@@ -673,6 +725,7 @@ async function readTemporaryAccount(
 }
 
 async function openUrl(url: string): Promise<boolean> {
+  if (process.env.UP_DISABLE_BROWSER_OPEN === 'yes') return true;
   const invocation =
     process.platform === 'darwin'
       ? { command: 'open', args: [url] }
@@ -821,6 +874,67 @@ function escapeHtml(value: string): string {
   );
 }
 
+type HealthCheckResult = {
+  name: string;
+  path: string;
+  bindings: string[];
+  passed: boolean;
+  detail: string;
+};
+
+async function runHealthChecks(
+  inspection: ProjectInspection,
+  liveUrl: string,
+): Promise<HealthCheckResult[]> {
+  const liveOrigin = new URL(liveUrl).origin;
+  const override = process.env.NODE_ENV === 'test' ? process.env.UP_HEALTH_CHECK_ORIGIN : undefined;
+  const origin = override ? new URL(override).origin : liveOrigin;
+  const checks: HealthCheck[] = [
+    { name: 'Public page', path: '/', status: 200, jsonKeys: [], bindings: [] },
+    ...inspection.bindings.checks,
+  ];
+  const results: HealthCheckResult[] = [];
+  for (const check of checks) {
+    try {
+      const url = new URL(check.path, `${origin}/`);
+      if (url.origin !== origin) throw new Error('check left the deployment origin');
+      const response = await fetch(url, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(15_000),
+      });
+      const missing: string[] = [];
+      if (check.jsonKeys.length) {
+        const body = (await response.json()) as Record<string, unknown>;
+        for (const key of check.jsonKeys) if (!(key in body)) missing.push(key);
+      }
+      const passed = response.status === check.status && !missing.length;
+      results.push({
+        name: check.name,
+        path: check.path,
+        bindings: check.bindings,
+        passed,
+        detail: passed
+          ? `HTTP ${response.status}${check.jsonKeys.length ? ` · JSON keys ${check.jsonKeys.join(', ')}` : ''}`
+          : `expected HTTP ${check.status}${missing.length ? ` · missing ${missing.join(', ')}` : ''}, received ${response.status}`,
+      });
+    } catch (error) {
+      results.push({
+        name: check.name,
+        path: check.path,
+        bindings: check.bindings,
+        passed: false,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return results;
+}
+
+function agentHandoffPrompt(inspection: ProjectInspection): string {
+  return `Continue this existing Cloudflare Worker from ${inspection.projectRoot}.\n\n1. Ask me to complete wrangler login in the browser. Do not ask for or copy an API key.\n2. Run wrangler whoami and ask me which account was created by the ownership flow if several are listed.\n3. Use the exact Worker name ${inspection.workerName}.\n4. Run up handoff ${inspection.projectRoot} ${inspection.workerName} --account-id <account-id>.\n5. Preserve existing bindings and data. Test the URL and every configured health check.\n6. Remind me the URL remains public until Access or another login is added.`;
+}
+
 function inspectionHtml(inspection: ProjectInspection, nonce: string): string {
   const list = (items: string[], empty: string) =>
     items.length
@@ -833,9 +947,14 @@ function inspectionHtml(inspection: ProjectInspection, nonce: string): string {
       ({ binding, className }) => `Durable Object · ${binding} → ${className}`,
     ),
   ];
+  const checks = inspection.bindings.checks.map(
+    (check) =>
+      `${check.name} · GET ${check.path}${check.bindings.length ? ` · ${check.bindings.join(', ')}` : ''}`,
+  );
+  const handoff = agentHandoffPrompt(inspection);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Up · ${escapeHtml(inspection.workerName)}</title><style>
-:root{color-scheme:light;--ink:#111923;--muted:#5f6f7c;--line:#d7dde1;--paper:#f5f7f8;--orange:#f6821f;--blue:#2678a4;font:16px/1.55 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink)}main{width:min(1080px,calc(100% - 32px));margin:auto;padding:42px 0 70px}header{padding:28px 0 32px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--orange);font:600 .72rem ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}h1{max-width:760px;margin:12px 0 10px;font-size:clamp(2.2rem,6vw,4.5rem);line-height:1;letter-spacing:-.045em}header p{max-width:720px;color:var(--muted)}.warnings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0}.warning{padding:16px;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:5px;background:var(--paper)}.warning.safe{border-left-color:#16855b}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{padding:22px;border:1px solid var(--line);border-radius:7px}.card h2{margin:0 0 14px;font-size:1rem}.card ul{max-height:240px;margin:0;padding-left:20px;overflow:auto}.card li{margin:6px 0}.empty{color:var(--muted)}code{font-family:ui-monospace,monospace;font-size:.82em}.plan{margin-top:16px;padding:22px;border-radius:7px;background:#0b1118;color:#fff}.plan code{display:block;overflow:auto;color:#9fd7ef;white-space:pre}.deploy{margin-top:16px;padding:22px;border:1px solid var(--line);border-radius:7px}.consent{display:grid;gap:10px;margin:16px 0}.consent label{display:flex;align-items:flex-start;gap:9px}.consent input{margin-top:.3em}button{min-height:44px;padding:0 18px;border:0;border-radius:5px;background:var(--orange);color:#1d1009;font-weight:750;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.progress{margin-top:16px;padding:16px;min-height:100px;max-height:320px;overflow:auto;border-radius:5px;background:#0b1118;color:#dce7ed;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap}.result{margin-top:14px;padding:16px;border-left:4px solid #16855b;background:var(--paper)}.result a{color:var(--blue);font-weight:700}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.meta span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.72rem}@media(max-width:700px){main{padding-top:18px}.grid,.warnings{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
-</style></head><body><main><header><div class="eyebrow">Local inspection · no account created</div><h1>${escapeHtml(inspection.workerName)}</h1><p>${escapeHtml(inspection.projectRoot)}</p><div class="meta"><span>${inspection.layout} layout</span><span>${inspection.assets.length} public assets</span><span>${inspection.workerModules.length} Worker modules</span><span>${bindings.length} bindings</span></div></header><section class="warnings"><div class="warning"><strong>Public and temporary</strong><br>The app and API will be public for about an hour. Do not deploy secrets or private data.</div><div class="warning safe"><strong>Your accounts stay isolated</strong><br>Up launches Wrangler in a project-only home and removes inherited Cloudflare credentials.</div></section><section class="grid"><div class="card"><h2>Public assets</h2>${list(inspection.assets, 'No public assets.')}</div><div class="card"><h2>Worker modules</h2>${list(inspection.workerModules, 'Static-only project.')}</div><div class="card"><h2>Bindings</h2>${list(bindings, 'No platform bindings.')}</div><div class="card"><h2>Excluded</h2>${list(inspection.excluded, 'Nothing excluded.')}</div></section><section class="plan"><strong>Command plan</strong><code>${escapeHtml(inspection.command)}</code></section><section class="deploy"><h2>Deploy this app</h2><p>Up will run the pinned CLI locally and stream redacted Wrangler progress here.</p><form id="deploy-form"><div class="consent"><label><input id="public-consent" type="checkbox" required> I understand the app and API will be public.</label><label><input id="terms-consent" type="checkbox" required> I accept Cloudflare&rsquo;s Terms of Service and Privacy Policy.</label></div><button id="deploy-button" type="submit" disabled>Deploy temporary app</button></form><pre id="progress" class="progress" aria-live="polite">Waiting for approval.</pre><div id="result" class="result" hidden><strong>App is live</strong><br><a id="live-url" target="_blank" rel="noopener noreferrer"></a></div></section></main><script nonce="${nonce}">const form=document.querySelector('#deploy-form'),publicConsent=document.querySelector('#public-consent'),termsConsent=document.querySelector('#terms-consent'),button=document.querySelector('#deploy-button'),progress=document.querySelector('#progress'),result=document.querySelector('#result'),liveUrl=document.querySelector('#live-url');const update=()=>button.disabled=!(publicConsent.checked&&termsConsent.checked);publicConsent.addEventListener('change',update);termsConsent.addEventListener('change',update);const events=new EventSource('./events');events.onmessage=(message)=>{const event=JSON.parse(message.data);if(event.type==='log'){progress.textContent+=(progress.textContent==='Waiting for approval.'?'': '\n')+event.data;progress.scrollTop=progress.scrollHeight}if(event.type==='result'){liveUrl.href=event.liveUrl;liveUrl.textContent=event.liveUrl;result.hidden=false;button.disabled=true;button.textContent='Deployed'}if(event.type==='error'){progress.textContent+='\nError: '+event.data;button.disabled=false;button.textContent='Retry'}};form.addEventListener('submit',async(event)=>{event.preventDefault();button.disabled=true;button.textContent='Deploying…';progress.textContent='Starting pinned Up CLI…';const response=await fetch('./deploy',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({acceptPublic:publicConsent.checked,acceptTerms:termsConsent.checked})});if(!response.ok){progress.textContent='Deploy refused: '+await response.text();button.disabled=false;button.textContent='Retry'}});</script></body></html>`;
+:root{color-scheme:light;--ink:#111923;--muted:#5f6f7c;--line:#d7dde1;--paper:#f5f7f8;--orange:#f6821f;--blue:#2678a4;font:16px/1.55 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink)}main{width:min(1080px,calc(100% - 32px));margin:auto;padding:42px 0 70px}header{padding:28px 0 32px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--orange);font:600 .72rem ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}h1{max-width:760px;margin:12px 0 10px;font-size:clamp(2.2rem,6vw,4.5rem);line-height:1;letter-spacing:-.045em}header p{max-width:720px;color:var(--muted)}.warnings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0}.warning{padding:16px;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:5px;background:var(--paper)}.warning.safe{border-left-color:#16855b}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{padding:22px;border:1px solid var(--line);border-radius:7px}.card h2{margin:0 0 14px;font-size:1rem}.card ul{max-height:240px;margin:0;padding-left:20px;overflow:auto}.card li{margin:6px 0}.empty{color:var(--muted)}code{font-family:ui-monospace,monospace;font-size:.82em}.plan{margin-top:16px;padding:22px;border-radius:7px;background:#0b1118;color:#fff}.plan code{display:block;overflow:auto;color:#9fd7ef;white-space:pre}.deploy{margin-top:16px;padding:22px;border:1px solid var(--line);border-radius:7px}.consent{display:grid;gap:10px;margin:16px 0}.consent label{display:flex;align-items:flex-start;gap:9px}.consent input{margin-top:.3em}button{min-height:44px;padding:0 18px;border:0;border-radius:5px;background:var(--orange);color:#1d1009;font-weight:750;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.progress{margin-top:16px;padding:16px;min-height:100px;max-height:320px;overflow:auto;border-radius:5px;background:#0b1118;color:#dce7ed;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap}.result{margin-top:14px;padding:16px;border-left:4px solid #16855b;background:var(--paper)}.result a{color:var(--blue);font-weight:700}.result-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}.checks{display:grid;gap:7px;margin:12px 0}.check{padding:9px;border:1px solid var(--line);border-radius:4px}.check.pass{border-left:4px solid #16855b}.check.fail{border-left:4px solid #c73b31}.handoff{width:100%;min-height:130px;margin-top:12px;padding:10px;border:1px solid var(--line);font:12px/1.45 ui-monospace,monospace}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.meta span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.72rem}@media(max-width:700px){main{padding-top:18px}.grid,.warnings{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style></head><body><main><header><div class="eyebrow">Local inspection · no account created</div><h1>${escapeHtml(inspection.workerName)}</h1><p>${escapeHtml(inspection.projectRoot)}</p><div class="meta"><span>${inspection.layout} layout</span><span>${inspection.assets.length} public assets</span><span>${inspection.workerModules.length} Worker modules</span><span>${bindings.length} bindings</span></div></header><section class="warnings"><div class="warning"><strong>Public and temporary</strong><br>The app and API will be public for about an hour. Do not deploy secrets or private data.</div><div class="warning safe"><strong>Your accounts stay isolated</strong><br>Up launches Wrangler in a project-only home and removes inherited Cloudflare credentials.</div></section><section class="grid"><div class="card"><h2>Public assets</h2>${list(inspection.assets, 'No public assets.')}</div><div class="card"><h2>Worker modules</h2>${list(inspection.workerModules, 'Static-only project.')}</div><div class="card"><h2>Bindings</h2>${list(bindings, 'No platform bindings.')}</div><div class="card"><h2>Health checks</h2>${list(checks, 'Only the public page check will run.')}</div><div class="card"><h2>Excluded</h2>${list(inspection.excluded, 'Nothing excluded.')}</div></section><section class="plan"><strong>Command plan</strong><code>${escapeHtml(inspection.command)}</code></section><section class="deploy"><h2>Deploy this app</h2><p>Up will run the pinned CLI locally and stream redacted Wrangler progress here.</p><form id="deploy-form"><div class="consent"><label><input id="public-consent" type="checkbox" required> I understand the app and API will be public.</label><label><input id="terms-consent" type="checkbox" required> I accept Cloudflare&rsquo;s Terms of Service and Privacy Policy.</label></div><button id="deploy-button" type="submit" disabled>Deploy temporary app</button></form><pre id="progress" class="progress" aria-live="polite">Waiting for approval.</pre><div id="result" class="result" hidden><strong>App is live</strong><br><a id="live-url" target="_blank" rel="noopener noreferrer"></a><div id="checks" class="checks"></div><div class="result-actions"><button id="ownership-button" type="button">Open ownership</button><button id="copy-button" class="secondary" type="button">Copy agent handoff</button></div><textarea id="handoff" class="handoff" readonly>${escapeHtml(handoff)}</textarea><p id="action-status" aria-live="polite"></p></div></section></main><script nonce="${nonce}">const form=document.querySelector('#deploy-form'),publicConsent=document.querySelector('#public-consent'),termsConsent=document.querySelector('#terms-consent'),button=document.querySelector('#deploy-button'),progress=document.querySelector('#progress'),result=document.querySelector('#result'),liveUrl=document.querySelector('#live-url'),checks=document.querySelector('#checks'),ownershipButton=document.querySelector('#ownership-button'),copyButton=document.querySelector('#copy-button'),handoff=document.querySelector('#handoff'),actionStatus=document.querySelector('#action-status');const update=()=>button.disabled=!(publicConsent.checked&&termsConsent.checked);publicConsent.addEventListener('change',update);termsConsent.addEventListener('change',update);const events=new EventSource('./events');events.onmessage=(message)=>{const event=JSON.parse(message.data);if(event.type==='log'){progress.textContent+=(progress.textContent==='Waiting for approval.'?'': '\n')+event.data;progress.scrollTop=progress.scrollHeight}if(event.type==='check'){const item=document.createElement('div');item.className='check '+(event.passed?'pass':'fail');item.textContent=(event.passed?'✓ ':'✗ ')+event.name+' · '+event.detail;checks.append(item)}if(event.type==='result'){liveUrl.href=event.liveUrl;liveUrl.textContent=event.liveUrl;result.hidden=false;button.disabled=true;button.textContent='Deployed'}if(event.type==='error'){progress.textContent+='\nError: '+event.data;button.disabled=false;button.textContent='Retry'}};form.addEventListener('submit',async(event)=>{event.preventDefault();button.disabled=true;button.textContent='Deploying…';progress.textContent='Starting pinned Up CLI…';checks.replaceChildren();const response=await fetch('./deploy',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({acceptPublic:publicConsent.checked,acceptTerms:termsConsent.checked})});if(!response.ok){progress.textContent='Deploy refused: '+await response.text();button.disabled=false;button.textContent='Retry'}});ownershipButton.addEventListener('click',async()=>{ownershipButton.disabled=true;const response=await fetch('./ownership',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});actionStatus.textContent=response.ok?'Ownership flow opened in your browser.':await response.text();ownershipButton.disabled=false});copyButton.addEventListener('click',async()=>{await navigator.clipboard.writeText(handoff.value);actionStatus.textContent='Agent handoff copied.'});</script></body></html>`;
 }
 
 async function openComposer(): Promise<void> {
@@ -848,6 +967,7 @@ async function openComposer(): Promise<void> {
   const pagePath = `/${token}/`;
   const eventsPath = `${pagePath}events`;
   const deployPath = `${pagePath}deploy`;
+  const ownershipPath = `${pagePath}ownership`;
   const history: Array<Record<string, unknown>> = [];
   const clients = new Set<http.ServerResponse>();
   let deploying = false;
@@ -906,6 +1026,31 @@ async function openComposer(): Promise<void> {
       for (const event of history) response.write(`data: ${JSON.stringify(event)}\n\n`);
       clients.add(response);
       request.on('close', () => clients.delete(response));
+      return;
+    }
+    if (request.method === 'POST' && request.url === ownershipPath) {
+      if (
+        request.headers.origin !== expectedOrigin ||
+        request.headers['content-type'] !== 'application/json'
+      ) {
+        response.writeHead(403, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+        response.end('Same-origin JSON request required.');
+        return;
+      }
+      void (async () => {
+        try {
+          const account = await readTemporaryAccount(anonymousPaths(root));
+          const opened = await openUrl(account.claimUrl);
+          response.writeHead(opened ? 202 : 500, {
+            'content-type': 'text/plain',
+            'cache-control': 'no-store',
+          });
+          response.end(opened ? 'Ownership flow opened.' : 'Could not open a browser.');
+        } catch (error) {
+          response.writeHead(409, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+          response.end(error instanceof Error ? error.message : String(error));
+        }
+      })();
       return;
     }
     if (request.method === 'POST' && request.url === deployPath) {
@@ -967,7 +1112,13 @@ async function openComposer(): Promise<void> {
             emit({ type: 'error', data: 'Deployment finished without project metadata.' });
             return;
           }
-          emit({ type: 'result', liveUrl: metadata.liveUrl });
+          const checks = await runHealthChecks(inspection, metadata.liveUrl);
+          for (const check of checks) emit({ type: 'check', ...check });
+          emit({
+            type: 'result',
+            liveUrl: metadata.liveUrl,
+            checksPassed: checks.every((check) => check.passed),
+          });
         });
       });
       return;

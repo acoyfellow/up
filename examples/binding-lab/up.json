@@ -3,5 +3,14 @@
     "kv": ["CACHE"],
     "d1": ["DB"],
     "durableObjects": [{ "binding": "ROOMS", "className": "Room" }]
-  }
+  },
+  "checks": [
+    {
+      "name": "Binding state",
+      "path": "/api/state",
+      "status": 200,
+      "jsonKeys": ["pageViews", "roomVisits", "notes"],
+      "bindings": ["CACHE", "DB", "ROOMS"]
+    }
+  ]
 }

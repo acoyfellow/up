@@ -11,6 +11,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -210,11 +211,52 @@ describe('anonymous-first CLI', () => {
     expect(existsSync(data.state)).toBe(false);
   });
 
-  it('opens a tokenized localhost-only read-only composer', async () => {
+  it('opens a tokenized localhost composer, checks bindings, and opens ownership safely', async () => {
     const data = fixture();
+    writeFileSync(
+      join(data.site, '_worker.js'),
+      `export default { fetch(request, env) { return env.ASSETS.fetch(request) } };`,
+    );
+    writeFileSync(
+      join(data.site, 'up.json'),
+      JSON.stringify({
+        bindings: { kv: ['CACHE'] },
+        checks: [
+          {
+            name: 'State API',
+            path: '/api/state',
+            status: 200,
+            jsonKeys: ['pageViews'],
+            bindings: ['CACHE'],
+          },
+        ],
+      }),
+    );
+    const healthServer = http.createServer((request, response) => {
+      if (request.url === '/api/state') {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ pageViews: 1 }));
+        return;
+      }
+      response.writeHead(200, { 'content-type': 'text/html' });
+      response.end('<h1>Live</h1>');
+    });
+    await new Promise<void>((resolvePromise) =>
+      healthServer.listen(0, '127.0.0.1', resolvePromise),
+    );
+    const healthAddress = healthServer.address();
+    if (!healthAddress || typeof healthAddress === 'string')
+      throw new Error('health server failed');
     const child = spawn('bun', [cli, 'open', data.site, 'composer-demo', '--no-open'], {
       cwd: repository,
-      env: { ...process.env, UP_STATE_DIR: data.state, UP_WRANGLER_BIN: data.fakeWrangler },
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        UP_DISABLE_BROWSER_OPEN: 'yes',
+        UP_HEALTH_CHECK_ORIGIN: `http://127.0.0.1:${healthAddress.port}`,
+        UP_STATE_DIR: data.state,
+        UP_WRANGLER_BIN: data.fakeWrangler,
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let output = '';
@@ -246,6 +288,8 @@ describe('anonymous-first CLI', () => {
       expect(html).toContain('index.html');
       expect(html).toContain('--accept-cloudflare-terms');
       expect(html).toContain('Deploy temporary app');
+      expect(html).toContain('State API · GET /api/state · CACHE');
+      expect(html).toContain('Copy agent handoff');
       expect(await fetch(new URL('/', url)).then((result) => result.status)).toBe(404);
       expect(existsSync(data.state)).toBe(false);
 
@@ -270,21 +314,45 @@ describe('anonymous-first CLI', () => {
       let stream = '';
       const deadline = Date.now() + 10_000;
       while (!stream.includes('"type":"result"') && Date.now() < deadline) {
-        const chunk = await reader?.read();
-        if (!chunk || chunk.done) break;
+        const chunk = await Promise.race([
+          reader?.read(),
+          new Promise<undefined>((resolvePromise) =>
+            setTimeout(() => resolvePromise(undefined), 250),
+          ),
+        ]);
+        if (!chunk) continue;
+        if (chunk.done) break;
         stream += decoder.decode(chunk.value, { stream: true });
       }
       await reader?.cancel();
       expect(stream).toContain('"type":"log"');
-      expect(stream).toContain('sensitive claim URL withheld by Up');
       expect(stream).not.toContain('claimToken=fake-sensitive-token');
+      expect(stream).not.toContain('temporary-secret');
+      expect(stream).toContain('"type":"check"');
+      expect(stream).toContain('"name":"Public page"');
+      expect(stream).toContain('"name":"State API"');
+      expect(stream).toContain('"bindings":["CACHE"]');
+      expect(stream).toContain('"passed":true');
       expect(stream).toContain('"type":"result"');
       expect(stream).toContain('https://composer-demo.authoritative-target.workers.dev');
+
+      const ownership = await fetch(new URL('ownership', url), {
+        method: 'POST',
+        headers: { origin: new URL(url).origin, 'content-type': 'application/json' },
+        body: '{}',
+      });
+      expect(ownership.status).toBe(202);
+      expect(await ownership.text()).not.toContain('claimToken');
     } finally {
-      child.kill('SIGTERM');
-      await new Promise<void>((resolvePromise) => child.once('exit', () => resolvePromise()));
+      child.kill('SIGKILL');
+      await Promise.race([
+        new Promise<void>((resolvePromise) => child.once('exit', () => resolvePromise())),
+        new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 1_000)),
+      ]);
+      healthServer.closeAllConnections();
+      await new Promise<void>((resolvePromise) => healthServer.close(() => resolvePromise()));
     }
-  });
+  }, 20_000);
 
   it('isolates project status and forgets only local state without leaking ownership', () => {
     const data = fixture();

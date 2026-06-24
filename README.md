@@ -133,9 +133,20 @@ See [After you keep an app](docs/how-to/after-claim.md) for the full checklist.
     "kv": ["CACHE"],
     "d1": ["DB"],
     "durableObjects": [{ "binding": "ROOMS", "className": "Room" }]
-  }
+  },
+  "checks": [
+    {
+      "name": "Binding state",
+      "path": "/api/state",
+      "status": 200,
+      "jsonKeys": ["pageViews", "roomVisits", "notes"],
+      "bindings": ["CACHE", "DB", "ROOMS"]
+    }
+  ]
 }
 ```
+
+Checks are bounded same-origin GET requests. The composer always checks `/`; declared checks prove the app routes that exercise specific bindings and report expected top-level JSON keys.
 
 Up turns that into a temporary Wrangler graph. Wrangler auto-provisions KV and D1, deploys Durable Object classes with append-only SQLite migrations, binds Static Assets as `env.ASSETS`, and uploads the Worker and browser files together. Added DO classes append a migration; deletion or rename fails before deployment.
 
