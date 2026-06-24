@@ -12,7 +12,7 @@ Production boundary: personal account `bfcb6ac5b3ceaf42a09607f6f7925823` only.
 
 ## B. Friendly new-user flow
 
-- [ ] `up open <folder>` localhost-only inspect/plan UI.
+- [x] `up open <folder>` localhost-only inspect/plan UI. Evidence: random unguessable path, `127.0.0.1` bind plus exact Host/path checks, no-store/CSP/frame protections, shared safe-staging inspection, exact assets/modules/bindings/exclusions, public/temporary and credential-isolation warnings, responsive/reduced-motion CSS, subprocess HTTP/404/no-state proof.
 - [ ] Redacted deploy progress, live checks, ownership open, and handoff copy.
 - [ ] Expiry/error/retry, accessibility, reduced motion, and mobile evidence.
 

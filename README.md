@@ -33,6 +33,14 @@ Inspect first; this creates no account and makes no remote request:
 bunx github:acoyfellow/up inspect ./my-app
 ```
 
+Or open the same read-only plan in a friendly localhost UI:
+
+```sh
+bunx github:acoyfellow/up open ./my-app
+```
+
+The composer uses a random local path, binds only to `127.0.0.1`, and shows exact assets, Worker modules, bindings, exclusions, public/temporary risk, credential isolation, and the deploy command before mutation.
+
 Then deploy:
 
 ```sh

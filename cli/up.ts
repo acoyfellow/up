@@ -31,6 +31,8 @@ function usage(): never {
   console.error(`up 0.0.1
 
 up inspect <folder> [name]      Local preflight; no account or remote mutation
+up open <folder> [name]         Open localhost-only inspect/plan composer
+  --no-open                     Print URL without opening a browser
 up deploy <folder> [name]       Deploy now without a Cloudflare account
   --accept-cloudflare-terms     Required for agents and non-interactive use
 up status [folder]              Show local project session without ownership link
@@ -217,6 +219,21 @@ type StagedFolder = {
   layout: 'canonical' | 'legacy';
   bindings: BindingManifest;
   durableMigrations: DurableMigrationState;
+};
+
+type ProjectInspection = {
+  projectRoot: string;
+  workerName: string;
+  layout: StagedFolder['layout'];
+  public: true;
+  temporary: true;
+  accountCredentialsInherited: false;
+  assets: string[];
+  workerModules: string[];
+  excluded: string[];
+  bindings: BindingManifest;
+  durableMigrations: DurableMigration[];
+  command: string;
 };
 
 type ProjectMetadata = {
@@ -733,14 +750,7 @@ async function resolveSessionProject(positionals: string[]): Promise<string> {
   return resolve('.');
 }
 
-async function inspectProject(): Promise<void> {
-  const positionals = args.filter((value) => value !== '--json');
-  if (positionals.some((value) => value.startsWith('-')) || positionals.length > 2) usage();
-  const root = resolve(positionals[0] || '.');
-  if (!(await stat(root).catch(() => null))?.isDirectory())
-    throw new Error(`Folder not found: ${root}`);
-  const name = positionals[1] || defaultName(root);
-  if (!validName(name)) throw new Error('Invalid Worker name.');
+async function createInspection(root: string, name: string): Promise<ProjectInspection> {
   const temporary = await mkdtemp(join(tmpdir(), 'up-inspect-'));
   try {
     const staged = await stageAnonymousFolder(
@@ -748,7 +758,7 @@ async function inspectProject(): Promise<void> {
       temporary,
       await activeDurableMigrationState(anonymousPaths(root)),
     );
-    const result = {
+    return {
       projectRoot: root,
       workerName: name,
       layout: staged.layout,
@@ -762,28 +772,113 @@ async function inspectProject(): Promise<void> {
       durableMigrations: staged.durableMigrations.migrations,
       command: `up deploy ${root} ${name} --accept-cloudflare-terms`,
     };
-    if (hasFlag('--json')) {
-      console.log(JSON.stringify(result, null, 2));
-      return;
-    }
-    const bindingNames = [
-      ...staged.bindings.kv,
-      ...staged.bindings.d1,
-      ...staged.bindings.durableObjects.map((item) => item.binding),
-    ];
-    console.log(`Project: ${root}
-Worker: ${name}
-Layout: ${staged.layout}
-Public assets (${staged.assetFiles.length}): ${staged.assetFiles.join(', ') || 'none'}
-Worker modules (${staged.moduleFiles.length}): ${staged.moduleFiles.join(', ') || 'none'}
-Bindings: ${bindingNames.join(', ') || 'none'}
-Excluded: ${staged.excluded.join(', ') || 'none'}
-
-No account was created. Existing Cloudflare credentials will not be inherited.
-Deploy plan: ${result.command}`);
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
+}
+
+function inspectionArguments(flags: string[]): { root: string; name: string } {
+  const positionals = args.filter((value) => !flags.includes(value));
+  if (positionals.some((value) => value.startsWith('-')) || positionals.length > 2) usage();
+  const root = resolve(positionals[0] || '.');
+  const name = positionals[1] || defaultName(root);
+  if (!validName(name)) throw new Error('Invalid Worker name.');
+  return { root, name };
+}
+
+async function inspectProject(): Promise<void> {
+  const { root, name } = inspectionArguments(['--json']);
+  if (!(await stat(root).catch(() => null))?.isDirectory())
+    throw new Error(`Folder not found: ${root}`);
+  const result = await createInspection(root, name);
+  if (hasFlag('--json')) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  const bindingNames = [
+    ...result.bindings.kv,
+    ...result.bindings.d1,
+    ...result.bindings.durableObjects.map((item) => item.binding),
+  ];
+  console.log(`Project: ${root}
+Worker: ${name}
+Layout: ${result.layout}
+Public assets (${result.assets.length}): ${result.assets.join(', ') || 'none'}
+Worker modules (${result.workerModules.length}): ${result.workerModules.join(', ') || 'none'}
+Bindings: ${bindingNames.join(', ') || 'none'}
+Excluded: ${result.excluded.join(', ') || 'none'}
+
+No account was created. Existing Cloudflare credentials will not be inherited.
+Deploy plan: ${result.command}`);
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ||
+      character,
+  );
+}
+
+function inspectionHtml(inspection: ProjectInspection): string {
+  const list = (items: string[], empty: string) =>
+    items.length
+      ? `<ul>${items.map((item) => `<li><code>${escapeHtml(item)}</code></li>`).join('')}</ul>`
+      : `<p class="empty">${empty}</p>`;
+  const bindings = [
+    ...inspection.bindings.kv.map((name) => `KV · ${name}`),
+    ...inspection.bindings.d1.map((name) => `D1 · ${name}`),
+    ...inspection.bindings.durableObjects.map(
+      ({ binding, className }) => `Durable Object · ${binding} → ${className}`,
+    ),
+  ];
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Up · ${escapeHtml(inspection.workerName)}</title><style>
+:root{color-scheme:light;--ink:#111923;--muted:#5f6f7c;--line:#d7dde1;--paper:#f5f7f8;--orange:#f6821f;--blue:#2678a4;font:16px/1.55 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink)}main{width:min(1080px,calc(100% - 32px));margin:auto;padding:42px 0 70px}header{padding:28px 0 32px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--orange);font:600 .72rem ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}h1{max-width:760px;margin:12px 0 10px;font-size:clamp(2.2rem,6vw,4.5rem);line-height:1;letter-spacing:-.045em}header p{max-width:720px;color:var(--muted)}.warnings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0}.warning{padding:16px;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:5px;background:var(--paper)}.warning.safe{border-left-color:#16855b}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{padding:22px;border:1px solid var(--line);border-radius:7px}.card h2{margin:0 0 14px;font-size:1rem}.card ul{max-height:240px;margin:0;padding-left:20px;overflow:auto}.card li{margin:6px 0}.empty{color:var(--muted)}code{font-family:ui-monospace,monospace;font-size:.82em}.plan{margin-top:16px;padding:22px;border-radius:7px;background:#0b1118;color:#fff}.plan code{display:block;overflow:auto;color:#9fd7ef;white-space:pre}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.meta span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.72rem}@media(max-width:700px){main{padding-top:18px}.grid,.warnings{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style></head><body><main><header><div class="eyebrow">Local inspection · no account created</div><h1>${escapeHtml(inspection.workerName)}</h1><p>${escapeHtml(inspection.projectRoot)}</p><div class="meta"><span>${inspection.layout} layout</span><span>${inspection.assets.length} public assets</span><span>${inspection.workerModules.length} Worker modules</span><span>${bindings.length} bindings</span></div></header><section class="warnings"><div class="warning"><strong>Public and temporary</strong><br>The app and API will be public for about an hour. Do not deploy secrets or private data.</div><div class="warning safe"><strong>Your accounts stay isolated</strong><br>Up launches Wrangler in a project-only home and removes inherited Cloudflare credentials.</div></section><section class="grid"><div class="card"><h2>Public assets</h2>${list(inspection.assets, 'No public assets.')}</div><div class="card"><h2>Worker modules</h2>${list(inspection.workerModules, 'Static-only project.')}</div><div class="card"><h2>Bindings</h2>${list(bindings, 'No platform bindings.')}</div><div class="card"><h2>Excluded</h2>${list(inspection.excluded, 'Nothing excluded.')}</div></section><section class="plan"><strong>Command plan</strong><code>${escapeHtml(inspection.command)}</code></section></main></body></html>`;
+}
+
+async function openComposer(): Promise<void> {
+  const { root, name } = inspectionArguments(['--no-open']);
+  if (!(await stat(root).catch(() => null))?.isDirectory())
+    throw new Error(`Folder not found: ${root}`);
+  const inspection = await createInspection(root, name);
+  const token = randomBytes(18).toString('base64url');
+  const pagePath = `/${token}/`;
+  const server = http.createServer((request, response) => {
+    const expectedHost = `127.0.0.1:${(server.address() as { port: number }).port}`;
+    if (
+      request.headers.host !== expectedHost ||
+      request.method !== 'GET' ||
+      request.url !== pagePath
+    ) {
+      response.writeHead(404, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+      response.end('Not found');
+      return;
+    }
+    response.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'content-security-policy':
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer',
+    });
+    response.end(inspectionHtml(inspection));
+  });
+  await new Promise<void>((resolvePromise, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolvePromise());
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Unable to start local composer.');
+  const url = `http://127.0.0.1:${address.port}${pagePath}`;
+  console.log(`Up composer: ${url}\nRead-only inspection. Press Ctrl+C to stop.`);
+  if (!hasFlag('--no-open')) await openUrl(url);
+  const close = () => server.close();
+  process.once('SIGINT', close);
+  process.once('SIGTERM', close);
+  await new Promise<void>((resolvePromise) => server.once('close', () => resolvePromise()));
 }
 
 async function projectStatus(): Promise<void> {
@@ -1200,6 +1295,7 @@ async function deployPrivate(): Promise<void> {
 try {
   if (command === 'init') await init();
   else if (command === 'inspect') await inspectProject();
+  else if (command === 'open') await openComposer();
   else if (command === 'deploy') await deployAnonymous();
   else if (command === 'status') await projectStatus();
   else if (command === 'claim') await claim();

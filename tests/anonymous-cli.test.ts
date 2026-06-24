@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -208,6 +208,49 @@ describe('anonymous-first CLI', () => {
       bindings: { kv: [], d1: [], durableObjects: [] },
     });
     expect(existsSync(data.state)).toBe(false);
+  });
+
+  it('opens a tokenized localhost-only read-only composer', async () => {
+    const data = fixture();
+    const child = spawn('bun', [cli, 'open', data.site, 'composer-demo', '--no-open'], {
+      cwd: repository,
+      env: { ...process.env, UP_STATE_DIR: data.state, UP_WRANGLER_BIN: data.fakeWrangler },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    const url = await new Promise<string>((resolvePromise, reject) => {
+      const timer = setTimeout(() => reject(new Error(`composer timeout: ${output}`)), 10_000);
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => {
+        output += chunk;
+        const match = output.match(/Up composer: (http:\/\/127\.0\.0\.1:\d+\/[A-Za-z0-9_-]+\/)/);
+        if (match?.[1]) {
+          clearTimeout(timer);
+          resolvePromise(match[1]);
+        }
+      });
+      child.once('error', reject);
+      child.once('exit', (code) => {
+        if (code && !output.includes('Up composer:')) reject(new Error(`composer exited ${code}`));
+      });
+    });
+    try {
+      const response = await fetch(url);
+      const html = await response.text();
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
+      expect(html).toContain('Local inspection · no account created');
+      expect(html).toContain('composer-demo');
+      expect(html).toContain('Public and temporary');
+      expect(html).toContain('Your accounts stay isolated');
+      expect(html).toContain('index.html');
+      expect(html).toContain('--accept-cloudflare-terms');
+      expect(await fetch(new URL('/', url)).then((result) => result.status)).toBe(404);
+      expect(existsSync(data.state)).toBe(false);
+    } finally {
+      child.kill('SIGTERM');
+      await new Promise<void>((resolvePromise) => child.once('exit', () => resolvePromise()));
+    }
   });
 
   it('isolates project status and forgets only local state without leaking ownership', () => {

@@ -50,7 +50,7 @@ Do not claim R2, Workers AI, Access, Workflows, Browser Rendering, Containers, S
 1. Keep the browser folder under 1,000 files and every file under 5 MiB.
 2. Do not include credentials, private data, source maps with secrets, `.env` files, or internal-only content. The resulting URL and API are public.
 3. Do not include symbolic links.
-4. Run `up inspect ./dist [name]` and review the exact assets, Worker modules, bindings, and exclusions. This creates no account.
+4. Run `up inspect ./dist [name]` or `up open ./dist [name]` and review the exact assets, Worker modules, bindings, exclusions, public/temporary warning, credential isolation, and command plan. This creates no account.
 5. Test locally.
 6. Ask the user to approve:
    - making the app public for up to/about 60 minutes;
