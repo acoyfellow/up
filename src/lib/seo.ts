@@ -9,9 +9,10 @@ export type PageMetadata = {
 
 export const metadata = {
   '/': {
-    title: 'Up — Coeyman’s private workspace',
-    description: 'Private workspace for Coeyman’s Up deployments and local dynamic-app composer.',
-    eyebrow: 'Private tool · coeyman@gmail.com',
+    title: 'Up — Workspace',
+    description:
+      'Private workspace for publishing folders and building dynamic Cloudflare Workers.',
+    eyebrow: 'Private workspace',
     noindex: true,
   },
   '/tutorial': {

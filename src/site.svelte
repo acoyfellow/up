@@ -54,7 +54,21 @@
   let siteDomain = $state(untrack(() => initialSiteDomain));
   let dragging = $state(false);
   let copied = $state(false);
-  let view = $state<'empty' | 'selected' | 'publishing' | 'success' | 'list'>(
+  let workerName = $state('my-app');
+  let workerCode = $state(`export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/api/hello') {
+      return Response.json({ hello: 'world' });
+    }
+
+    return env.ASSETS.fetch(request);
+  }
+};`);
+  let workerBindings = $state({ kv: false, d1: false, durableObjects: false });
+  let workerSaved = $state(false);
+  let view = $state<'empty' | 'worker' | 'selected' | 'publishing' | 'success' | 'list'>(
     untrack(() => initialSites.length) ? 'list' : 'empty',
   );
   let input = $state<HTMLInputElement>();
@@ -129,6 +143,90 @@
     input?.click();
   }
 
+  function startWorker() {
+    workerSaved = false;
+    view = 'worker';
+  }
+
+  function workerManifest() {
+    return {
+      bindings: {
+        ...(workerBindings.kv ? { kv: ['CACHE'] } : {}),
+        ...(workerBindings.d1 ? { d1: ['DB'] } : {}),
+        ...(workerBindings.durableObjects
+          ? { durableObjects: [{ binding: 'ROOMS', className: 'Room' }] }
+          : {}),
+      },
+    };
+  }
+
+  function downloadFile(path: string, content: string, type: string) {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([content], { type }));
+    link.download = `${workerName}-${path.replaceAll('/', '-')}`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
+
+  async function saveWorkerProject() {
+    const safeName = normalizeName(workerName) || 'my-app';
+    workerName = safeName;
+    const generatedWorker =
+      workerBindings.durableObjects && !/export\s+class\s+Room\b/.test(workerCode)
+        ? `${workerCode}\n\nexport class Room {\n  constructor(state) { this.state = state; }\n  async fetch() { return Response.json({ ok: true }); }\n}\n`
+        : workerCode;
+    const files = {
+      'worker/index.js': generatedWorker,
+      'public/index.html': '<!doctype html><title>My Up app</title><main><h1>It works.</h1></main>',
+      'up.json': `${JSON.stringify(workerManifest(), null, 2)}\n`,
+    };
+    const picker = (
+      window as unknown as {
+        showDirectoryPicker?: () => Promise<{
+          getDirectoryHandle(name: string, options: { create: true }): Promise<unknown>;
+          getFileHandle(name: string, options: { create: true }): Promise<{
+            createWritable(): Promise<{ write(value: string): Promise<void>; close(): Promise<void> }>;
+          }>;
+        }>;
+      }
+    ).showDirectoryPicker;
+    if (picker) {
+      const root = await picker();
+      const app = (await root.getDirectoryHandle(safeName, { create: true })) as Awaited<
+        ReturnType<NonNullable<typeof picker>>
+      >;
+      for (const [path, content] of Object.entries(files)) {
+        const parts = path.split('/');
+        let directory = app;
+        while (parts.length > 1) {
+          directory = (await directory.getDirectoryHandle(parts.shift() as string, {
+            create: true,
+          })) as typeof app;
+        }
+        const handle = await directory.getFileHandle(parts[0] as string, { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+      }
+    } else {
+      const encode = (value: string) => {
+        const bytes = new TextEncoder().encode(value);
+        let binary = '';
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        return btoa(binary);
+      };
+      const script = `#!/bin/sh\nset -eu\nmkdir -p '${safeName}/public' '${safeName}/worker'\nprintf %s '${encode(files['public/index.html'])}' | base64 -d > '${safeName}/public/index.html'\nprintf %s '${encode(files['worker/index.js'])}' | base64 -d > '${safeName}/worker/index.js'\nprintf %s '${encode(files['up.json'])}' | base64 -d > '${safeName}/up.json'\necho 'Created ${safeName}'\n`;
+      downloadFile(`create-${safeName}.sh`, script, 'text/x-shellscript');
+    }
+    workerSaved = true;
+  }
+
+  async function copyWorkerCommand() {
+    await navigator.clipboard.writeText(`bunx github:acoyfellow/up open ./${workerName}`);
+    copied = true;
+    setTimeout(() => (copied = false), 1800);
+  }
+
   function acceptInput(event: Event) {
     const element = event.currentTarget as HTMLInputElement;
     void acceptFiles(Array.from(element.files || []));
@@ -193,6 +291,7 @@
     copied = false;
     if (input) input.value = '';
     view = isProduct && sites.length ? 'list' : 'empty';
+    workerSaved = false;
   }
 
   const totalBytes = $derived(files.reduce((sum, file) => sum + file.size, 0));
@@ -390,17 +489,48 @@
           ondrop={drop}
         >
           <div class="empty-copy">
-            <p class="state-label">Coeyman&rsquo;s private Up</p>
-            <h1>What do you want to run?</h1>
-            <p>Publish a private folder here, or open the local composer for a Worker and its bindings.</p>
-            <div class="tool-actions"><button class="primary choose" onclick={chooseFolder}>Publish private folder <span aria-hidden="true">↗</span></button><a class="secondary link-button" href="/tutorial">Open a dynamic app →</a></div>
-            <pre class="tool-command"><code>bunx github:acoyfellow/up open ./app</code></pre>
-            <small><i aria-hidden="true"></i> This workspace is protected by Cloudflare Access</small>
+            <p class="state-label">Workspace</p>
+            <h1>Start with a folder<br />or a Worker.</h1>
+            <p>Drop a project anywhere in this workspace, or write a dynamic Worker here and choose its bindings.</p>
+            <div class="workspace-choices">
+              <button class="workspace-choice" onclick={chooseFolder}>
+                <span class="choice-icon" aria-hidden="true">↥</span>
+                <strong>Drop a folder</strong>
+                <small>Publish files behind this instance&rsquo;s Access policy</small>
+              </button>
+              <button class="workspace-choice" onclick={startWorker}>
+                <span class="choice-icon code" aria-hidden="true">&#123; &#125;</span>
+                <strong>New Worker</strong>
+                <small>Write code, add bindings, then deploy with local Up</small>
+              </button>
+            </div>
+            <small class="access-note"><i aria-hidden="true"></i> Protected by Cloudflare Access · {identity}</small>
           </div>
-          <picture class="brand-stroke" aria-hidden="true">
-            <source srcset="/images/up-hero-paint.webp" type="image/webp" />
-            <img src="/images/up-hero-paint.jpg" alt="" width="1536" height="1024" />
-          </picture>
+        </div>
+      {:else if view === 'worker'}
+        <div class="worker-builder">
+          <div class="builder-head">
+            <div><p class="state-label">New Worker</p><h1>Build the app.</h1></div>
+            <button class="text-button" onclick={reset}>Close</button>
+          </div>
+          <div class="builder-grid">
+            <section class="editor-panel">
+              <label class="worker-name"><span>Project name</span><input bind:value={workerName} aria-label="Project name" /></label>
+              <label class="code-editor"><span>worker/index.js</span><textarea bind:value={workerCode} spellcheck="false" aria-label="Worker code"></textarea></label>
+            </section>
+            <aside class="binding-panel">
+              <p class="state-label">Bindings</p>
+              <label><input type="checkbox" bind:checked={workerBindings.kv} /><span><strong>KV</strong><small>Fast key-value storage</small></span></label>
+              <label><input type="checkbox" bind:checked={workerBindings.d1} /><span><strong>D1</strong><small>SQLite database</small></span></label>
+              <label><input type="checkbox" bind:checked={workerBindings.durableObjects} /><span><strong>Durable Objects</strong><small>Coordinated state and WebSockets</small></span></label>
+              <div class="builder-boundary"><strong>Deployment runs locally</strong><p>Temporary Accounts are created by Wrangler on your machine. Save this project, then open its local composer.</p></div>
+            </aside>
+          </div>
+          <div class="builder-actions">
+            <button class="secondary" onclick={saveWorkerProject}>Save project</button>
+            <button class="primary" onclick={copyWorkerCommand} disabled={!workerSaved}>{copied ? 'Command copied' : 'Copy deploy command'}</button>
+          </div>
+          {#if workerSaved}<p class="builder-status" role="status">Project saved. Run <code>bunx github:acoyfellow/up open ./{workerName}</code> to inspect and deploy it.</p>{/if}
         </div>
       {:else if view === 'list'}
         <div class="list-view">
@@ -702,20 +832,41 @@ up handoff ./dist exact-worker-name \
   main.product { padding-top: clamp(36px, 5vw, 56px); }
   .workspace { min-height: calc(100vh - 240px); }
   .file-input { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-  .empty-state { position: relative; display: grid; grid-template-columns: minmax(300px, .78fr) minmax(390px, 1.22fr); width: min(100%, 1060px); min-height: 520px; margin-inline: auto; overflow: hidden; border-block: 1px solid var(--line); text-align: left; }
-  .empty-state::before { position: absolute; inset: 18px; border: 1px solid transparent; content: ""; pointer-events: none; transition: border-color .15s ease, background .15s ease; }
+  .empty-state { position: relative; display: grid; width: min(100%, 1120px); min-height: clamp(580px, calc(100vh - 230px), 760px); place-items: center; margin-inline: auto; overflow: hidden; border: 1px dashed var(--line-strong); border-radius: 12px; background: linear-gradient(180deg,#fff,#fbfcfc); text-align: center; isolation: isolate; }
+  .empty-state::after { position:absolute; z-index:-1; right:-13%; bottom:-25%; width:58%; height:52%; background:url('/images/up-hero-paint.webp') center/cover no-repeat; content:""; opacity:.13; transform:rotate(-4deg); pointer-events:none; }
+  .empty-state::before { position: absolute; inset: 14px; border: 2px solid transparent; border-radius: 8px; content: ""; pointer-events: none; transition: border-color .15s ease, background .15s ease; }
   .empty-state.dragging::before { border-color: var(--orange); background: #f6821f0a; }
-  .empty-copy { position: relative; z-index: 1; align-self: center; padding: 48px 0 52px 32px; }
-  .empty-state h1, .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { margin: 0; font-weight: 640; line-height: 1.04; letter-spacing: -.03em; }
-  .empty-state h1 { font-size: clamp(2.6rem, 5vw, 3.7rem); line-height: 1.0; }
-  .empty-copy > p:not(.state-label) { max-width: 470px; margin: 24px 0 24px; color: var(--muted); font-size: .98rem; line-height: 1.64; }
-  .tool-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-  .tool-command { width:min(100%,470px); margin:14px 0 0; padding:13px 15px; overflow:auto; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--paper); color:var(--ink); font-size:.73rem; }
-  .empty-copy small { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--quiet); font-size: .69rem; }
-  .empty-copy small > i, .privacy i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
-  .choose { min-width: 184px; justify-content: space-between; gap: 32px; }
-  .brand-stroke { position:relative; align-self:stretch; min-height:480px; margin-right:-24px; overflow:hidden; pointer-events:none; }
-  .brand-stroke img { position:absolute; inset:0; width:140%; height:100%; object-fit:cover; object-position:72% 58%; }
+  .empty-copy { position: relative; z-index: 1; width:min(760px,calc(100% - 48px)); padding: 64px 0; }
+  .empty-state h1, .worker-builder h1, .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { margin: 0; font-weight: 640; line-height: 1.04; letter-spacing: -.03em; }
+  .empty-state h1 { margin-top:14px; font-size: clamp(2.7rem, 6vw, 5.1rem); line-height: .96; }
+  .empty-copy > p:not(.state-label) { max-width: 620px; margin: 24px auto 34px; color: var(--muted); font-size: 1rem; line-height: 1.64; }
+  .workspace-choices { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .workspace-choice { display:grid; min-height:190px; align-content:center; justify-items:start; gap:7px; padding:26px; border:1px solid var(--line-strong); border-radius:9px; background:#fff; color:var(--ink); text-align:left; cursor:pointer; transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease; }
+  .workspace-choice:hover { border-color:var(--orange); transform:translateY(-2px); box-shadow:0 12px 30px #0b111810; }
+  .workspace-choice strong { font-size:1.1rem; }
+  .workspace-choice small { max-width:260px; margin:0; color:var(--muted); font-size:.75rem; line-height:1.5; }
+  .choice-icon { display:grid; width:40px; height:40px; place-items:center; margin-bottom:12px; border-radius:50%; background:#f6821f18; color:var(--orange); font:700 1.2rem var(--mono); }
+  .choice-icon.code { background:#2678a418; color:var(--blue); font-size:.78rem; }
+  .access-note { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:26px; color:var(--quiet); font-size:.68rem; }
+  .access-note > i, .privacy i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
+  .worker-builder { width:min(100%,1120px); min-height:calc(100vh - 230px); margin-inline:auto; }
+  .builder-head { display:flex; align-items:end; justify-content:space-between; gap:20px; margin-bottom:24px; }
+  .worker-builder h1 { margin-top:8px; font-size:clamp(2.2rem,4vw,3.4rem); }
+  .builder-grid { display:grid; grid-template-columns:minmax(0,1fr) 300px; overflow:hidden; border:1px solid var(--line-strong); border-radius:9px; }
+  .editor-panel { min-width:0; padding:22px; border-right:1px solid var(--line); background:#fff; }
+  .worker-name,.code-editor { display:grid; gap:8px; color:var(--muted); font-size:.68rem; font-weight:650; }
+  .worker-name input { height:42px; padding:0 12px; border:1px solid var(--line); border-radius:5px; font:600 .82rem var(--mono); }
+  .code-editor { margin-top:18px; }
+  .code-editor textarea { width:100%; min-height:430px; resize:vertical; padding:18px; border:0; border-radius:6px; background:#0b1118; color:#dce7ed; font:13px/1.6 var(--mono); tab-size:2; }
+  .binding-panel { padding:22px; background:var(--paper); }
+  .binding-panel > label { display:flex; align-items:flex-start; gap:10px; padding:16px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .binding-panel input { margin-top:.25em; }
+  .binding-panel label span { display:grid; gap:3px; }
+  .binding-panel label small { color:var(--muted); font-size:.68rem; }
+  .builder-boundary { margin-top:24px; padding:15px; border-left:3px solid var(--blue); background:#fff; }
+  .builder-boundary p { margin:6px 0 0; color:var(--muted); font-size:.7rem; line-height:1.55; }
+  .builder-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+  .builder-status { padding:14px; border-left:3px solid var(--green); background:var(--paper); color:var(--muted); font-size:.75rem; }
   .selected-view, .publishing-view, .success-view, .list-view { width: min(100%, 820px); margin-inline: auto; }
   .selected-view, .publishing-view, .success-view { padding-left: 28px; border-left: 2px solid var(--orange); }
   .back { min-height: 36px; margin: 0 0 44px; padding: 0; border: 0; background: none; color: var(--muted); font: 500 .68rem var(--mono); cursor: pointer; }
@@ -785,10 +936,11 @@ up handoff ./dist exact-worker-name \
     .docs-nav nav a, .docs-nav nav a.subpage { min-width: max-content; flex: 0 0 auto; grid-template-columns: 24px auto; padding: 0 15px; border-right: 1px solid var(--line); border-bottom: 0; }
     .docs-nav nav a:last-child { border-right: 0; }
     .docs-nav > div { display: none; }
-    .empty-state { grid-template-columns: 1fr; }
-    .empty-copy { padding: 58px 28px 0; }
-    .brand-stroke { min-height:310px; margin:-6px -30px -8px 12%; }
-    .brand-stroke img { width:155%; object-position:72% 62%; }
+    .builder-grid { grid-template-columns:1fr; }
+    .editor-panel { border-right:0; border-bottom:1px solid var(--line); }
+    .binding-panel { display:grid; grid-template-columns:repeat(3,1fr); gap:0 16px; }
+    .binding-panel > .state-label,.builder-boundary { grid-column:1/-1; }
+    .empty-copy { padding:52px 0; }
   }
 
   @media (max-width: 600px) {
@@ -817,11 +969,18 @@ up handoff ./dist exact-worker-name \
     .example-row h2 { margin-top: 4px; }
     .example-row p { font-size: .76rem; line-height: 1.6; }
     .example-row nav { display: grid; gap: 7px; margin-top: 12px; }
-    .empty-state { min-height: 570px; }
-    .empty-copy { padding: 48px 14px 0; }
-    .empty-state h1 { font-size: clamp(2.2rem, 12vw, 3rem); }
-    .brand-stroke { min-height:260px; margin:0 -34px 0 2%; }
-    .brand-stroke img { width:180%; object-position:72% 64%; }
+    .empty-state { min-height: calc(100vh - 180px); border-radius:8px; }
+    .empty-copy { width:calc(100% - 28px); padding:38px 0; }
+    .empty-state h1 { font-size: clamp(2.4rem, 13vw, 3.4rem); }
+    .workspace-choices { grid-template-columns:1fr; }
+    .workspace-choice { min-height:150px; }
+    .builder-head { align-items:start; }
+    .builder-grid { grid-template-columns:1fr; }
+    .editor-panel,.binding-panel { padding:15px; }
+    .binding-panel { display:block; }
+    .code-editor textarea { min-height:360px; font-size:12px; }
+    .builder-actions { display:grid; grid-template-columns:1fr 1fr; }
+    .builder-actions button { width:100%; }
     .selected-view, .publishing-view, .success-view { padding-left: 18px; }
     .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { font-size: 2.7rem; }
     .file-summary { grid-template-columns: 1fr; }
