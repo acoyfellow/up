@@ -49,6 +49,7 @@ No other root or binding fields are accepted in 0.0.1. `checks` allows up to 20 
 |---|---|
 | `up inspect <folder> [name]` | Local staging preflight; lists exact assets, modules, bindings, exclusions, and command plan |
 | `up open <folder> [name]` | Open the plan at a random path on a `127.0.0.1`-only server; explicit consent starts the pinned CLI with redacted progress, health evidence, expiry/retry state, ownership, and handoff controls |
+| `up bridge [--port 8797]` | Connect an authenticated private Up editor to local Wrangler; loopback-only, origin-checked, explicit-consent deployment |
 | `up deploy <folder> [name]` | Provision and deploy one public Temporary Account graph |
 | `up status [folder]` | Show project-scoped URL, expiry, and bindings without ownership authority |
 | `up deploy … --accept-cloudflare-terms` | Explicit non-interactive Terms acceptance |

@@ -41,6 +41,14 @@ bunx github:acoyfellow/up open ./my-app
 
 The composer uses a random local path, binds only to `127.0.0.1`, and shows exact assets, Worker modules, bindings, exclusions, public/temporary risk, credential isolation, and the deploy command before mutation. After separate public-exposure and Terms confirmations, it runs the same pinned CLI and streams claim-redacted Wrangler progress to the page, then links the live app. It restores active or expired project state on reopen, counts down from Wrangler’s authoritative expiry, shows partial health-check failures, and supports a clean retry.
 
+For an installed private Up workspace, start the localhost bridge once:
+
+```sh
+bunx github:acoyfellow/up bridge
+```
+
+The authenticated web editor can then save and deploy a Worker through local Wrangler. The bridge listens only on `127.0.0.1`, accepts the configured private Up origin, requires explicit public/Terms consent, and never returns credentials or ownership links to the hosted instance.
+
 Then deploy:
 
 ```sh
