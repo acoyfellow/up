@@ -31,7 +31,8 @@ No other root or binding fields are accepted in 0.0.1.
 - Binding names: uppercase letter followed by up to 47 uppercase letters, digits, or `_`.
 - Binding names must be unique across KV, D1, and Durable Objects.
 - Durable Object class names must be valid JavaScript identifiers.
-- Up currently generates one SQLite migration containing the initial distinct class names.
+- Up stores append-only SQLite migration history per active project session. Initial classes use `v1`; added classes append `v2`, `v3`, and so on.
+- Class deletion or rename fails before Wrangler. Start a fresh Temporary Account explicitly with `up forget <folder>` when destructive migration semantics are intended.
 
 ## Commands
 
@@ -71,7 +72,7 @@ No other root or binding fields are accepted in 0.0.1.
 | Static Assets | `public/**` through `env.ASSETS` |
 | KV | draft namespace auto-provisioned by Wrangler |
 | D1 | draft database auto-provisioned by Wrangler |
-| Durable Objects | initial class bindings and SQLite migration |
+| Durable Objects | class bindings with append-only SQLite migration history; add-class redeploys supported |
 | Queues | supported by Temporary Accounts; Up wiring not shipped yet |
 | Hyperdrive | supported by Temporary Accounts; Up wiring not shipped yet; requires an existing database |
 | Certificates | supported account operation; configured outside `up.json` |

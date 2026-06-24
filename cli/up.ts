@@ -87,6 +87,7 @@ function anonymousPaths(projectRoot: string) {
     config: join(root, 'config'),
     account: join(root, 'config', '.wrangler', 'wrangler-temporary-account.toml'),
     metadata: join(root, 'project.json'),
+    durableMigrations: join(root, 'durable-object-migrations.json'),
     lastProject: join(base, 'last-project.json'),
   };
 }
@@ -201,6 +202,9 @@ type BindingManifest = {
   durableObjects: Array<{ binding: string; className: string }>;
 };
 
+type DurableMigration = { tag: string; new_sqlite_classes: string[] };
+type DurableMigrationState = { classes: string[]; migrations: DurableMigration[] };
+
 type StagedFolder = {
   directory: string;
   config: string;
@@ -212,6 +216,7 @@ type StagedFolder = {
   dynamic: boolean;
   layout: 'canonical' | 'legacy';
   bindings: BindingManifest;
+  durableMigrations: DurableMigrationState;
 };
 
 type ProjectMetadata = {
@@ -325,7 +330,82 @@ async function copyStableFile(source: string, destination: string, root: string)
   }
 }
 
-async function stageAnonymousFolder(root: string, stateRoot: string): Promise<StagedFolder> {
+function planDurableMigrations(
+  durableObjects: BindingManifest['durableObjects'],
+  previous: DurableMigrationState | null,
+): DurableMigrationState {
+  const classes = [...new Set(durableObjects.map((item) => item.className))].sort();
+  if (!previous) {
+    return {
+      classes,
+      migrations: classes.length ? [{ tag: 'v1', new_sqlite_classes: classes }] : [],
+    };
+  }
+  const removed = previous.classes.filter((className) => !classes.includes(className));
+  if (removed.length)
+    throw new Error(
+      `Durable Object class removal or rename is not supported: ${removed.join(', ')}. Restore the previous class name or start a new Temporary Account with \`up forget <folder>\`.`,
+    );
+  const added = classes.filter((className) => !previous.classes.includes(className));
+  return {
+    classes,
+    migrations: added.length
+      ? [
+          ...previous.migrations,
+          { tag: `v${previous.migrations.length + 1}`, new_sqlite_classes: added },
+        ]
+      : previous.migrations,
+  };
+}
+
+async function readDurableMigrationState(
+  paths: ReturnType<typeof anonymousPaths>,
+): Promise<DurableMigrationState | null> {
+  const source = await readFile(paths.durableMigrations, 'utf8').catch(() => '');
+  if (!source) return null;
+  const parsed = JSON.parse(source) as Partial<DurableMigrationState>;
+  if (!Array.isArray(parsed.classes) || !Array.isArray(parsed.migrations))
+    throw new Error('Local Durable Object migration history is invalid.');
+  return {
+    classes: parsed.classes.filter((item): item is string => typeof item === 'string'),
+    migrations: parsed.migrations.map((migration, index) => {
+      if (
+        !migration ||
+        migration.tag !== `v${index + 1}` ||
+        !Array.isArray(migration.new_sqlite_classes) ||
+        migration.new_sqlite_classes.some((item) => typeof item !== 'string')
+      )
+        throw new Error('Local Durable Object migration history is invalid.');
+      return migration;
+    }),
+  };
+}
+
+async function activeDurableMigrationState(
+  paths: ReturnType<typeof anonymousPaths>,
+): Promise<DurableMigrationState | null> {
+  const account = await readTemporaryAccount(paths, true).catch(() => null);
+  if (!account || Date.parse(account.accountExpiresAt) <= Date.now()) return null;
+  return readDurableMigrationState(paths);
+}
+
+async function writeDurableMigrationState(
+  paths: ReturnType<typeof anonymousPaths>,
+  state: DurableMigrationState,
+): Promise<void> {
+  if (!state.migrations.length) {
+    await rm(paths.durableMigrations, { force: true });
+    return;
+  }
+  await writeFile(paths.durableMigrations, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+  await chmod(paths.durableMigrations, 0o600);
+}
+
+async function stageAnonymousFolder(
+  root: string,
+  stateRoot: string,
+  previousDurableMigrations: DurableMigrationState | null = null,
+): Promise<StagedFolder> {
   const directory = await mkdtemp(join(stateRoot, 'deploy-'));
   const publicPath = join(root, 'public');
   const workerDirectoryPath = join(root, 'worker');
@@ -442,7 +522,10 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
     if (!hasIndex) throw new Error(`${canonical ? 'public/index.html' : 'index.html'} is required`);
 
     const configPath = join(directory, 'wrangler.jsonc');
-    const classes = [...new Set(bindings.durableObjects.map((item) => item.className))];
+    const durableMigrations = planDurableMigrations(
+      bindings.durableObjects,
+      previousDurableMigrations,
+    );
     const config = {
       ...(dynamic
         ? { main: layout === 'canonical' ? './worker/index.js' : './worker/_worker.js' }
@@ -462,7 +545,7 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
                 class_name: className,
               })),
             },
-            migrations: [{ tag: 'v1', new_sqlite_classes: classes }],
+            migrations: durableMigrations.migrations,
           }
         : {}),
     };
@@ -478,6 +561,7 @@ async function stageAnonymousFolder(root: string, stateRoot: string): Promise<St
       dynamic,
       layout,
       bindings,
+      durableMigrations,
     };
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
@@ -659,7 +743,11 @@ async function inspectProject(): Promise<void> {
   if (!validName(name)) throw new Error('Invalid Worker name.');
   const temporary = await mkdtemp(join(tmpdir(), 'up-inspect-'));
   try {
-    const staged = await stageAnonymousFolder(root, temporary);
+    const staged = await stageAnonymousFolder(
+      root,
+      temporary,
+      await activeDurableMigrationState(anonymousPaths(root)),
+    );
     const result = {
       projectRoot: root,
       workerName: name,
@@ -671,6 +759,7 @@ async function inspectProject(): Promise<void> {
       workerModules: staged.moduleFiles,
       excluded: staged.excluded,
       bindings: staged.bindings,
+      durableMigrations: staged.durableMigrations.migrations,
       command: `up deploy ${root} ${name} --accept-cloudflare-terms`,
     };
     if (hasFlag('--json')) {
@@ -769,7 +858,11 @@ async function deployAnonymous(): Promise<void> {
   const state = anonymousPaths(root);
   await prepareProjectState(state);
 
-  const staged = await stageAnonymousFolder(root, state.root);
+  const staged = await stageAnonymousFolder(
+    root,
+    state.root,
+    await activeDurableMigrationState(state),
+  );
   let output: string;
   try {
     const bindingNames = [
@@ -803,6 +896,7 @@ async function deployAnonymous(): Promise<void> {
 
   const temporary = await readTemporaryAccount(state);
   const liveUrl = deploymentUrl(output, name);
+  await writeDurableMigrationState(state, staged.durableMigrations);
   await writeProjectMetadata(state, {
     projectRoot: root,
     workerName: name,
@@ -852,7 +946,11 @@ async function handoff(): Promise<void> {
 
   const state = anonymousPaths(root);
   await prepareProjectState(state);
-  const staged = await stageAnonymousFolder(root, state.root);
+  const staged = await stageAnonymousFolder(
+    root,
+    state.root,
+    await readDurableMigrationState(state),
+  );
   let output: string;
   try {
     console.log(`\nContinuing ${name} from the local source folder…\n`);
@@ -876,6 +974,7 @@ async function handoff(): Promise<void> {
   }
 
   const liveUrl = deploymentUrl(output, name);
+  await writeDurableMigrationState(state, staged.durableMigrations);
   console.log(`
 Handoff complete
 

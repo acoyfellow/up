@@ -129,7 +129,7 @@ See [After you keep an app](docs/how-to/after-claim.md) for the full checklist.
 }
 ```
 
-Up turns that into a temporary Wrangler graph. Wrangler auto-provisions KV and D1, deploys the Durable Object class and migration, binds Static Assets as `env.ASSETS`, and uploads the Worker and browser files together.
+Up turns that into a temporary Wrangler graph. Wrangler auto-provisions KV and D1, deploys Durable Object classes with append-only SQLite migrations, binds Static Assets as `env.ASSETS`, and uploads the Worker and browser files together. Added DO classes append a migration; deletion or rename fails before deployment.
 
 ```js
 export class Room {

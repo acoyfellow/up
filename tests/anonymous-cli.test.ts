@@ -332,6 +332,72 @@ describe('anonymous-first CLI', () => {
     });
   });
 
+  it('appends Durable Object migrations and rejects class removal or rename', () => {
+    const data = fixture();
+    writeFileSync(
+      join(data.site, '_worker.js'),
+      `export class Room {}\nexport default { fetch(request, env) { return env.ASSETS.fetch(request) } };`,
+    );
+    writeFileSync(
+      join(data.site, 'up.json'),
+      JSON.stringify({ bindings: { durableObjects: [{ binding: 'ROOMS', className: 'Room' }] } }),
+    );
+    const first = runCli(['deploy', data.site, 'migration-app', accepted], data);
+    expect(first.status, first.stderr).toBe(0);
+    let config = JSON.parse(
+      readFileSync(join(projectState(data).config, 'captured-config.json'), 'utf8'),
+    );
+    expect(config.migrations).toEqual([{ tag: 'v1', new_sqlite_classes: ['Room'] }]);
+
+    writeFileSync(
+      join(data.site, '_worker.js'),
+      `export class Room {}\nexport class Counter {}\nexport default { fetch(request, env) { return env.ASSETS.fetch(request) } };`,
+    );
+    writeFileSync(
+      join(data.site, 'up.json'),
+      JSON.stringify({
+        bindings: {
+          durableObjects: [
+            { binding: 'ROOMS', className: 'Room' },
+            { binding: 'COUNTERS', className: 'Counter' },
+          ],
+        },
+      }),
+    );
+    const second = runCli(['deploy', data.site, 'migration-app', accepted], data);
+    expect(second.status, second.stderr).toBe(0);
+    config = JSON.parse(
+      readFileSync(join(projectState(data).config, 'captured-config.json'), 'utf8'),
+    );
+    expect(config.migrations).toEqual([
+      { tag: 'v1', new_sqlite_classes: ['Room'] },
+      { tag: 'v2', new_sqlite_classes: ['Counter'] },
+    ]);
+
+    writeFileSync(
+      join(data.site, 'up.json'),
+      JSON.stringify({
+        bindings: { durableObjects: [{ binding: 'COUNTERS', className: 'Counter' }] },
+      }),
+    );
+    const removed = runCli(['deploy', data.site, 'migration-app', accepted], data);
+    expect(removed.status).toBe(1);
+    expect(removed.stderr).toContain('class removal or rename is not supported: Room');
+
+    const paths = projectState(data);
+    writeFileSync(
+      paths.account,
+      readFileSync(paths.account, 'utf8').replaceAll(
+        /expiresAt = "[^"]+"/g,
+        'expiresAt = "2000-01-01T00:00:00.000Z"',
+      ),
+    );
+    const freshAccount = runCli(['deploy', data.site, 'migration-app', accepted], data);
+    expect(freshAccount.status, freshAccount.stderr).toBe(0);
+    config = JSON.parse(readFileSync(join(paths.config, 'captured-config.json'), 'utf8'));
+    expect(config.migrations).toEqual([{ tag: 'v1', new_sqlite_classes: ['Counter'] }]);
+  });
+
   it('preserves a canonical Worker module graph outside public assets', () => {
     const data = fixture();
     rmSync(data.site, { recursive: true });

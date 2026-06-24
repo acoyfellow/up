@@ -51,7 +51,7 @@ app/
 }
 ```
 
-Unknown fields fail closed. Binding names are unique uppercase identifiers. Durable Object classes are exported by `_worker.js` and receive one generated SQLite migration.
+Unknown fields fail closed. Binding names are unique uppercase identifiers. Durable Object classes are exported by the Worker module graph. Up preserves append-only SQLite migration history for the active project session; added classes append tags and deletion/rename fails before Wrangler.
 
 Worker code uses `env.ASSETS.fetch(request)` for browser assets and normal binding APIs for dynamic routes.
 
@@ -94,7 +94,7 @@ Wrangler inherits existing KV and D1 bindings from the Worker's settings by bind
 | Static Assets | implemented | `env.ASSETS`; 1,000 files, 5 MiB each |
 | KV | implemented | draft namespace auto-provisioned by Wrangler |
 | D1 | implemented | one draft database; current Temporary Account total 100 MB |
-| Durable Objects | implemented | named class binding and SQLite migration |
+| Durable Objects | implemented | named class bindings and append-only SQLite migration history |
 | Queues | supported upstream; Up wiring next | requires explicit queue lifecycle orchestration |
 | Hyperdrive | supported upstream; Up wiring next | needs an existing external database and connection policy |
 | Certificates | supported account operation | ownership/account operation, not app-local API |
