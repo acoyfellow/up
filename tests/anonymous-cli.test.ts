@@ -14,6 +14,7 @@ import {
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { chromium } from 'playwright';
 import { describe, expect, it } from 'vitest';
 
 const repository = resolve(import.meta.dirname, '..');
@@ -290,6 +291,24 @@ describe('anonymous-first CLI', () => {
       expect(html).toContain('Deploy temporary app');
       expect(html).toContain('State API · GET /api/state · CACHE');
       expect(html).toContain('Copy agent handoff');
+      expect(html).toContain('<fieldset class="consent"><legend>Required approvals</legend>');
+      expect(html).toContain('role="status"');
+      expect(html).toContain('class="skip"');
+      expect(html).toContain('prefers-reduced-motion:reduce');
+      const browser = await chromium.launch({ headless: true });
+      try {
+        const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+        await page.goto(url);
+        expect(await page.getByRole('heading', { name: 'composer-demo' }).isVisible()).toBe(true);
+        expect(await page.getByRole('group', { name: 'Required approvals' }).isVisible()).toBe(
+          true,
+        );
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        );
+      } finally {
+        await browser.close();
+      }
       expect(await fetch(new URL('/', url)).then((result) => result.status)).toBe(404);
       expect(existsSync(data.state)).toBe(false);
 
@@ -334,6 +353,7 @@ describe('anonymous-first CLI', () => {
       expect(stream).toContain('"bindings":["CACHE"]');
       expect(stream).toContain('"passed":true');
       expect(stream).toContain('"type":"result"');
+      expect(stream).toContain('"expiresAt":"');
       expect(stream).toContain('https://composer-demo.authoritative-target.workers.dev');
 
       const ownership = await fetch(new URL('ownership', url), {
@@ -353,6 +373,50 @@ describe('anonymous-first CLI', () => {
       await new Promise<void>((resolvePromise) => healthServer.close(() => resolvePromise()));
     }
   }, 20_000);
+
+  it('shows expired project state before a clean composer retry', async () => {
+    const data = fixture();
+    expect(runCli(['deploy', data.site, 'expired-composer', accepted], data).status).toBe(0);
+    const paths = projectState(data);
+    writeFileSync(
+      paths.account,
+      readFileSync(paths.account, 'utf8').replaceAll(
+        /expiresAt = "[^"]+"/g,
+        'expiresAt = "2000-01-01T00:00:00.000Z"',
+      ),
+    );
+    const child = spawn('bun', [cli, 'open', data.site, 'expired-composer', '--no-open'], {
+      cwd: repository,
+      env: { ...process.env, UP_STATE_DIR: data.state, UP_WRANGLER_BIN: data.fakeWrangler },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    const url = await new Promise<string>((resolvePromise, reject) => {
+      const timer = setTimeout(() => reject(new Error(`composer timeout: ${output}`)), 10_000);
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => {
+        output += chunk;
+        const match = output.match(/Up composer: (http:\/\/127\.0\.0\.1:\d+\/[A-Za-z0-9_-]+\/)/);
+        if (match?.[1]) {
+          clearTimeout(timer);
+          resolvePromise(match[1]);
+        }
+      });
+      child.once('error', reject);
+    });
+    try {
+      const html = await fetch(url).then((response) => response.text());
+      expect(html).toContain('Temporary app expired.');
+      expect(html).toContain('Deploy again to create a fresh Temporary Account.');
+      expect(html).not.toContain('claimToken');
+    } finally {
+      child.kill('SIGKILL');
+      await Promise.race([
+        new Promise<void>((resolvePromise) => child.once('exit', () => resolvePromise())),
+        new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 1_000)),
+      ]);
+    }
+  }, 15_000);
 
   it('isolates project status and forgets only local state without leaking ownership', () => {
     const data = fixture();

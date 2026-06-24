@@ -14,7 +14,7 @@ Production boundary: personal account `bfcb6ac5b3ceaf42a09607f6f7925823` only.
 
 - [x] `up open <folder>` localhost-only inspect/plan UI. Evidence: random unguessable path, `127.0.0.1` bind plus exact Host/path checks, no-store/CSP/frame protections, shared safe-staging inspection, exact assets/modules/bindings/exclusions, public/temporary and credential-isolation warnings, responsive/reduced-motion CSS, subprocess HTTP/404/no-state proof.
 - [x] Redacted deploy progress, live checks, ownership open, and handoff copy. Evidence: separate public/Terms consent, same-origin single-flight child CLI, tokenized SSE without ownership/API secrets, metadata-derived live URL, mandatory root check plus bounded same-origin `up.json` binding checks, OS-open ownership endpoint without returning authority, and copy-ready handoff. Subprocess covers refusal, progress/result/check stream, JSON key and binding evidence, no secret leakage, and ownership response.
-- [ ] Expiry/error/retry, accessibility, reduced motion, and mobile evidence.
+- [x] Expiry/error/retry, accessibility, reduced motion, and mobile evidence. Evidence: composer restores active/expired session without authority, server-sourced expiry countdown, clean redeploy/retry and partial-check states, SSE reconnect messaging, skip link, fieldset/legend, live regions, focus recovery, keyboard outlines, clipboard fallback, reduced-motion CSS, and Playwright 390×844 no-overflow/semantic checks plus expired-session subprocess proof.
 
 ## C. Full native Temporary Account shelf
 
