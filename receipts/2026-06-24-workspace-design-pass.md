@@ -28,11 +28,12 @@ The browser builder includes:
 - deploy command enabled only after the project is saved;
 - explicit note that Temporary Account deployment runs through local Wrangler.
 
-The hosted private instance does not pretend it can invoke a user's local Wrangler. It authors the project and hands it to `up open`, whose localhost composer owns deployment consent, progress, checks, ownership, and handoff.
+The hosted private instance connects to a localhost-only Up bridge when the owner runs `up bridge`. The bridge accepts requests only from `https://up.coey.dev` (or loopback during local tests), requires explicit public/Terms consent, writes the canonical project under the user's Up workspace, and invokes the same isolated Temporary Account CLI. Credentials and ownership links never cross to the hosted instance. Without the bridge, the builder saves the project and provides the `up open` handoff.
 
 ## Evidence
 
 - build, Svelte check, TypeScript, Workers tests, CLI tests, browser E2E, SEO/PWA, and personal account guard passed;
 - browser E2E verifies the Worker builder and scaffold download;
+- CLI subprocess verifies bridge origin/consent enforcement, canonical project output, Durable Object scaffolding, isolated Wrangler deployment, live URL response, and no ownership-link leakage;
 - Playwright at 390×844 confirms no horizontal overflow for canvas or builder;
 - production target remains personal account `bfcb6ac5b3ceaf42a09607f6f7925823`, Worker `up-coey-dev`.

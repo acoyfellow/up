@@ -22,8 +22,10 @@ try {
   if (!(await page.getByRole('heading', { name: 'Build the app.' }).isVisible()))
     throw Error('Worker builder missing');
   if (!(await page.getByLabel('Worker code').isVisible())) throw Error('Worker editor missing');
-  if (!(await page.getByText('Deployment runs locally').isVisible()))
-    throw Error('local deployment boundary missing');
+  if (!(await page.getByText('Local Wrangler bridge').isVisible()))
+    throw Error('local Wrangler bridge missing');
+  if (!(await page.getByText('bunx github:acoyfellow/up bridge', { exact: true }).isVisible()))
+    throw Error('bridge startup command missing');
   await page.getByRole('checkbox').nth(2).check();
   await page.evaluate(() =>
     Object.defineProperty(window, 'showDirectoryPicker', { value: undefined, configurable: true }),
@@ -34,7 +36,7 @@ try {
   ]);
   if (!download.suggestedFilename().includes('create-my-app.sh'))
     throw Error('Worker project scaffold download missing');
-  if (!(await page.getByRole('button', { name: 'Copy deploy command' }).isEnabled()))
+  if (!(await page.getByRole('button', { name: 'Copy local command' }).isEnabled()))
     throw Error('deploy command not enabled after save');
   await page.goto(`${origin}/tutorial`);
   if (!(await page.getByRole('heading', { name: 'Deploy the stack before signup' }).isVisible()))

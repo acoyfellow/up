@@ -33,6 +33,7 @@ function usage(): never {
 up inspect <folder> [name]      Local preflight; no account or remote mutation
 up open <folder> [name]         Open localhost-only inspect/plan composer
   --no-open                     Print URL without opening a browser
+up bridge [--port 8797]         Connect private web workspace to local Wrangler
 up deploy <folder> [name]       Deploy now without a Cloudflare account
   --accept-cloudflare-terms     Required for agents and non-interactive use
 up status [folder]              Show local project session without ownership link
@@ -1168,6 +1169,187 @@ async function openComposer(): Promise<void> {
   await new Promise<void>((resolvePromise) => server.once('close', () => resolvePromise()));
 }
 
+function bridgeCors(origin: string): Record<string, string> {
+  return {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    'access-control-allow-private-network': 'true',
+    'cache-control': 'no-store',
+    vary: 'Origin',
+  };
+}
+
+function bridgeOriginAllowed(origin: string): boolean {
+  const configured = process.env.UP_BRIDGE_ORIGIN || 'https://up.coey.dev';
+  return origin === configured || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+}
+
+async function startBridge(): Promise<void> {
+  const portValue = option('--port') || process.env.UP_BRIDGE_PORT || '8797';
+  const port = Number(portValue);
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) usage();
+  const workspaceRoot = resolve(
+    process.env.UP_WORKSPACE_DIR || join(homedir(), '.up', 'workspaces'),
+  );
+  await mkdir(workspaceRoot, { recursive: true, mode: 0o700 });
+  await chmod(workspaceRoot, 0o700);
+  let busy = false;
+  const server = http.createServer((request, response) => {
+    const origin = request.headers.origin || '';
+    const expectedHost = `127.0.0.1:${port}`;
+    if (request.headers.host !== expectedHost || !bridgeOriginAllowed(origin)) {
+      response.writeHead(403, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+      response.end('Forbidden');
+      return;
+    }
+    const cors = bridgeCors(origin);
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204, cors);
+      response.end();
+      return;
+    }
+    if (request.method === 'GET' && request.url === '/health') {
+      response.writeHead(200, { ...cors, 'content-type': 'application/json' });
+      response.end(JSON.stringify({ ready: true, version: '0.0.1' }));
+      return;
+    }
+    if (request.method !== 'POST' || request.url !== '/deploy') {
+      response.writeHead(404, { ...cors, 'content-type': 'text/plain' });
+      response.end('Not found');
+      return;
+    }
+    if (request.headers['content-type'] !== 'application/json') {
+      response.writeHead(415, { ...cors, 'content-type': 'text/plain' });
+      response.end('JSON required');
+      return;
+    }
+    if (busy) {
+      response.writeHead(409, { ...cors, 'content-type': 'text/plain' });
+      response.end('A deployment is already running');
+      return;
+    }
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 1_000_000) request.destroy();
+    });
+    request.on('end', () => {
+      void (async () => {
+        let input: Record<string, unknown>;
+        try {
+          input = JSON.parse(body) as Record<string, unknown>;
+        } catch {
+          response.writeHead(400, { ...cors, 'content-type': 'text/plain' });
+          response.end('Invalid JSON');
+          return;
+        }
+        const name = typeof input.name === 'string' ? normalizeName(input.name) : '';
+        const code = typeof input.code === 'string' ? input.code : '';
+        const bindings = input.bindings as Record<string, unknown> | undefined;
+        if (
+          !name ||
+          !validName(name) ||
+          !code ||
+          code.length > 512_000 ||
+          input.acceptPublic !== true ||
+          input.acceptTerms !== true
+        ) {
+          response.writeHead(400, { ...cors, 'content-type': 'text/plain' });
+          response.end('Valid project, public exposure approval, and Terms approval are required');
+          return;
+        }
+        const root = join(workspaceRoot, name);
+        const publicDir = join(root, 'public');
+        const workerDir = join(root, 'worker');
+        await Promise.all([
+          mkdir(publicDir, { recursive: true, mode: 0o700 }),
+          mkdir(workerDir, { recursive: true, mode: 0o700 }),
+        ]);
+        const durableObjects = bindings?.durableObjects === true;
+        const workerSource =
+          durableObjects && !/export\s+class\s+Room\b/.test(code)
+            ? `${code}\n\nexport class Room {\n  constructor(state) { this.state = state; }\n  async fetch() { return Response.json({ ok: true }); }\n}\n`
+            : code;
+        const manifest = {
+          bindings: {
+            ...(bindings?.kv === true ? { kv: ['CACHE'] } : {}),
+            ...(bindings?.d1 === true ? { d1: ['DB'] } : {}),
+            ...(durableObjects
+              ? { durableObjects: [{ binding: 'ROOMS', className: 'Room' }] }
+              : {}),
+          },
+        };
+        await Promise.all([
+          writeFile(join(workerDir, 'index.js'), workerSource, { mode: 0o600 }),
+          writeFile(
+            join(publicDir, 'index.html'),
+            '<!doctype html><title>My Up app</title><main><h1>It works.</h1></main>',
+            { mode: 0o600 },
+          ),
+          writeFile(join(root, 'up.json'), `${JSON.stringify(manifest, null, 2)}\n`, {
+            mode: 0o600,
+          }),
+        ]);
+        busy = true;
+        const child = spawn(
+          process.execPath,
+          [resolve(import.meta.dir, 'up.ts'), 'deploy', root, name, '--accept-cloudflare-terms'],
+          { cwd: process.cwd(), env: process.env, stdio: ['ignore', 'pipe', 'pipe'] },
+        );
+        let output = '';
+        child.stdout?.setEncoding('utf8').on('data', (chunk: string) => {
+          output += redactClaimUrls(chunk);
+        });
+        child.stderr?.setEncoding('utf8').on('data', (chunk: string) => {
+          output += redactClaimUrls(chunk);
+        });
+        child.once('error', (error) => {
+          busy = false;
+          response.writeHead(500, { ...cors, 'content-type': 'application/json' });
+          response.end(JSON.stringify({ error: error.message }));
+        });
+        child.once('exit', async (code) => {
+          busy = false;
+          if (code !== 0) {
+            response.writeHead(500, { ...cors, 'content-type': 'application/json' });
+            response.end(JSON.stringify({ error: `Up exited ${code}`, output }));
+            return;
+          }
+          const metadata = await readProjectMetadata(anonymousPaths(root));
+          response.writeHead(200, { ...cors, 'content-type': 'application/json' });
+          response.end(
+            JSON.stringify({
+              liveUrl: metadata?.liveUrl || null,
+              projectRoot: root,
+              output,
+            }),
+          );
+        });
+      })().catch((error) => {
+        busy = false;
+        if (!response.headersSent)
+          response.writeHead(500, { ...cors, 'content-type': 'application/json' });
+        response.end(
+          JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+        );
+      });
+    });
+  });
+  await new Promise<void>((resolvePromise, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => resolvePromise());
+  });
+  console.log(
+    `Up bridge ready on http://127.0.0.1:${port}\nAllowed workspace: ${workspaceRoot}\nPress Ctrl+C to stop.`,
+  );
+  const close = () => server.close();
+  process.once('SIGINT', close);
+  process.once('SIGTERM', close);
+  await new Promise<void>((resolvePromise) => server.once('close', resolvePromise));
+}
+
 async function projectStatus(): Promise<void> {
   const positionals = args.filter((value) => value !== '--json');
   if (positionals.some((value) => value.startsWith('-')) || positionals.length > 1) usage();
@@ -1583,6 +1765,7 @@ try {
   if (command === 'init') await init();
   else if (command === 'inspect') await inspectProject();
   else if (command === 'open') await openComposer();
+  else if (command === 'bridge') await startBridge();
   else if (command === 'deploy') await deployAnonymous();
   else if (command === 'status') await projectStatus();
   else if (command === 'claim') await claim();

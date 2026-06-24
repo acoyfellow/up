@@ -418,6 +418,87 @@ describe('anonymous-first CLI', () => {
     }
   }, 15_000);
 
+  it('bridges the private workspace to isolated local Wrangler with explicit consent', async () => {
+    const data = fixture();
+    const probe = http.createServer();
+    await new Promise<void>((resolvePromise) => probe.listen(0, '127.0.0.1', resolvePromise));
+    const address = probe.address();
+    if (!address || typeof address === 'string') throw new Error('port probe failed');
+    const port = address.port;
+    await new Promise<void>((resolvePromise) => probe.close(() => resolvePromise()));
+    const origin = 'https://up.coey.dev';
+    const workspaces = join(data.root, 'workspaces');
+    const child = spawn('bun', [cli, 'bridge', '--port', String(port)], {
+      cwd: repository,
+      env: {
+        ...process.env,
+        UP_BRIDGE_ORIGIN: origin,
+        UP_WORKSPACE_DIR: workspaces,
+        UP_STATE_DIR: data.state,
+        UP_WRANGLER_BIN: data.fakeWrangler,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    await new Promise<void>((resolvePromise, reject) => {
+      const timer = setTimeout(() => reject(new Error(`bridge timeout: ${output}`)), 10_000);
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => {
+        output += chunk;
+        if (output.includes('Up bridge ready')) {
+          clearTimeout(timer);
+          resolvePromise();
+        }
+      });
+      child.once('error', reject);
+    });
+    const endpoint = `http://127.0.0.1:${port}`;
+    try {
+      const health = await fetch(`${endpoint}/health`, { headers: { origin } });
+      expect(health.status).toBe(200);
+      expect(health.headers.get('access-control-allow-origin')).toBe(origin);
+      const refused = await fetch(`${endpoint}/deploy`, {
+        method: 'POST',
+        headers: { origin, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'bridge-app', code: 'export default {}' }),
+      });
+      expect(refused.status).toBe(400);
+      const deployed = await fetch(`${endpoint}/deploy`, {
+        method: 'POST',
+        headers: { origin, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'bridge-app',
+          code: `export default { fetch(request, env) { return env.ASSETS.fetch(request) } };`,
+          bindings: { kv: true, d1: true, durableObjects: true },
+          acceptPublic: true,
+          acceptTerms: true,
+        }),
+      });
+      expect(deployed.status).toBe(200);
+      const result = (await deployed.json()) as { liveUrl?: string };
+      expect(result.liveUrl).toBe('https://bridge-app.authoritative-target.workers.dev');
+      expect(JSON.stringify(result)).not.toContain('claimToken=fake-sensitive-token');
+      expect(readFileSync(join(workspaces, 'bridge-app', 'worker', 'index.js'), 'utf8')).toContain(
+        'export class Room',
+      );
+      expect(
+        JSON.parse(readFileSync(join(workspaces, 'bridge-app', 'up.json'), 'utf8')),
+      ).toMatchObject({
+        bindings: {
+          kv: ['CACHE'],
+          d1: ['DB'],
+          durableObjects: [{ binding: 'ROOMS', className: 'Room' }],
+        },
+      });
+    } finally {
+      child.kill('SIGKILL');
+      await Promise.race([
+        new Promise<void>((resolvePromise) => child.once('exit', () => resolvePromise())),
+        new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 1_000)),
+      ]);
+    }
+  }, 20_000);
+
   it('isolates project status and forgets only local state without leaking ownership', () => {
     const data = fixture();
     const other = join(data.root, 'other');

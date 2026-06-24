@@ -68,6 +68,13 @@
 };`);
   let workerBindings = $state({ kv: false, d1: false, durableObjects: false });
   let workerSaved = $state(false);
+  let workerPublicConsent = $state(false);
+  let workerTermsConsent = $state(false);
+  let bridgeStatus = $state<'checking' | 'offline' | 'ready' | 'deploying' | 'live' | 'error'>(
+    'checking',
+  );
+  let bridgeMessage = $state('Checking local Up bridge…');
+  let workerLiveUrl = $state('');
   let view = $state<'empty' | 'worker' | 'selected' | 'publishing' | 'success' | 'list'>(
     untrack(() => initialSites.length) ? 'list' : 'empty',
   );
@@ -109,6 +116,7 @@
     // SvelteKit supplies authoritative product data in the initial SSR payload.
     // The fallback keeps the legacy renderer functional during migration only.
     if (isProduct && !productLoaded) void initializeProduct();
+    if (isProduct) void checkBridge();
   });
 
   async function initializeProduct() {
@@ -145,7 +153,52 @@
 
   function startWorker() {
     workerSaved = false;
+    workerLiveUrl = '';
     view = 'worker';
+    void checkBridge();
+  }
+
+  async function checkBridge() {
+    bridgeStatus = 'checking';
+    bridgeMessage = 'Checking local Up bridge…';
+    try {
+      const response = await fetch('http://127.0.0.1:8797/health', { signal: AbortSignal.timeout(1800) });
+      if (!response.ok) throw new Error('bridge unavailable');
+      bridgeStatus = 'ready';
+      bridgeMessage = 'Local Up bridge connected.';
+    } catch {
+      bridgeStatus = 'offline';
+      bridgeMessage = 'Run `bunx github:acoyfellow/up bridge`, then reconnect.';
+    }
+  }
+
+  async function deployWorkerFromWorkspace() {
+    if (!workerPublicConsent || !workerTermsConsent || bridgeStatus !== 'ready') return;
+    bridgeStatus = 'deploying';
+    bridgeMessage = 'Wrangler is creating the temporary app…';
+    workerLiveUrl = '';
+    try {
+      const response = await fetch('http://127.0.0.1:8797/deploy', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: workerName,
+          code: workerCode,
+          bindings: workerBindings,
+          acceptPublic: workerPublicConsent,
+          acceptTerms: workerTermsConsent,
+        }),
+      });
+      const result = (await response.json()) as { liveUrl?: string; error?: string };
+      if (!response.ok || !result.liveUrl) throw new Error(result.error || 'Deployment failed');
+      workerLiveUrl = result.liveUrl;
+      workerSaved = true;
+      bridgeStatus = 'live';
+      bridgeMessage = 'Temporary app is live.';
+    } catch (error) {
+      bridgeStatus = 'error';
+      bridgeMessage = error instanceof Error ? error.message : 'Deployment failed';
+    }
   }
 
   function workerManifest() {
@@ -523,14 +576,16 @@
               <label><input type="checkbox" bind:checked={workerBindings.kv} /><span><strong>KV</strong><small>Fast key-value storage</small></span></label>
               <label><input type="checkbox" bind:checked={workerBindings.d1} /><span><strong>D1</strong><small>SQLite database</small></span></label>
               <label><input type="checkbox" bind:checked={workerBindings.durableObjects} /><span><strong>Durable Objects</strong><small>Coordinated state and WebSockets</small></span></label>
-              <div class="builder-boundary"><strong>Deployment runs locally</strong><p>Temporary Accounts are created by Wrangler on your machine. Save this project, then open its local composer.</p></div>
+              <div class="builder-boundary" class:connected={bridgeStatus === 'ready' || bridgeStatus === 'live'}><strong>Local Wrangler bridge</strong><p>{bridgeMessage}</p>{#if bridgeStatus === 'offline' || bridgeStatus === 'error'}<button class="text-button" onclick={checkBridge}>Reconnect</button><code>bunx github:acoyfellow/up bridge</code>{/if}</div>
+              <fieldset class="worker-consent"><legend>Before deployment</legend><label><input type="checkbox" bind:checked={workerPublicConsent} /> This app and API may be public for about an hour.</label><label><input type="checkbox" bind:checked={workerTermsConsent} /> I accept Cloudflare&rsquo;s Terms and Privacy Policy.</label></fieldset>
             </aside>
           </div>
           <div class="builder-actions">
             <button class="secondary" onclick={saveWorkerProject}>Save project</button>
-            <button class="primary" onclick={copyWorkerCommand} disabled={!workerSaved}>{copied ? 'Command copied' : 'Copy deploy command'}</button>
+            <button class="secondary" onclick={copyWorkerCommand} disabled={!workerSaved}>{copied ? 'Command copied' : 'Copy local command'}</button>
+            <button class="primary" onclick={deployWorkerFromWorkspace} disabled={bridgeStatus !== 'ready' || !workerPublicConsent || !workerTermsConsent}>Deploy Worker</button>
           </div>
-          {#if workerSaved}<p class="builder-status" role="status">Project saved. Run <code>bunx github:acoyfellow/up open ./{workerName}</code> to inspect and deploy it.</p>{/if}
+          {#if workerLiveUrl}<p class="builder-status live" role="status">Live: <a href={workerLiveUrl} target="_blank" rel="noopener noreferrer">{workerLiveUrl}</a></p>{:else if workerSaved}<p class="builder-status" role="status">Project saved. You can continue with <code>bunx github:acoyfellow/up open ./{workerName}</code>.</p>{/if}
         </div>
       {:else if view === 'list'}
         <div class="list-view">
@@ -863,10 +918,18 @@ up handoff ./dist exact-worker-name \
   .binding-panel input { margin-top:.25em; }
   .binding-panel label span { display:grid; gap:3px; }
   .binding-panel label small { color:var(--muted); font-size:.68rem; }
-  .builder-boundary { margin-top:24px; padding:15px; border-left:3px solid var(--blue); background:#fff; }
-  .builder-boundary p { margin:6px 0 0; color:var(--muted); font-size:.7rem; line-height:1.55; }
+  .builder-boundary { display:grid; gap:6px; margin-top:24px; padding:15px; border-left:3px solid var(--orange); background:#fff; }
+  .builder-boundary.connected { border-left-color:var(--green); }
+  .builder-boundary p { margin:0; color:var(--muted); font-size:.7rem; line-height:1.55; }
+  .builder-boundary code { overflow-wrap:anywhere; color:var(--blue); font-size:.62rem; }
+  .builder-boundary .text-button { width:max-content; }
+  .worker-consent { display:grid; gap:9px; margin:20px 0 0; padding:14px 0 0; border:0; border-top:1px solid var(--line); }
+  .worker-consent legend { padding:0; font-size:.7rem; font-weight:700; }
+  .worker-consent label { display:flex; gap:8px; color:var(--muted); font-size:.67rem; line-height:1.45; }
+  .worker-consent input { margin-top:.2em; }
   .builder-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
-  .builder-status { padding:14px; border-left:3px solid var(--green); background:var(--paper); color:var(--muted); font-size:.75rem; }
+  .builder-status { padding:14px; border-left:3px solid var(--green); background:var(--paper); color:var(--muted); font-size:.75rem; overflow-wrap:anywhere; }
+  .builder-status a { color:var(--blue); }
   .selected-view, .publishing-view, .success-view, .list-view { width: min(100%, 820px); margin-inline: auto; }
   .selected-view, .publishing-view, .success-view { padding-left: 28px; border-left: 2px solid var(--orange); }
   .back { min-height: 36px; margin: 0 0 44px; padding: 0; border: 0; background: none; color: var(--muted); font: 500 .68rem var(--mono); cursor: pointer; }
@@ -979,7 +1042,7 @@ up handoff ./dist exact-worker-name \
     .editor-panel,.binding-panel { padding:15px; }
     .binding-panel { display:block; }
     .code-editor textarea { min-height:360px; font-size:12px; }
-    .builder-actions { display:grid; grid-template-columns:1fr 1fr; }
+    .builder-actions { display:grid; grid-template-columns:1fr; }
     .builder-actions button { width:100%; }
     .selected-view, .publishing-view, .success-view { padding-left: 18px; }
     .selected-view h1, .publishing-view h1, .success-view h1, .view-heading h1 { font-size: 2.7rem; }
