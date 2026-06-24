@@ -34,6 +34,6 @@ Personal account only:
 - account ID: `bfcb6ac5b3ceaf42a09607f6f7925823`;
 - Worker: `up-coey-dev`;
 - domain: `up.coey.dev`;
-- deployed version: `b51459ff-e0a7-4947-b4d9-529a84709ff0` (before final footer-only follow-up).
+- final deployed version: `541815e6-b79a-45f2-918f-e773cdcba1db`.
 
 The interrupted Queue implementation is preserved in a named git stash and was not mixed into this pivot.
