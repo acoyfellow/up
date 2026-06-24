@@ -245,8 +245,41 @@ describe('anonymous-first CLI', () => {
       expect(html).toContain('Your accounts stay isolated');
       expect(html).toContain('index.html');
       expect(html).toContain('--accept-cloudflare-terms');
+      expect(html).toContain('Deploy temporary app');
       expect(await fetch(new URL('/', url)).then((result) => result.status)).toBe(404);
       expect(existsSync(data.state)).toBe(false);
+
+      const deployUrl = new URL('deploy', url);
+      const refused = await fetch(deployUrl, {
+        method: 'POST',
+        headers: { origin: new URL(url).origin, 'content-type': 'application/json' },
+        body: JSON.stringify({ acceptPublic: true, acceptTerms: false }),
+      });
+      expect(refused.status).toBe(400);
+
+      const eventsResponse = await fetch(new URL('events', url));
+      const reader = eventsResponse.body?.getReader();
+      expect(reader).toBeDefined();
+      const deployed = await fetch(deployUrl, {
+        method: 'POST',
+        headers: { origin: new URL(url).origin, 'content-type': 'application/json' },
+        body: JSON.stringify({ acceptPublic: true, acceptTerms: true }),
+      });
+      expect(deployed.status).toBe(202);
+      const decoder = new TextDecoder();
+      let stream = '';
+      const deadline = Date.now() + 10_000;
+      while (!stream.includes('"type":"result"') && Date.now() < deadline) {
+        const chunk = await reader?.read();
+        if (!chunk || chunk.done) break;
+        stream += decoder.decode(chunk.value, { stream: true });
+      }
+      await reader?.cancel();
+      expect(stream).toContain('"type":"log"');
+      expect(stream).toContain('sensitive claim URL withheld by Up');
+      expect(stream).not.toContain('claimToken=fake-sensitive-token');
+      expect(stream).toContain('"type":"result"');
+      expect(stream).toContain('https://composer-demo.authoritative-target.workers.dev');
     } finally {
       child.kill('SIGTERM');
       await new Promise<void>((resolvePromise) => child.once('exit', () => resolvePromise()));

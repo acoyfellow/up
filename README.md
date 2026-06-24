@@ -39,7 +39,7 @@ Or open the same read-only plan in a friendly localhost UI:
 bunx github:acoyfellow/up open ./my-app
 ```
 
-The composer uses a random local path, binds only to `127.0.0.1`, and shows exact assets, Worker modules, bindings, exclusions, public/temporary risk, credential isolation, and the deploy command before mutation.
+The composer uses a random local path, binds only to `127.0.0.1`, and shows exact assets, Worker modules, bindings, exclusions, public/temporary risk, credential isolation, and the deploy command before mutation. After separate public-exposure and Terms confirmations, it runs the same pinned CLI and streams claim-redacted Wrangler progress to the page, then links the live app.
 
 Then deploy:
 

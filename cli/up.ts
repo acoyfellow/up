@@ -821,7 +821,7 @@ function escapeHtml(value: string): string {
   );
 }
 
-function inspectionHtml(inspection: ProjectInspection): string {
+function inspectionHtml(inspection: ProjectInspection, nonce: string): string {
   const list = (items: string[], empty: string) =>
     items.length
       ? `<ul>${items.map((item) => `<li><code>${escapeHtml(item)}</code></li>`).join('')}</ul>`
@@ -834,8 +834,8 @@ function inspectionHtml(inspection: ProjectInspection): string {
     ),
   ];
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Up · ${escapeHtml(inspection.workerName)}</title><style>
-:root{color-scheme:light;--ink:#111923;--muted:#5f6f7c;--line:#d7dde1;--paper:#f5f7f8;--orange:#f6821f;--blue:#2678a4;font:16px/1.55 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink)}main{width:min(1080px,calc(100% - 32px));margin:auto;padding:42px 0 70px}header{padding:28px 0 32px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--orange);font:600 .72rem ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}h1{max-width:760px;margin:12px 0 10px;font-size:clamp(2.2rem,6vw,4.5rem);line-height:1;letter-spacing:-.045em}header p{max-width:720px;color:var(--muted)}.warnings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0}.warning{padding:16px;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:5px;background:var(--paper)}.warning.safe{border-left-color:#16855b}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{padding:22px;border:1px solid var(--line);border-radius:7px}.card h2{margin:0 0 14px;font-size:1rem}.card ul{max-height:240px;margin:0;padding-left:20px;overflow:auto}.card li{margin:6px 0}.empty{color:var(--muted)}code{font-family:ui-monospace,monospace;font-size:.82em}.plan{margin-top:16px;padding:22px;border-radius:7px;background:#0b1118;color:#fff}.plan code{display:block;overflow:auto;color:#9fd7ef;white-space:pre}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.meta span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.72rem}@media(max-width:700px){main{padding-top:18px}.grid,.warnings{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
-</style></head><body><main><header><div class="eyebrow">Local inspection · no account created</div><h1>${escapeHtml(inspection.workerName)}</h1><p>${escapeHtml(inspection.projectRoot)}</p><div class="meta"><span>${inspection.layout} layout</span><span>${inspection.assets.length} public assets</span><span>${inspection.workerModules.length} Worker modules</span><span>${bindings.length} bindings</span></div></header><section class="warnings"><div class="warning"><strong>Public and temporary</strong><br>The app and API will be public for about an hour. Do not deploy secrets or private data.</div><div class="warning safe"><strong>Your accounts stay isolated</strong><br>Up launches Wrangler in a project-only home and removes inherited Cloudflare credentials.</div></section><section class="grid"><div class="card"><h2>Public assets</h2>${list(inspection.assets, 'No public assets.')}</div><div class="card"><h2>Worker modules</h2>${list(inspection.workerModules, 'Static-only project.')}</div><div class="card"><h2>Bindings</h2>${list(bindings, 'No platform bindings.')}</div><div class="card"><h2>Excluded</h2>${list(inspection.excluded, 'Nothing excluded.')}</div></section><section class="plan"><strong>Command plan</strong><code>${escapeHtml(inspection.command)}</code></section></main></body></html>`;
+:root{color-scheme:light;--ink:#111923;--muted:#5f6f7c;--line:#d7dde1;--paper:#f5f7f8;--orange:#f6821f;--blue:#2678a4;font:16px/1.55 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink)}main{width:min(1080px,calc(100% - 32px));margin:auto;padding:42px 0 70px}header{padding:28px 0 32px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--orange);font:600 .72rem ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}h1{max-width:760px;margin:12px 0 10px;font-size:clamp(2.2rem,6vw,4.5rem);line-height:1;letter-spacing:-.045em}header p{max-width:720px;color:var(--muted)}.warnings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0}.warning{padding:16px;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:5px;background:var(--paper)}.warning.safe{border-left-color:#16855b}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{padding:22px;border:1px solid var(--line);border-radius:7px}.card h2{margin:0 0 14px;font-size:1rem}.card ul{max-height:240px;margin:0;padding-left:20px;overflow:auto}.card li{margin:6px 0}.empty{color:var(--muted)}code{font-family:ui-monospace,monospace;font-size:.82em}.plan{margin-top:16px;padding:22px;border-radius:7px;background:#0b1118;color:#fff}.plan code{display:block;overflow:auto;color:#9fd7ef;white-space:pre}.deploy{margin-top:16px;padding:22px;border:1px solid var(--line);border-radius:7px}.consent{display:grid;gap:10px;margin:16px 0}.consent label{display:flex;align-items:flex-start;gap:9px}.consent input{margin-top:.3em}button{min-height:44px;padding:0 18px;border:0;border-radius:5px;background:var(--orange);color:#1d1009;font-weight:750;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.progress{margin-top:16px;padding:16px;min-height:100px;max-height:320px;overflow:auto;border-radius:5px;background:#0b1118;color:#dce7ed;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap}.result{margin-top:14px;padding:16px;border-left:4px solid #16855b;background:var(--paper)}.result a{color:var(--blue);font-weight:700}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.meta span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.72rem}@media(max-width:700px){main{padding-top:18px}.grid,.warnings{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style></head><body><main><header><div class="eyebrow">Local inspection · no account created</div><h1>${escapeHtml(inspection.workerName)}</h1><p>${escapeHtml(inspection.projectRoot)}</p><div class="meta"><span>${inspection.layout} layout</span><span>${inspection.assets.length} public assets</span><span>${inspection.workerModules.length} Worker modules</span><span>${bindings.length} bindings</span></div></header><section class="warnings"><div class="warning"><strong>Public and temporary</strong><br>The app and API will be public for about an hour. Do not deploy secrets or private data.</div><div class="warning safe"><strong>Your accounts stay isolated</strong><br>Up launches Wrangler in a project-only home and removes inherited Cloudflare credentials.</div></section><section class="grid"><div class="card"><h2>Public assets</h2>${list(inspection.assets, 'No public assets.')}</div><div class="card"><h2>Worker modules</h2>${list(inspection.workerModules, 'Static-only project.')}</div><div class="card"><h2>Bindings</h2>${list(bindings, 'No platform bindings.')}</div><div class="card"><h2>Excluded</h2>${list(inspection.excluded, 'Nothing excluded.')}</div></section><section class="plan"><strong>Command plan</strong><code>${escapeHtml(inspection.command)}</code></section><section class="deploy"><h2>Deploy this app</h2><p>Up will run the pinned CLI locally and stream redacted Wrangler progress here.</p><form id="deploy-form"><div class="consent"><label><input id="public-consent" type="checkbox" required> I understand the app and API will be public.</label><label><input id="terms-consent" type="checkbox" required> I accept Cloudflare&rsquo;s Terms of Service and Privacy Policy.</label></div><button id="deploy-button" type="submit" disabled>Deploy temporary app</button></form><pre id="progress" class="progress" aria-live="polite">Waiting for approval.</pre><div id="result" class="result" hidden><strong>App is live</strong><br><a id="live-url" target="_blank" rel="noopener noreferrer"></a></div></section></main><script nonce="${nonce}">const form=document.querySelector('#deploy-form'),publicConsent=document.querySelector('#public-consent'),termsConsent=document.querySelector('#terms-consent'),button=document.querySelector('#deploy-button'),progress=document.querySelector('#progress'),result=document.querySelector('#result'),liveUrl=document.querySelector('#live-url');const update=()=>button.disabled=!(publicConsent.checked&&termsConsent.checked);publicConsent.addEventListener('change',update);termsConsent.addEventListener('change',update);const events=new EventSource('./events');events.onmessage=(message)=>{const event=JSON.parse(message.data);if(event.type==='log'){progress.textContent+=(progress.textContent==='Waiting for approval.'?'': '\n')+event.data;progress.scrollTop=progress.scrollHeight}if(event.type==='result'){liveUrl.href=event.liveUrl;liveUrl.textContent=event.liveUrl;result.hidden=false;button.disabled=true;button.textContent='Deployed'}if(event.type==='error'){progress.textContent+='\nError: '+event.data;button.disabled=false;button.textContent='Retry'}};form.addEventListener('submit',async(event)=>{event.preventDefault();button.disabled=true;button.textContent='Deploying…';progress.textContent='Starting pinned Up CLI…';const response=await fetch('./deploy',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({acceptPublic:publicConsent.checked,acceptTerms:termsConsent.checked})});if(!response.ok){progress.textContent='Deploy refused: '+await response.text();button.disabled=false;button.textContent='Retry'}});</script></body></html>`;
 }
 
 async function openComposer(): Promise<void> {
@@ -844,27 +844,136 @@ async function openComposer(): Promise<void> {
     throw new Error(`Folder not found: ${root}`);
   const inspection = await createInspection(root, name);
   const token = randomBytes(18).toString('base64url');
+  const nonce = randomBytes(18).toString('base64url');
   const pagePath = `/${token}/`;
+  const eventsPath = `${pagePath}events`;
+  const deployPath = `${pagePath}deploy`;
+  const history: Array<Record<string, unknown>> = [];
+  const clients = new Set<http.ServerResponse>();
+  let deploying = false;
+  const emit = (event: Record<string, unknown>) => {
+    history.push(event);
+    if (history.length > 500) history.shift();
+    const message = `data: ${JSON.stringify(event)}\n\n`;
+    for (const client of clients) client.write(message);
+  };
+  const relay = (stream: Readable, type: 'stdout' | 'stderr') => {
+    let pending = '';
+    stream.setEncoding('utf8');
+    stream.on('data', (chunk: string) => {
+      pending += chunk;
+      const lines = pending.split('\n');
+      pending = lines.pop() || '';
+      for (const line of lines) {
+        const redacted = redactClaimUrls(line).trimEnd();
+        if (redacted) emit({ type: 'log', stream: type, data: redacted });
+      }
+    });
+    stream.on('end', () => {
+      const redacted = redactClaimUrls(pending).trimEnd();
+      if (redacted) emit({ type: 'log', stream: type, data: redacted });
+    });
+  };
   const server = http.createServer((request, response) => {
-    const expectedHost = `127.0.0.1:${(server.address() as { port: number }).port}`;
-    if (
-      request.headers.host !== expectedHost ||
-      request.method !== 'GET' ||
-      request.url !== pagePath
-    ) {
+    const address = server.address();
+    if (!address || typeof address === 'string') return response.end();
+    const expectedHost = `127.0.0.1:${address.port}`;
+    const expectedOrigin = `http://${expectedHost}`;
+    if (request.headers.host !== expectedHost) {
       response.writeHead(404, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
       response.end('Not found');
       return;
     }
-    response.writeHead(200, {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-store',
-      'content-security-policy':
-        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
-      'x-content-type-options': 'nosniff',
-      'referrer-policy': 'no-referrer',
-    });
-    response.end(inspectionHtml(inspection));
+    if (request.method === 'GET' && request.url === pagePath) {
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+      });
+      response.end(inspectionHtml(inspection, nonce));
+      return;
+    }
+    if (request.method === 'GET' && request.url === eventsPath) {
+      response.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-store',
+        connection: 'keep-alive',
+        'x-content-type-options': 'nosniff',
+      });
+      response.write(': connected\n\n');
+      for (const event of history) response.write(`data: ${JSON.stringify(event)}\n\n`);
+      clients.add(response);
+      request.on('close', () => clients.delete(response));
+      return;
+    }
+    if (request.method === 'POST' && request.url === deployPath) {
+      if (
+        request.headers.origin !== expectedOrigin ||
+        request.headers['content-type'] !== 'application/json'
+      ) {
+        response.writeHead(403, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+        response.end('Same-origin JSON request required.');
+        return;
+      }
+      if (deploying) {
+        response.writeHead(409, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+        response.end('Deployment already running.');
+        return;
+      }
+      let body = '';
+      request.setEncoding('utf8');
+      request.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 4096) request.destroy();
+      });
+      request.on('end', () => {
+        let consent: { acceptPublic?: unknown; acceptTerms?: unknown } = {};
+        try {
+          consent = JSON.parse(body);
+        } catch {}
+        if (consent.acceptPublic !== true || consent.acceptTerms !== true) {
+          response.writeHead(400, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+          response.end('Public exposure and Cloudflare Terms approval are required.');
+          return;
+        }
+        deploying = true;
+        history.length = 0;
+        response.writeHead(202, {
+          'content-type': 'application/json',
+          'cache-control': 'no-store',
+        });
+        response.end(JSON.stringify({ started: true }));
+        const child = spawn(
+          process.execPath,
+          [resolve(import.meta.dir, 'up.ts'), 'deploy', root, name, '--accept-cloudflare-terms'],
+          { cwd: process.cwd(), env: process.env, stdio: ['ignore', 'pipe', 'pipe'] },
+        );
+        if (child.stdout) relay(child.stdout, 'stdout');
+        if (child.stderr) relay(child.stderr, 'stderr');
+        child.once('error', (error) => {
+          deploying = false;
+          emit({ type: 'error', data: error.message });
+        });
+        child.once('exit', async (code) => {
+          deploying = false;
+          if (code !== 0) {
+            emit({ type: 'error', data: `Up CLI exited with status ${code ?? 'unknown'}.` });
+            return;
+          }
+          const metadata = await readProjectMetadata(anonymousPaths(root));
+          if (!metadata) {
+            emit({ type: 'error', data: 'Deployment finished without project metadata.' });
+            return;
+          }
+          emit({ type: 'result', liveUrl: metadata.liveUrl });
+        });
+      });
+      return;
+    }
+    response.writeHead(404, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+    response.end('Not found');
   });
   await new Promise<void>((resolvePromise, reject) => {
     server.once('error', reject);
@@ -873,7 +982,7 @@ async function openComposer(): Promise<void> {
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Unable to start local composer.');
   const url = `http://127.0.0.1:${address.port}${pagePath}`;
-  console.log(`Up composer: ${url}\nRead-only inspection. Press Ctrl+C to stop.`);
+  console.log(`Up composer: ${url}\nLocal app composer. Press Ctrl+C to stop.`);
   if (!hasFlag('--no-open')) await openUrl(url);
   const close = () => server.close();
   process.once('SIGINT', close);

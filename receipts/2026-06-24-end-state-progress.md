@@ -13,7 +13,7 @@ Production boundary: personal account `bfcb6ac5b3ceaf42a09607f6f7925823` only.
 ## B. Friendly new-user flow
 
 - [x] `up open <folder>` localhost-only inspect/plan UI. Evidence: random unguessable path, `127.0.0.1` bind plus exact Host/path checks, no-store/CSP/frame protections, shared safe-staging inspection, exact assets/modules/bindings/exclusions, public/temporary and credential-isolation warnings, responsive/reduced-motion CSS, subprocess HTTP/404/no-state proof.
-- [ ] Redacted deploy progress, live checks, ownership open, and handoff copy.
+- [ ] Redacted deploy progress, live checks, ownership open, and handoff copy. Partial evidence: composer requires separate public/Terms consent, same-origin JSON POST, single-flight child CLI, tokenized SSE progress with claim redaction, and metadata-derived live URL; subprocess proves refusal, stream redaction, and result. Binding health checks/ownership/handoff controls remain.
 - [ ] Expiry/error/retry, accessibility, reduced motion, and mobile evidence.
 
 ## C. Full native Temporary Account shelf
