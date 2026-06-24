@@ -29,8 +29,7 @@
       "!src/*.generated.ts",
       "!src/**/*.svelte",
       "!public/**/*.svg",
-      "!scratch",
-      "!wrangler.up.jsonc"
+      "!scratch"
     ]
   }
 }

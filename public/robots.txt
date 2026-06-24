@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /app
 Disallow: /api/
-Sitemap: https://up.ax.cloudflare.dev/sitemap.xml
+Sitemap: https://up.coey.dev/sitemap.xml

@@ -43,7 +43,7 @@ try {
   if (!description?.includes('KV, D1, and Durable Objects'))
     throw Error('SSR description metadata missing');
   const canonical = await noJs.locator('link[rel="canonical"]').getAttribute('href');
-  if (canonical !== 'https://up.ax.cloudflare.dev/') throw Error('SSR canonical metadata missing');
+  if (canonical !== 'https://up.coey.dev/') throw Error('SSR canonical metadata missing');
   const structuredData = await noJs.locator('script[type="application/ld+json"]').textContent();
   if (!structuredData) throw Error('SSR structured data missing');
   JSON.parse(structuredData);

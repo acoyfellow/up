@@ -194,7 +194,7 @@ async function production() {
       'production: live authed deploy',
       'blocked',
       !token
-        ? 'needs CF_ACCESS_TOKEN (cloudflared access token -app https://up.ax.cloudflare.dev)'
+        ? 'needs CF_ACCESS_TOKEN (cloudflared access token -app https://up.coey.dev)'
         : 'needs UP_ALLOW_PRODUCTION_DEPLOY=yes (explicit approval)',
     );
     return { ok, blocked: true };

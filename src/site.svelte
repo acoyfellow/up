@@ -502,8 +502,8 @@ up handoff ./dist exact-worker-name \
         <h1>Apps built with Up</h1><p class="summary">Small apps and the folders that power them. Lunch Vote demonstrates the retained company mode; anonymous examples are next.</p>
         <div class="example-list">
           <article class="example-row">
-            <a class="example-thumb" href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer" aria-label="Open the Lunch Vote live example"><img src="/demos/lunch-vote.jpg" alt="Lunch Vote interface" width="1200" height="675" /></a>
-            <div><p class="example-number">01 · IDENTITY / DB / FILES / AI / REALTIME</p><h2>Lunch Vote</h2><p>Vote with coworkers, see realtime updates, share a menu file, and ask Workers AI to summarize the result.</p><nav aria-label="Lunch Vote links"><a href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer">Open live example ↗</a><a href="https://github.com/acoyfellow/up/tree/feat/quick-parity-0.0.1/examples/lunch-vote" target="_blank" rel="noopener noreferrer">View source ↗</a></nav></div>
+            <a class="example-thumb" href="https://github.com/acoyfellow/up/tree/main/examples/lunch-vote" target="_blank" rel="noopener noreferrer" aria-label="View the Lunch Vote source"><img src="/demos/lunch-vote.jpg" alt="Lunch Vote interface" width="1200" height="675" /></a>
+            <div><p class="example-number">01 · IDENTITY / DB / FILES / AI / REALTIME</p><h2>Lunch Vote</h2><p>A historical company-mode example: vote with coworkers, see realtime updates, share a menu file, and ask Workers AI to summarize the result.</p><nav aria-label="Lunch Vote links"><a href="https://github.com/acoyfellow/up/tree/main/examples/lunch-vote" target="_blank" rel="noopener noreferrer">View source ↗</a></nav></div>
           </article>
         </div>
       {:else if section === 'reference'}

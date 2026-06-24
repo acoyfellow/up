@@ -20,7 +20,7 @@ import { join, relative, resolve } from 'node:path';
 import type { Readable } from 'node:stream';
 import { stripVTControlCharacters } from 'node:util';
 
-const DEFAULT_ORIGIN = 'https://up.ax.cloudflare.dev';
+const DEFAULT_ORIGIN = 'https://up.coey.dev';
 const TEMPORARY_COMPATIBILITY_DATE = '2026-06-23';
 const MAX_TEMPORARY_FILES = 1_000;
 const MAX_TEMPORARY_FILE_BYTES = 5 * 1024 * 1024;

@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "up",
+  "name": "up-coey-dev",
+  "account_id": "bfcb6ac5b3ceaf42a09607f6f7925823",
   "main": "src/kit-worker.ts",
   "compatibility_date": "2026-06-12",
   "compatibility_flags": ["nodejs_compat"],
@@ -19,20 +20,20 @@
   },
   "routes": [
     {
-      "pattern": "up.example.com",
+      "pattern": "up.coey.dev",
       "custom_domain": true
     },
     {
-      "pattern": "*.up.example.com/*",
-      "zone_name": "up.example.com"
+      "pattern": "*.up.coey.dev/*",
+      "zone_name": "coey.dev"
     }
   ],
   "vars": {
-    "TEAM_DOMAIN": "https://REPLACE.cloudflareaccess.com",
-    "POLICY_AUD": "REPLACE",
-    "ADMIN_EMAILS": "admin@example.com",
-    "CONTROL_HOST": "up.example.com",
-    "SITE_DOMAIN": "up.example.com",
+    "TEAM_DOMAIN": "https://coeyman.cloudflareaccess.com",
+    "POLICY_AUD": "d9e76cc54a3d8aedd2d36c6f56a8ce9e303521b593fbfbfedb096275202c0dbf",
+    "ADMIN_EMAILS": "coeyman@gmail.com",
+    "CONTROL_HOST": "up.coey.dev",
+    "SITE_DOMAIN": "up.coey.dev",
     "MAX_SITE_BYTES": "52428800",
     "MAX_FILE_BYTES": "10485760",
     "MAX_FILES": "500"
@@ -56,26 +57,7 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["UpRegistry"]
-    },
-    {
-      "tag": "v2",
-      "new_sqlite_classes": ["SiteDatabase"]
-    },
-    {
-      "tag": "v3",
-      "new_sqlite_classes": ["SiteSecrets"]
-    },
-    {
-      "tag": "v4"
-    },
-    {
-      "tag": "v5",
-      "new_sqlite_classes": ["SiteRealtime"]
-    },
-    {
-      "tag": "v6",
-      "deleted_classes": ["SiteSecrets"]
+      "new_sqlite_classes": ["UpRegistry", "SiteDatabase", "SiteRealtime"]
     }
   ],
   "ai": {
@@ -84,7 +66,7 @@
   "r2_buckets": [
     {
       "binding": "ASSETS",
-      "bucket_name": "up-assets"
+      "bucket_name": "up-coey-dev-assets"
     }
   ]
 }

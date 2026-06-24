@@ -1,4 +1,4 @@
-export const origin = 'https://up.ax.cloudflare.dev';
+export const origin = 'https://up.coey.dev';
 
 export type PageMetadata = {
   title: string;

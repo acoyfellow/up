@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 
-const control = process.env.UP_CONTROL_ORIGIN || 'https://up.ax.cloudflare.dev';
-const siteDomain = process.env.UP_SITE_DOMAIN || 'up.ax.cloudflare.dev';
+const control = process.env.UP_CONTROL_ORIGIN || 'https://up.coey.dev';
+const siteDomain = process.env.UP_SITE_DOMAIN || 'up.coey.dev';
 const accessToken = process.env.CF_ACCESS_TOKEN;
 if (!accessToken)
   throw new Error(`Set CF_ACCESS_TOKEN from cloudflared access token -app ${control}`);

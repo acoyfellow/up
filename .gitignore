@@ -13,8 +13,6 @@ playwright-report/
 test-results/
 artifacts/video/
 .DS_Store
-wrangler.up.jsonc
-wrangler.up-*.jsonc
 scratch/
 
 .svelte-kit/

@@ -33,9 +33,7 @@
     "company:verify:onboarding": "node scripts/onboarding-verify.mjs",
     "company:verify:onboarding:local": "node scripts/onboarding-verify.mjs --local-only",
     "company:test:dynamic-production": "node scripts/dynamic-production-e2e.mjs",
-    "company:deploy:docs": "bun run check && wrangler deploy -c wrangler.docs.jsonc",
-    "company:deploy:app": "bun run check && wrangler deploy -c wrangler.production.jsonc",
-    "company:deploy:up:safe": "bun run check && bun run release:access:check && wrangler deploy -c wrangler.up.jsonc"
+    "deploy:production": "bun run check && bun run public:check && wrangler deploy -c wrangler.production.jsonc"
   },
   "dependencies": {
     "hono": "^4.12.19",

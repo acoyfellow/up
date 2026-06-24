@@ -1,9 +1,9 @@
 # Up
 
-- Tutorial: https://up.ax.cloudflare.dev/tutorial
-- How-to: https://up.ax.cloudflare.dev/how-to
-- Binding reference: https://up.ax.cloudflare.dev/reference
-- Architecture: https://up.ax.cloudflare.dev/explanation
+- Tutorial: https://up.coey.dev/tutorial
+- How-to: https://up.coey.dev/how-to
+- Binding reference: https://up.coey.dev/reference
+- Architecture: https://up.coey.dev/explanation
 - Source: https://github.com/acoyfellow/up
 - Dynamic proof: https://github.com/acoyfellow/up/tree/main/examples/binding-lab
 - Capa catalog: https://capa.coey.dev
