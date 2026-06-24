@@ -80,6 +80,8 @@
   );
   let input = $state<HTMLInputElement>();
   let siteNameInput = $state<HTMLInputElement>();
+  let workerEditorHost = $state<HTMLDivElement>();
+  let workerEditor: { destroy(): void } | undefined;
 
   const deployUrl =
     'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up';
@@ -117,6 +119,7 @@
     // The fallback keeps the legacy renderer functional during migration only.
     if (isProduct && !productLoaded) void initializeProduct();
     if (isProduct) void checkBridge();
+    return () => workerEditor?.destroy();
   });
 
   async function initializeProduct() {
@@ -156,6 +159,38 @@
     workerLiveUrl = '';
     view = 'worker';
     void checkBridge();
+    requestAnimationFrame(() => void mountWorkerEditor());
+  }
+
+  async function mountWorkerEditor() {
+    if (!workerEditorHost || workerEditor) return;
+    const [cm, js, theme] = await Promise.all([
+      import('codemirror'),
+      import('@codemirror/lang-javascript'),
+      import('@codemirror/theme-one-dark'),
+    ]);
+    workerEditor = new cm.EditorView({
+      doc: workerCode,
+      extensions: [
+        cm.basicSetup,
+        js.javascript(),
+        theme.oneDark,
+        cm.EditorView.lineWrapping,
+        cm.EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            workerCode = update.state.doc.toString();
+            workerSaved = false;
+          }
+        }),
+        cm.EditorView.theme({
+          '&': { minHeight: '430px', fontSize: '13px' },
+          '.cm-content': { fontFamily: 'var(--mono)', lineHeight: '1.65', padding: '16px 0' },
+          '.cm-gutters': { fontFamily: 'var(--mono)', background: '#0b1118' },
+          '.cm-scroller': { overflow: 'auto' },
+        }),
+      ],
+      parent: workerEditorHost,
+    });
   }
 
   async function checkBridge() {
@@ -334,6 +369,8 @@
   }
 
   function reset() {
+    workerEditor?.destroy();
+    workerEditor = undefined;
     files = [];
     prepared = [];
     siteName = '';
@@ -569,7 +606,7 @@
           <div class="builder-grid">
             <section class="editor-panel">
               <label class="worker-name"><span>Project name</span><input bind:value={workerName} aria-label="Project name" /></label>
-              <label class="code-editor"><span>worker/index.js</span><textarea bind:value={workerCode} spellcheck="false" aria-label="Worker code"></textarea></label>
+              <div class="code-editor"><span>worker/index.js</span><div bind:this={workerEditorHost} class="code-editor-host" aria-label="Worker code editor"></div></div>
             </section>
             <aside class="binding-panel">
               <p class="state-label">Bindings</p>
@@ -912,7 +949,10 @@ up handoff ./dist exact-worker-name \
   .worker-name,.code-editor { display:grid; gap:8px; color:var(--muted); font-size:.68rem; font-weight:650; }
   .worker-name input { height:42px; padding:0 12px; border:1px solid var(--line); border-radius:5px; font:600 .82rem var(--mono); }
   .code-editor { margin-top:18px; }
-  .code-editor textarea { width:100%; min-height:430px; resize:vertical; padding:18px; border:0; border-radius:6px; background:#0b1118; color:#dce7ed; font:13px/1.6 var(--mono); tab-size:2; }
+  .code-editor-host { min-height:430px; overflow:hidden; border:1px solid #1e2935; border-radius:6px; background:#0b1118; }
+  .code-editor-host :global(.cm-editor) { min-height:430px; }
+  .code-editor-host :global(.cm-focused) { outline:3px solid #71b8d866; outline-offset:-3px; }
+  .code-editor-host :global(.cm-activeLine), .code-editor-host :global(.cm-activeLineGutter) { background-color:#ffffff0a; }
   .binding-panel { padding:22px; background:var(--paper); }
   .binding-panel > label { display:flex; align-items:flex-start; gap:10px; padding:16px 0; border-bottom:1px solid var(--line); cursor:pointer; }
   .binding-panel input { margin-top:.25em; }
@@ -1041,7 +1081,7 @@ up handoff ./dist exact-worker-name \
     .builder-grid { grid-template-columns:1fr; }
     .editor-panel,.binding-panel { padding:15px; }
     .binding-panel { display:block; }
-    .code-editor textarea { min-height:360px; font-size:12px; }
+    .code-editor-host, .code-editor-host :global(.cm-editor) { min-height:360px; }
     .builder-actions { display:grid; grid-template-columns:1fr; }
     .builder-actions button { width:100%; }
     .selected-view, .publishing-view, .success-view { padding-left: 18px; }

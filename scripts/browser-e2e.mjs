@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium } from 'playwright';
 
 const origin = process.env.UP_ORIGIN || 'http://127.0.0.1:8798';
@@ -21,11 +25,21 @@ try {
   await page.getByRole('button', { name: /New Worker/ }).click();
   if (!(await page.getByRole('heading', { name: 'Build the app.' }).isVisible()))
     throw Error('Worker builder missing');
-  if (!(await page.getByLabel('Worker code').isVisible())) throw Error('Worker editor missing');
+  if (!(await page.getByLabel('Worker code editor').isVisible()))
+    throw Error('Worker editor missing');
+  await page.locator('.cm-content span').first().waitFor();
+  if ((await page.locator('.cm-content span').count()) < 10)
+    throw Error('JavaScript syntax highlighting missing');
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('\n// browser-e2e-edit');
+  if (!(await page.locator('.cm-content').textContent())?.includes('browser-e2e-edit'))
+    throw Error('Worker editor did not preserve keyboard edit');
   if (!(await page.getByText('Local Wrangler bridge').isVisible()))
     throw Error('local Wrangler bridge missing');
   if (!(await page.getByText('bunx github:acoyfellow/up bridge', { exact: true }).isVisible()))
     throw Error('bridge startup command missing');
+  await page.getByRole('checkbox').nth(0).check();
   await page.getByRole('checkbox').nth(2).check();
   await page.evaluate(() =>
     Object.defineProperty(window, 'showDirectoryPicker', { value: undefined, configurable: true }),
@@ -36,6 +50,34 @@ try {
   ]);
   if (!download.suggestedFilename().includes('create-my-app.sh'))
     throw Error('Worker project scaffold download missing');
+  const downloadedPath = await download.path();
+  if (!downloadedPath) throw Error('Worker project scaffold path missing');
+  const scaffoldRoot = await mkdtemp(join(tmpdir(), 'up-browser-e2e-'));
+  try {
+    const script = await readFile(downloadedPath, 'utf8');
+    if (!script.includes("mkdir -p 'my-app/public' 'my-app/worker'"))
+      throw Error('canonical project directories missing from scaffold');
+    execFileSync('sh', [downloadedPath], { cwd: scaffoldRoot });
+    const generatedWorker = await readFile(
+      join(scaffoldRoot, 'my-app', 'worker', 'index.js'),
+      'utf8',
+    );
+    if (
+      !generatedWorker.includes('browser-e2e-edit') ||
+      !generatedWorker.includes('export class Room')
+    )
+      throw Error('edited Worker or Durable Object scaffold missing');
+    const generatedManifest = JSON.parse(
+      await readFile(join(scaffoldRoot, 'my-app', 'up.json'), 'utf8'),
+    );
+    if (
+      generatedManifest.bindings?.kv?.[0] !== 'CACHE' ||
+      generatedManifest.bindings?.durableObjects?.[0]?.className !== 'Room'
+    )
+      throw Error('selected bindings missing from scaffold');
+  } finally {
+    await rm(scaffoldRoot, { recursive: true, force: true });
+  }
   if (!(await page.getByRole('button', { name: 'Copy local command' }).isEnabled()))
     throw Error('deploy command not enabled after save');
   await page.goto(`${origin}/tutorial`);
