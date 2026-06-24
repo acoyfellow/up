@@ -1,0 +1,7 @@
+{
+  "bindings": {
+    "kv": ["CACHE"],
+    "d1": ["DB"],
+    "durableObjects": [{ "binding": "ROOMS", "className": "Room" }]
+  }
+}

@@ -62,6 +62,32 @@
 
   const deployUrl =
     'https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/up';
+  const nativeCatalog = [
+    { name: 'Worker', slug: 'workers', action: 'Run code', status: 'Included in Up', detail: 'Dynamic request handling at a public workers.dev URL.' },
+    { name: 'Static Assets', slug: 'assets', action: 'Serve the page', status: 'Included in Up', detail: 'HTML, CSS, JavaScript, images, and other browser files.' },
+    { name: 'KV', slug: 'kv', action: 'Store keys', status: 'Included in Up', detail: 'Fast key-value reads and writes, provisioned from up.json.' },
+    { name: 'D1', slug: 'd1', action: 'Query SQL', status: 'Included in Up', detail: 'A SQLite database that stays with the app if you keep it.' },
+    { name: 'Durable Objects', slug: 'durableObjects', action: 'Coordinate state', status: 'Included in Up', detail: 'Storage, coordination, and WebSockets with SQLite migrations.' },
+    { name: 'Queues', slug: 'queues', action: 'Process work later', status: 'Temporary Account ready', detail: 'Supported upstream; Up’s up.json wiring is next.' },
+    { name: 'Hyperdrive', slug: 'hyperdrive', action: 'Reach an existing database', status: 'Temporary Account ready', detail: 'Supported upstream; requires a database connection policy.' },
+    { name: 'Certificates', slug: 'certificates', action: 'Use client certificates', status: 'Account operation', detail: 'Supported by Temporary Accounts; configured outside the app manifest.' },
+  ];
+  const capaCatalog = [
+    { name: 'GitHub', slug: 'github' },
+    { name: 'GitLab', slug: 'gitlab' },
+    { name: 'Jira', slug: 'jira' },
+    { name: 'Slack', slug: 'slack' },
+    { name: 'Stripe', slug: 'stripe' },
+    { name: 'Discord', slug: 'discord' },
+    { name: 'Box', slug: 'box' },
+    { name: 'Kubernetes', slug: 'kubernetes' },
+    { name: 'Sentry', slug: 'sentry' },
+    { name: 'Twilio', slug: 'twilio' },
+    { name: 'Twilio Messaging', slug: 'twilio' },
+    { name: 'Twilio Verify', slug: 'twilio' },
+    { name: 'Twitch', slug: 'twitch' },
+    { name: 'Zoom', slug: 'zoom' },
+  ];
   const isProduct = $derived(section === 'app');
 
   onMount(() => {
@@ -258,7 +284,7 @@
     {#if !isProduct}
       <a href="/tutorial">Docs</a>
       <a href="/explanation">How it works</a>
-      <a href="/app">Open Up ↗</a>
+      <a href="https://github.com/acoyfellow/up">Get the CLI ↗</a>
     {:else}
       <span class="identity"><i aria-hidden="true"></i>{identity}</span>
     {/if}
@@ -270,14 +296,15 @@
     <div class="home-shell">
       <section class="home-hero" aria-labelledby="home-title">
         <div class="home-hero-copy">
-          <div class="home-kicker"><span>Cloudflare-native</span><i aria-hidden="true"></i><span>Private by default</span></div>
-          <h1 id="home-title">Your company’s<br /><span class="accent">private web.</span></h1>
-          <p class="home-tagline">Publish a folder to a company-private URL behind the identity system your organization already trusts.</p>
+          <div class="home-kicker"><span>Deploy without an account</span></div>
+          <h1 id="home-title">Your app is live<br /><span class="accent">before you sign up.</span></h1>
+          <p class="home-tagline">Worker code, browser assets, KV, D1, and Durable Objects—running together on Cloudflare for about an hour. Keep the whole thing, or let it disappear.</p>
           <div class="home-actions">
-            <a class="primary link-button" href="/app">Open Up <span aria-hidden="true">→</span></a>
-            <a class="home-secondary" href="/tutorial">Install your own</a>
+            <a class="primary link-button" href="https://github.com/acoyfellow/up#deploy-first">Get the CLI <span aria-hidden="true">→</span></a>
+            <a class="home-secondary" href="/tutorial">See it work</a>
           </div>
-          <p class="hosted-note"><i aria-hidden="true"></i>Cloudflare’s hosted installation is currently available to Cloudflare employees.</p>
+          <p class="hosted-note caution"><i aria-hidden="true"></i>The URL is public. Anyone with it can load your app — don&rsquo;t deploy secrets.</p>
+          <p class="hosted-note"><i aria-hidden="true"></i>Independent project. Not an official Cloudflare product.</p>
         </div>
         <picture class="home-art" aria-hidden="true">
           <source srcset="/images/up-hero-paint.webp" type="image/webp" />
@@ -297,53 +324,52 @@
         </div>
       </section>
 
-      <section class="home-intro" aria-labelledby="intro-title">
-        <p class="section-index">01 / PRODUCT</p>
-        <div>
-          <h2 id="intro-title">One installation.<br />Every small site.</h2>
-          <p>Up gives employees and agents one dependable place to publish prototypes, reports, demos, and internal tools. Files stay in private R2. Every request meets Cloudflare Access first.</p>
+      <section class="shelf" aria-labelledby="shelf-title">
+        <div class="shelf-head">
+          <p class="section-index">01 / DYNAMIC</p>
+          <h2 id="shelf-title">Bindings off the shelf.</h2>
+          <p>Up wires Worker, Static Assets, KV, D1, and Durable Objects now. Temporary Accounts also support Queues, Hyperdrive, and certificates; the catalog below shows what works in Up today and what the platform is ready for next.</p>
         </div>
-      </section>
-
-      <section class="feature-grid" aria-label="Product capabilities">
-        <article><span>01</span><h3>Publish a folder</h3><p>HTML, CSS, JavaScript, and assets. No framework or build system required.</p></article>
-        <article><span>02</span><h3>Know the viewer</h3><p><code>up.identity</code> returns the employee identity already verified by Access.</p></article>
-        <article><span>03</span><h3>Store records</h3><p><code>up.db</code> provides site-scoped document collections backed by SQLite.</p></article>
-        <article><span>04</span><h3>Share files</h3><p><code>up.files</code> stores bounded site files in private R2 without credentials.</p></article>
-        <article><span>05</span><h3>Call AI</h3><p><code>up.ai</code> uses the installation’s fixed Workers AI policy.</p></article>
-        <article><span>06</span><h3>Update live</h3><p><code>up.realtime</code> connects authenticated browsers through site-scoped rooms.</p></article>
-        <article><span>07</span><h3>Publish atomically</h3><p>Every digest is verified before a deployment becomes visible. Partial updates never leak.</p></article>
-        <article><span>08</span><h3>Stay in control</h3><p>The Worker, Durable Objects, R2, DNS, and Access app remain in your account.</p></article>
-      </section>
-
-      <section class="system-model" aria-labelledby="model-title">
-        <p class="section-index">02 / SYSTEM</p>
-        <div>
-          <h2 id="model-title">Folder to private URL.</h2>
-          <div class="model-flow" aria-label="Folder to private URL workflow">
-            <span>static folder</span><i>→</i><span>verified upload</span><i>→</i><span>private R2</span><i>→</i><span>Access URL</span>
+        <p class="catalog-label native-label">In Temporary Accounts today · 8 primitives</p>
+        <div class="feature-grid" aria-label="Cloudflare primitives available in Temporary Accounts">
+          {#each nativeCatalog as product}
+            <article class:pending={product.status !== 'Included in Up'}>
+              <div class="native-title">
+                <img src={`/images/cloudflare/${product.slug}.svg`} alt="" width="30" height="30" />
+                <span>{product.name}</span>
+              </div>
+              <small>{product.status}</small>
+              <h3>{product.action}</h3>
+              <p>{product.detail}</p>
+            </article>
+          {/each}
+        </div>
+        <div class="connected-services">
+          <div>
+            <p class="section-index">CONNECTED SERVICES / CAPA</p>
+            <h3>Connect GitHub, Stripe, and the tools your app needs.</h3>
+            <p class="connected-copy">Capa keeps API keys out of your app code. You choose what the app is allowed to do; each request comes back with the answer and a clear record of what happened.</p>
+            <p class="catalog-label">In Capa today · 14 bindings</p>
+            <ul class="capa-catalog" aria-label="Services available in Capa today">
+              {#each capaCatalog as service}
+                <li>
+                  <img src={`/images/capa/${service.slug}.svg`} alt="" width="24" height="24" />
+                  <span>{service.name}</span>
+                </li>
+              {/each}
+            </ul>
           </div>
-          <ol>
-            <li><strong>Connect</strong><span>Approve Up once in Cloudflare.</span></li>
-            <li><strong>Publish</strong><span>Choose a folder and name the site.</span></li>
-            <li><strong>Prove</strong><span>Verify authenticated content and anonymous denial.</span></li>
-          </ol>
+          <div class="connected-status">
+            <strong>Tested end to end</strong>
+            <span>The connection worked in a real temporary account. The simple installer is not shipped yet.</span>
+            <a href="https://capa.coey.dev">See Capa <span aria-hidden="true">↗</span></a>
+          </div>
         </div>
-      </section>
-
-      <section class="docs-map" aria-labelledby="docs-title">
-        <div class="docs-map-heading"><div><p class="section-index">03 / DOCUMENTATION</p><h2 id="docs-title">Read for the job at hand.</h2></div><p>Up follows Diátaxis: learning, goals, information, and understanding stay distinct.</p></div>
-        <div class="docs-quadrants">
-          <a href="/tutorial"><span>LEARNING</span><strong>Tutorial</strong><p>Connect Cloudflare and publish a first private site.</p><i aria-hidden="true">01 →</i></a>
-          <a href="/how-to"><span>GOALS</span><strong>How-to guides</strong><p>Update, operate, verify, and respond safely.</p><i aria-hidden="true">02 →</i></a>
-          <a href="/reference"><span>INFORMATION</span><strong>Reference</strong><p>Routes, limits, bindings, headers, and exact contracts.</p><i aria-hidden="true">03 →</i></a>
-          <a href="/explanation"><span>UNDERSTANDING</span><strong>Explanation</strong><p>Why the Access boundary and atomic model matter.</p><i aria-hidden="true">04 →</i></a>
+        <div class="after-keep">
+          <strong>If you keep it</strong>
+          <span>The Worker, bindings, and data stay together in your Cloudflare account. The app is still public until you add Cloudflare Access or another login.</span>
         </div>
-      </section>
-
-      <section class="read-next" aria-labelledby="next-title">
-        <p class="section-index">WHAT TO READ NEXT</p>
-        <div><h2 id="next-title">Start with a first publish.</h2><a href="/tutorial">Your first Up site <span aria-hidden="true">→</span></a></div>
+        <a class="shelf-cta primary link-button" href="/tutorial">Deploy one in a minute <span aria-hidden="true">→</span></a>
       </section>
     </div>
   {:else if section === 'app'}
@@ -450,23 +476,30 @@
           <a class:active={section === 'reference'} href="/reference"><span>03</span>Reference</a>
           <a class:active={section === 'explanation'} href="/explanation"><span>04</span>Explanation</a>
         </nav>
-        <div><span>Up 0.0.1</span><a href="/app">Open publisher →</a></div>
+        <div><span>Up 0.0.1</span><a href="https://github.com/acoyfellow/up">Get the CLI →</a></div>
       </aside>
       <article class="doc">
       <p class="state-label">{eyebrow}</p>
       {#if section === 'tutorial'}
-        <h1>Set up Up</h1><p class="summary">Connect your Cloudflare account once. Up provisions itself and the Access boundary on your behalf — no API tokens to mint.</p>
-        <h2>1. Connect with Cloudflare</h2><p><a class="primary link-button" href="/how-to">Connect with Cloudflare</a></p><p>You review the requested scopes on Cloudflare’s consent screen and approve. Up creates the Worker, Durable Object, private R2 bucket, and Access application — all in your account.</p>
-        <h2>2. Choose who gets in</h2><p>The Access policy defaults to your company email domain. Point it at your existing SSO (Okta, Entra, Google) or Cloudflare authentication. Everyone in the company; nobody outside.</p>
-        <h2>3. Verify before use</h2><p>Publish a folder while authenticated. Open the resulting URL in a clean browser. It must reach Access before any uploaded bytes. <code>workers.dev</code> and Preview URLs stay disabled.</p>
-        <p>Prefer to fork and self-host the source? <a href={deployUrl}>Deploy to Cloudflare ↗</a></p>
+        <h1>Deploy the stack before signup</h1><p class="summary">Give an agent Worker code, browser assets, and binding names. Create an account only after the dynamic graph proves itself.</p>
+        <h2>1. Build one app folder</h2><pre><code>app/
+  index.html
+  _worker.js
+  up.json</code></pre><p><code>_worker.js</code> handles requests and calls <code>env.ASSETS</code>. <code>up.json</code> declares KV, D1, and Durable Object bindings.</p>
+        <h2>2. Deploy anonymously</h2><pre><code>bunx github:acoyfellow/up deploy ./app</code></pre><p>Up snapshots the app and runs pinned Wrangler with isolated credentials. Wrangler creates the Temporary Account and provisions the supported resources.</p>
+        <h2>3. Exercise or keep</h2><p>Fetch the page and API, mutate every binding, revise, and redeploy. Run <code>up claim --open</code> to keep the whole stack, or let every resource disappear.</p>
+        <h2>4. Hand it back to your agent</h2><p>After the browser ownership flow, connect normal Wrangler with <code>wrangler login</code> and find the new account with <code>wrangler whoami</code>. Then continue the same Worker and bindings:</p><pre><code>up handoff ./app exact-worker-name \
+  --account-id &lt;claimed-account-id&gt;</code></pre><p>No Up API key is needed. The URL stays public until you add Cloudflare Access or another login.</p><p><a href="https://github.com/acoyfellow/up/blob/main/docs/how-to/after-claim.md">Copy the agent handoff prompt →</a></p>
       {:else if section === 'how-to'}
-        <h1>Operate Up</h1><p class="summary">Publish the same folder from the browser, CLI, or an agent.</p><h2>Update a site</h2><p>Publish the same name. Up activates the replacement only after every new asset passes verification.</p><h2>Initialize an agent</h2><pre><code>up init
+        <h1>Iterate, keep, continue</h1><p class="summary">Temporary deployment is the first loop. Handoff reconnects the same source and resources to normal Wrangler.</p><h2>Redeploy before ownership</h2><p>Run <code>up deploy ./dist</code> again. A stable path fingerprint selects the same Worker name and Wrangler reuses the active temporary account.</p><h2>Initialize an agent</h2><pre><code>up init
 # Ask the agent to read .up/SKILL.md
 # Build into ./dist
-up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import <code>/_up/client.js</code>. Identity, document collections, files, AI, and realtime are available without credentials or per-site infrastructure.</p><p><a href="/examples">Browse apps built with Up →</a></p><h2>Respond to exposure</h2><p>Disable the wildcard route or Access application first. Never enable <code>workers.dev</code> as a workaround.</p>
+up deploy ./dist</code></pre><h2>Keep the session</h2><pre><code>up claim --open</code></pre><p>The ownership link controls every deployment in the current anonymous Up session. Up stores it locally and does not print it unless you run <code>up claim --show</code>.</p><h2>Continue after ownership</h2><pre><code>bunx wrangler@4.103.0 login
+bunx wrangler@4.103.0 whoami
+up handoff ./dist exact-worker-name \
+  --account-id &lt;claimed-account-id&gt;</code></pre><p>Wrangler OAuth is enough for local work. The handoff preflight refuses the wrong account or Worker name and preserves attached KV and D1 resources by binding name.</p><p><strong>The URL is still public.</strong> Add Access or another login before adding sensitive data, then verify an anonymous request is denied.</p><p><a href="https://github.com/acoyfellow/up/blob/main/docs/how-to/after-claim.md">Copy the agent handoff prompt →</a></p><p><a href="/examples">Browse apps built with Up →</a></p>
       {:else if section === 'examples'}
-        <h1>Apps built with Up</h1><p class="summary">Small company-private apps and the folders that power them. Live AX examples require a Cloudflare employee identity.</p>
+        <h1>Apps built with Up</h1><p class="summary">Small apps and the folders that power them. Lunch Vote demonstrates the retained company mode; anonymous examples are next.</p>
         <div class="example-list">
           <article class="example-row">
             <a class="example-thumb" href="https://lunch-vote.up.ax.cloudflare.dev" target="_blank" rel="noopener noreferrer" aria-label="Open the Lunch Vote live example"><img src="/demos/lunch-vote.jpg" alt="Lunch Vote interface" width="1200" height="675" /></a>
@@ -474,9 +507,9 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
           </article>
         </div>
       {:else if section === 'reference'}
-        <h1>Reference</h1><p class="summary">Exact contracts for version 0.0.1.</p><table><tbody><tr><th><code>GET /app</code></th><td>Authenticated publisher</td></tr><tr><th><code>GET /api/sites</code></th><td>List company sites</td></tr><tr><th><code>POST /api/sites/:name/deployments</code></th><td>Create a pending company deployment</td></tr><tr><th><code>PUT /api/deployments/:id/assets</code></th><td>Verify and store one asset</td></tr><tr><th><code>POST /api/deployments/:id/activate</code></th><td>Atomically activate a deployment</td></tr><tr><th><code>GET /_up/identity</code></th><td>Current verified employee</td></tr><tr><th><code>/_up/db/*</code></th><td>Site document collections</td></tr><tr><th><code>/_up/files/*</code></th><td>Site file storage</td></tr><tr><th><code>POST /_up/ai/chat</code></th><td>Bounded Workers AI request</td></tr><tr><th><code>GET /_up/realtime/:channel</code></th><td>Authenticated WebSocket channel</td></tr></tbody></table><h2>Limits</h2><ul><li>500 deployment files; 10 MiB each; 50 MiB total</li><li><code>index.html</code> required</li><li>64 KiB per database document; 100 documents per page</li><li>10 MiB per site file; 1,000 listed files</li><li>24 AI messages; 20,000 input characters; 512 output tokens</li><li>16 KiB per realtime message</li></ul>
+        <h1>Reference</h1><p class="summary">Exact anonymous dynamic-app contracts for version 0.0.1.</p><table><tbody><tr><th><code>index.html</code></th><td>Required browser entry point served as a Static Asset</td></tr><tr><th><code>_worker.js</code></th><td>Optional dynamic Worker and Durable Object exports</td></tr><tr><th><code>up.json</code></th><td>Optional KV, D1, and Durable Object binding manifest</td></tr><tr><th><code>up deploy &lt;folder&gt; [name]</code></th><td>Provision and deploy one Temporary Account graph</td></tr><tr><th><code>up claim --open</code></th><td>Open the ownership flow without printing the sensitive link</td></tr><tr><th><code>up claim --show</code></th><td>Explicitly reveal the ownership link</td></tr><tr><th><code>up handoff &lt;folder&gt; &lt;name&gt; --account-id &lt;id&gt;</code></th><td>Continue the existing Worker after ownership using normal Wrangler OAuth</td></tr></tbody></table><h2>Current bindings</h2><ul><li>Static Assets via <code>env.ASSETS</code></li><li>KV namespace bindings</li><li>One D1 database, up to 100 MB total</li><li>Durable Object class bindings with SQLite migration</li><li>Queues and Hyperdrive are supported by Temporary Accounts; Up wiring is not shipped yet</li><li>Certificates are a supported account operation outside <code>up.json</code></li><li>R2, Workers AI, Access, Workflows, and Containers are unavailable anonymously</li></ul><h2>Connected services with Capa</h2><p>Capa keeps provider API keys out of app code and gives the Worker a smaller set of allowed actions for services such as GitHub and Stripe. A live same-account test passed; the simple installer is not shipped yet. <a href="https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md">Read the integration contract →</a></p>
       {:else if section === 'explanation'}
-        <h1>A URL does not grant access.</h1><p class="summary">Up verifies a company session before returning a site or any of its capabilities.</p><h2>One company boundary</h2><p>Cloudflare Access authenticates employees. Up converts that identity into a scoped sibling-domain session. Missing identity returns no uploaded content.</p><h2>The hostname selects one site</h2><p>Database collections, uploaded files, AI requests, and realtime channels are resolved from the current site hostname. Browser code cannot supply another site’s resource ID.</p><h2>Credentials stay on the server</h2><p>The browser receives a fixed same-origin API. R2, Durable Object, and Workers AI credentials never enter site code.</p><h2>A deployment appears all at once</h2><p>Files remain pending in private R2 until every manifest digest passes verification. Activation changes one pointer, so visitors receive either the previous complete version or the next one.</p>
+        <h1>The dynamic graph comes first.</h1><p class="summary">Worker code and platform bindings exist before the deployer has a Cloudflare identity. That inversion is the product.</p><h2>Agents need real behavior</h2><p>A screenshot of static output cannot validate data, coordination, or API logic. Temporary Accounts let an agent exercise Worker, KV, D1, and Durable Object semantics in the real runtime.</p><h2>Bindings travel together</h2><p>The claim URL transfers the whole account, including the supported resources and data produced during the experiment. The app is not reconstructed after signup.</p><h2>Public is explicit</h2><p>The generated Worker URL has no Access boundary. Anyone with it can call the app. Up labels that fact instead of pretending a hard-to-guess hostname is private.</p><h2>Credentials stay isolated</h2><p>Up snapshots the folder, launches Wrangler in a separate home, and removes inherited Cloudflare credentials so the anonymous graph cannot mutate a permanent account.</p>
       {:else if section === 'offline'}
         <h1>You are offline.</h1><p class="summary">The documentation shell is cached. Publishing still requires the network and Access.</p>
       {:else}
@@ -487,7 +520,7 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   {/if}
 </main>
 
-<footer><span>Up 0.0.1 · Private by default</span><nav><a href="/tutorial">Setup</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
+<footer><span>Up 0.0.1 · Your app before signup</span><nav><a href="/tutorial">Start</a><a href="/reference">Reference</a><a href="https://github.com/acoyfellow/up">GitHub</a></nav></footer>
 
 <style>
   :global(:root) {
@@ -577,7 +610,6 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .paint-pattern :global(svg:nth-child(7)) { transform:translate(-22px,7px) rotate(15deg) scale(1.24); }
   .paint-pattern :global(svg:nth-child(8)) { transform:translate(11px,-15px) rotate(-5deg) scale(.9); }
   .home-kicker { display: flex; align-items: center; gap: 10px; color: var(--quiet); font: 500 .66rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }
-  .home-kicker i { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); }
   .home-hero h1 { max-width: 580px; margin: 22px 0 20px; font-size: clamp(2.6rem, 5.2vw, 4rem); font-weight: 640; line-height: 1.02; letter-spacing: -.032em; }
   .home-hero h1 .accent { color: var(--blue); }
   .home-tagline { max-width: 470px; margin: 0; color: var(--muted); font-size: clamp(.98rem, 1.4vw, 1.1rem); line-height: 1.64; }
@@ -587,40 +619,44 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .home-secondary:hover { border-color: var(--ink); color: var(--ink); }
   .hosted-note { display: flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 18px 0 0; color: var(--quiet); font-size: .68rem; line-height: 1.55; }
   .hosted-note i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: .33em; border-radius: 50%; background: var(--green); }
-  .home-intro, .system-model, .read-next { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 30px; padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
-  .home-intro h2, .system-model h2, .docs-map h2, .read-next h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
-  .home-intro > div > p { max-width: 680px; margin: 30px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
+  .hosted-note.caution { margin-top: 22px; color: var(--muted); }
+  .hosted-note.caution i { background: var(--orange); }
+  .shelf { padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
+  .shelf-head { max-width: 760px; margin-bottom: 42px; }
+  .shelf-head h2 { margin: 16px 0 0; font-size: clamp(1.65rem, 3vw, 2.45rem); font-weight: 640; line-height: 1.08; letter-spacing: -.028em; }
+  .shelf-head > p { margin: 22px 0 0; color: var(--muted); font-size: 1rem; line-height: 1.74; }
+  .native-label { margin-top: 0; }
   .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
-  .feature-grid article { min-height: 228px; padding: 26px; border-right: 1px solid var(--line); }
+  .feature-grid article { min-height: 230px; padding: 24px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .feature-grid article:nth-child(4n) { border-right: 0; }
-  .feature-grid article:nth-child(-n+4) { border-bottom: 1px solid var(--line); }
-  .feature-grid article > span { color: var(--orange); font: 500 .62rem var(--mono); }
-  .feature-grid h3 { margin: 26px 0 10px; font-size: .98rem; letter-spacing: -.018em; }
+  .feature-grid article:nth-child(n+5) { border-bottom: 0; }
+  .feature-grid article.pending { background: var(--paper); }
+  .native-title { display: flex; align-items: center; gap: 10px; }
+  .native-title img { width: 30px; height: 30px; object-fit: contain; }
+  .native-title span { font-size: .82rem; font-weight: 680; }
+  .feature-grid small { display: block; width: fit-content; margin-top: 18px; padding: 4px 6px; border: 1px solid #f6821f55; border-radius: 3px; color: #9a4c08; font: 500 .54rem var(--mono); letter-spacing: .03em; }
+  .feature-grid article.pending small { border-color: var(--line-strong); color: var(--quiet); }
+  .feature-grid h3 { margin: 20px 0 10px; font-size: .96rem; letter-spacing: -.018em; }
   .feature-grid p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.62; }
-  .feature-grid code { font-size: .7rem; }
-  .model-flow { display: flex; align-items: center; gap: 10px; margin: 38px 0; padding: 18px 0; overflow-x: auto; border-block: 1px solid var(--line); white-space: nowrap; }
-  .model-flow span { padding: 8px 11px; border: 1px solid var(--line); border-radius: 3px; background: #fff; font: 500 .68rem var(--mono); }
-  .model-flow i { color: var(--orange); font-style: normal; }
-  .system-model ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-  .system-model li { display: grid; grid-template-columns: 110px 1fr; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: .77rem; }
-  .system-model li span { color: var(--muted); }
-  .docs-map { padding: var(--section) var(--gutter); border-bottom: 1px solid var(--line); }
-  .docs-map-heading { display: grid; grid-template-columns: 1.25fr .75fr; align-items: end; gap: 48px; margin-bottom: 48px; }
-  .docs-map-heading .section-index { margin-bottom: 18px; }
-  .docs-map-heading > p { max-width: 350px; margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.7; }
-  .docs-quadrants { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
-  .docs-quadrants a { position: relative; min-height: 232px; padding: 26px 28px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; transition: background .14s ease; }
-  .docs-quadrants a:nth-child(2n) { border-right: 0; }
-  .docs-quadrants a:nth-child(n+3) { border-bottom: 0; }
-  .docs-quadrants a:hover { background: var(--paper); }
-  .docs-quadrants a > span { color: var(--orange); font: 500 .61rem var(--mono); letter-spacing: .08em; }
-  .docs-quadrants strong { display: block; margin-top: 28px; font-size: 1.18rem; letter-spacing: -.022em; }
-  .docs-quadrants p { max-width: 350px; margin: 10px 0 0; color: var(--muted); font-size: .75rem; line-height: 1.58; }
-  .docs-quadrants i { position: absolute; top: 26px; right: 27px; color: var(--quiet); font: 500 .61rem var(--mono); font-style: normal; }
-  .read-next { padding-block: 70px 78px; }
-  .read-next > div { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; }
-  .read-next h2 { font-size: clamp(1.55rem, 3vw, 2.2rem); }
-  .read-next a { display: flex; min-width: 210px; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--ink); font-size: .77rem; text-decoration: none; }
+  .connected-services { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 28px; padding: 30px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--paper); }
+  .connected-services h3 { margin: 16px 0 10px; font-size: clamp(1.2rem, 2vw, 1.55rem); letter-spacing: -.022em; }
+  .connected-copy { max-width: 660px; margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.68; }
+  .catalog-label { margin: 26px 0 10px; color: var(--quiet); font: 500 .6rem var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+  .capa-catalog { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); list-style: none; }
+  .capa-catalog li { display: grid; min-height: 78px; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
+  .capa-catalog li:nth-child(7n) { border-right: 0; }
+  .capa-catalog li:nth-child(n+8) { border-bottom: 0; }
+  .capa-catalog img { width: 22px; height: 22px; object-fit: contain; }
+  .capa-catalog span { overflow: hidden; font-size: .66rem; font-weight: 650; line-height: 1.25; text-overflow: ellipsis; }
+  .connected-status { display: grid; align-content: center; gap: 10px; padding-top: 22px; border-top: 1px solid var(--line); }
+  .connected-status strong { font-size: .82rem; }
+  .connected-status span { color: var(--muted); font-size: .7rem; line-height: 1.55; }
+  .connected-status a { width: fit-content; margin-top: 5px; color: var(--blue); font-size: .72rem; text-decoration: none; }
+  .connected-status a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .after-keep { display: grid; grid-template-columns: 150px minmax(0, 650px); gap: 22px; margin-top: 24px; padding: 18px 0; border-block: 1px solid var(--line); }
+  .after-keep strong { font-size: .76rem; }
+  .after-keep span { color: var(--muted); font-size: .74rem; line-height: 1.6; }
+  .shelf-cta { min-width: 200px; margin-top: 34px; justify-content: space-between; gap: 28px; }
 
   /* Docs */
   .docs-shell { display: grid; grid-template-columns: 200px minmax(0, var(--reading)); gap: clamp(42px, 7vw, 78px); width: min(100%, 1060px); margin-inline: auto; align-items: start; }
@@ -723,19 +759,20 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
   .site-list a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
   @media (max-width: 900px) {
-    .home-hero { min-height:0; align-items:flex-end; padding-top:460px; padding-bottom:56px; }
+    .home-hero { min-height:0; align-items:flex-end; padding-top:270px; padding-bottom:56px; }
     .home-hero-copy { width:min(100%,600px); }
-    .home-art { top:0; right:auto; bottom:auto; left:-18%; width:138%; height:440px; }
+    .home-art { top:0; right:auto; bottom:auto; left:-18%; width:138%; height:250px; }
     .home-art img { object-position:64% 72%; }
-    .ambient-mark { top:-32px; right:-24px; width:300px; opacity:.1; }
-    .paint-pattern { top:170px; right:-18px; bottom:auto; width:300px; grid-template-columns:repeat(2,1fr); gap:24px; opacity:.58; }
-    .home-intro, .system-model, .read-next { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-    .system-model > div { min-width: 0; }
+    .ambient-mark { top:-32px; right:-24px; width:260px; opacity:.1; }
+    .paint-pattern { top:74px; right:-18px; bottom:auto; width:270px; grid-template-columns:repeat(2,1fr); gap:20px; opacity:.58; }
     .feature-grid { grid-template-columns: repeat(2, 1fr); }
+    .feature-grid article:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
     .feature-grid article:nth-child(2n) { border-right: 0; }
-    .feature-grid article:nth-child(n) { border-bottom: 1px solid var(--line); }
     .feature-grid article:nth-last-child(-n+2) { border-bottom: 0; }
-    .docs-map-heading { grid-template-columns: 1fr; gap: 26px; }
+    .capa-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .capa-catalog li:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .capa-catalog li:nth-child(2n) { border-right: 0; }
+    .capa-catalog li:nth-last-child(-n+2) { border-bottom: 0; }
     .docs-shell { grid-template-columns: 1fr; gap: 40px; }
     .docs-nav { position: static; min-height: 0; padding: 0 0 12px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--line); }
     .docs-nav > p { margin-bottom: 12px; }
@@ -762,18 +799,13 @@ up deploy ./dist team-tool</code></pre><h2>Use fixed capabilities</h2><p>Import 
     .home-art img { object-position:62% 78%; }
     .ambient-mark { top:-28px; right:-26px; width:200px; opacity:.09; }
     .paint-pattern { top:92px; right:-16px; width:200px; gap:14px; opacity:.6; }
-    .home-intro, .system-model, .read-next, .docs-map { padding: 56px 14px; }
-    .model-flow { display:grid; grid-template-columns:minmax(0,1fr); justify-items:stretch; overflow:visible; white-space:normal; }
-    .model-flow span { text-align:center; }
-    .model-flow i { justify-self:center; transform:rotate(90deg); }
+    .shelf { padding: 56px 14px; }
     .feature-grid { grid-template-columns: 1fr; }
-    .feature-grid article:nth-child(n) { min-height: 190px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .feature-grid article:nth-child(n) { min-height: 210px; border-right: 0; border-bottom: 1px solid var(--line); }
     .feature-grid article:last-child { border-bottom: 0; }
-    .feature-grid h3 { margin-top: 22px; }
-    .docs-quadrants { grid-template-columns: 1fr; }
-    .docs-quadrants a:nth-child(n) { min-height: 208px; border-right: 0; border-bottom: 1px solid var(--line); }
-    .docs-quadrants a:last-child { border-bottom: 0; }
-    .read-next > div { align-items: flex-start; flex-direction: column; }
+    .feature-grid h3 { margin-top: 20px; }
+    .connected-services { padding: 22px; }
+    .after-keep { grid-template-columns: 1fr; gap: 8px; }
     .doc h1 { font-size: clamp(2.2rem, 13vw, 3rem); }
     .doc .summary { margin-bottom: 36px; padding-bottom: 28px; font-size: .94rem; }
     .example-row { grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 20px 0; }

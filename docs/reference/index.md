@@ -1,24 +1,94 @@
 # Reference
 
-## Cloudflare resources
+## Folder
 
-- Worker: public docs, authenticated control API, authenticated site router
-- Durable Object with SQLite: site ownership and deployment authority
-- private R2 bucket: immutable deployment assets
-- Cloudflare Access: organization identity boundary
+| File | Contract |
+|---|---|
+| `index.html` | Required browser entry point |
+| `_worker.js` | Optional Worker entry point and Durable Object class exports |
+| `up.json` | Optional anonymous binding declaration; requires `_worker.js` |
+| other files | Static Assets available through `env.ASSETS` |
 
-## Defaults
+## `up.json`
 
-- 500 files per deployment
-- 10 MiB per file
-- 50 MiB total
-- `index.html` required
-- site names are lowercase DNS labels; `www`, `app`, `api`, and `admin` are reserved
+```json
+{
+  "bindings": {
+    "kv": ["CACHE"],
+    "d1": ["DB"],
+    "durableObjects": [{ "binding": "ROOMS", "className": "Room" }]
+  }
+}
+```
 
-## Mutation requirements
+No other root or binding fields are accepted in 0.0.1.
 
-Every mutation requires a verified Access identity, creator/admin authorization, exact `Origin`, and same-origin Fetch Metadata when the browser supplies it.
+- Binding names: uppercase letter followed by up to 47 uppercase letters, digits, or `_`.
+- Binding names must be unique across KV, D1, and Durable Objects.
+- Durable Object class names must be valid JavaScript identifiers.
+- Up generates one SQLite migration containing the distinct class names.
 
-## Serving headers
+## Commands
 
-Objects preserve their declared content type and receive `nosniff`, immutable caching except for HTML entry points, restrictive Permissions Policy, and `frame-ancestors 'none'`.
+| Command | Contract |
+|---|---|
+| `up deploy <folder> [name]` | Provision and deploy one public Temporary Account graph |
+| `up deploy … --accept-cloudflare-terms` | Explicit non-interactive Terms acceptance |
+| `up claim` | Show claim timing without printing the ownership link |
+| `up claim --open` | Open the ownership flow without printing the link |
+| `up claim --show` | Explicitly reveal the sensitive ownership link |
+| `up handoff <folder> <name> --account-id <id>` | Continue an existing claimed Worker through normal Wrangler OAuth |
+| `up init [directory]` | Install `.up/SKILL.md`, `.up/HANDOFF.md`, and client types |
+| `up private <folder> <name>` | Explicit secondary company-mode deployment |
+
+## Anonymous defaults
+
+- public `workers.dev` URL and API;
+- up to/about 60 minutes unless claimed;
+- 1,000 Static Asset files;
+- 5 MiB per Static Asset;
+- symbolic links, special files, and sensitive dotfiles rejected;
+- stable path-fingerprint Worker name when omitted;
+- private staging snapshot removed after deployment;
+- no production or CI/CD promise.
+
+## Binding matrix
+
+| Product | Up 0.0.1 |
+|---|---|
+| Worker runtime | dynamic `_worker.js` |
+| Static Assets | `env.ASSETS` |
+| KV | draft namespace auto-provisioned by Wrangler |
+| D1 | draft database auto-provisioned by Wrangler |
+| Durable Objects | generated class binding and SQLite migration |
+| Queues | supported by Temporary Accounts; `up.json` wiring not shipped yet |
+| Hyperdrive | supported by Temporary Accounts; `up.json` wiring not shipped yet; requires an existing database |
+| Certificates | supported account operation; configured outside `up.json` |
+| R2, Workers AI, Access | unavailable in current Temporary Account matrix |
+| Workflows, Browser Rendering, Containers, Sandboxes, Dispatch | unavailable in current matrix |
+
+## Connected services with Capa
+
+Capa is the path from platform bindings to the services an app already uses. GitHub, Stripe, and other APIs run in a separate Worker beside the app. Capa keeps the provider API key out of app code, limits the available actions, and returns both the answer and a record of what happened.
+
+Capa currently contains 14 generated bindings: Box, Discord, GitHub, GitLab, Jira, Kubernetes, Sentry, Slack, Stripe, Twilio, Twilio Messaging, Twilio Verify, Twitch, and Zoom.
+
+The same-account design passed a live Temporary Account test: app Worker → private Capa Worker → upstream API. The credential stayed out of the app and response. The simple installer is not shipped yet; it depends on immutable, hash-verified Capa bundles.
+
+See the [Capa integration contract](../capa-integration.md) and [live spike receipt](../../receipts/2026-06-23-capa-temporary-account-spike.md).
+
+## After ownership
+
+Run `wrangler login`, select the new account from `wrangler whoami`, then run `up handoff` with the exact Worker name and account ID. Handoff first proves that the Worker exists in that account. It deploys without `--temporary` and lets Wrangler inherit existing KV and D1 bindings from the Worker's settings.
+
+No Up API key is involved. A scoped Cloudflare API token is only needed later for CI/CD. Ownership does not make the public URL private; add Access or application authentication separately.
+
+## Credential behavior
+
+Up starts Wrangler under `~/.up/anonymous`, sets isolated home/config variables for Windows, macOS, and Linux, and removes current plus deprecated Cloudflare credential variables.
+
+Wrangler can reuse its temporary account cache during the active session. This means one claim URL transfers every deployment and supported resource in that session.
+
+## Secondary company mode
+
+Company mode retains its Access-authenticated router, private R2 deployments, document Durable Object, realtime Durable Object, Workers AI binding, and fixed same-origin client API. Those contracts do not apply to anonymous mode.

@@ -6,7 +6,7 @@ const allowEmail = process.env.UP_ALLOWED_EMAIL;
 const allowDomain = process.env.UP_ALLOWED_DOMAIN;
 if (!accountId || (!allowEmail && !allowDomain)) {
   throw new Error(
-    'Set CLOUDFLARE_ACCOUNT_ID and UP_ALLOWED_EMAIL or UP_ALLOWED_DOMAIN (run bun run oauth:connect first)',
+    'Set CLOUDFLARE_ACCOUNT_ID and UP_ALLOWED_EMAIL or UP_ALLOWED_DOMAIN (run bun run company:oauth:connect first)',
   );
 }
 const controlHost = process.env.UP_CONTROL_HOST || 'up.example.com';

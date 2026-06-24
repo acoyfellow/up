@@ -9,40 +9,39 @@ export type PageMetadata = {
 
 export const metadata = {
   '/': {
-    title: 'Up — Your Company’s Private Web',
+    title: 'Up — Your Cloudflare App Before Signup',
     description:
-      'Publish a folder to a company-private URL. Up runs in your Cloudflare account behind the identity system your organization already trusts.',
-    eyebrow: 'Private sites · Cloudflare Access · your account',
+      'Run Worker code, Static Assets, KV, D1, and Durable Objects together on Cloudflare before creating an account. Keep the whole app if it works.',
+    eyebrow: 'A live app · platform bindings · no account yet',
   },
   '/tutorial': {
-    title: 'Set Up Up on Cloudflare — Tutorial',
+    title: 'Deploy a Dynamic Stack Before Signup — Up Tutorial',
     description:
-      'Connect Up to your Cloudflare account, establish the Access boundary, and publish a first company-private static site.',
-    eyebrow: 'Tutorial · publish a private site',
+      'Publish Worker code, browser assets, and platform bindings through a Temporary Account, then keep the whole app or let it disappear.',
+    eyebrow: 'Tutorial · deploy before signup',
   },
   '/how-to': {
-    title: 'Operate Company-Private Sites — Up How-to Guides',
+    title: 'Iterate, Keep, and Continue — Up How-to Guides',
     description:
-      'Update and verify sites, configure company identity, inspect deployment receipts, and operate Up safely on Cloudflare.',
-    eyebrow: 'How-to · operate a deployment',
+      'Iterate on a temporary app, protect its ownership link, keep the account, and hand the same Worker back to your agent.',
+    eyebrow: 'How-to · iterate and continue',
   },
   '/examples': {
     title: 'Apps Built with Up — Examples',
-    description:
-      'Explore small company-private apps built with Up and inspect their framework-free source.',
+    description: 'Explore small apps built with Up and inspect their framework-free source.',
     eyebrow: 'Examples · built with Up',
   },
   '/reference': {
-    title: 'Up Reference — API, Limits, and Cloudflare Resources',
+    title: 'Up Reference — Dynamic Apps, Bindings, and Ownership',
     description:
-      'Exact Up contracts for authenticated routes, manifests, limits, R2 keys, Durable Object state, Access identity, and headers.',
-    eyebrow: 'Reference · exact contracts',
+      'Exact contracts for Worker code, Static Assets, KV, D1, Durable Objects, public URLs, expiry, and account ownership.',
+    eyebrow: 'Reference · anonymous deployment contract',
   },
   '/explanation': {
-    title: 'Why Up Is Private by Default — Architecture',
+    title: 'Why Up Deploys the Dynamic Graph First — Architecture',
     description:
-      'Understand why Up uses an organization-wide Access boundary, private R2, immutable deployments, and a trusted control plane.',
-    eyebrow: 'Explanation · the company trust boundary',
+      'Understand how Temporary Accounts let agents exercise a real Worker and platform bindings before ownership.',
+    eyebrow: 'Explanation · deploy before ownership',
   },
   '/app': {
     title: 'Publish a Private Site — Up',

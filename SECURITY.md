@@ -2,63 +2,99 @@
 
 Report vulnerabilities privately through GitHub Security Advisories for `acoyfellow/up`. Do not file public issues for suspected exposure.
 
-## Trust model
+Up is an independent experiment, not an official Cloudflare product.
 
-The product homepage and documentation are server-rendered by SvelteKit, are public, contain no customer data, and read no private bindings. The publisher's identity and site list are loaded in `+page.server.ts`, so the first authenticated HTML response already reflects authoritative server state rather than exposing an unauthenticated client shell.
+## Anonymous mode
 
-The publisher and control APIs require Cloudflare Access at:
+The default command creates an intentionally public, disposable deployment:
 
-```text
-<control-host>/app
-<control-host>/api
+```sh
+up deploy <folder> [name]
 ```
 
-Up independently verifies the Access JWT signature, issuer, audience, and email before control-plane reads or mutations. The protected session broker at `/app/__session` converts that identity into an eight-hour HMAC-signed, HttpOnly, Secure, SameSite=Lax sibling-domain session.
+There is no Access policy and no viewer authentication. Anyone with the generated `workers.dev` URL can read the assets and call the Worker API until the account expires or the owner changes the deployment after claiming it.
 
-Site visibility is registry authority:
+Dynamic code receives the Temporary Account bindings declared in `up.json`. It can mutate KV, D1, and Durable Object state and consume the bounded resources available to that account. Review `_worker.js` as executable server code, not as a static asset.
 
-- **company** — any valid company session; this is the default
-- **restricted** — owner/admin or a matching email, domain, or trusted IdP group
-- **public** — explicit anonymous serving
+Do not deploy:
 
-Restricted denials return `404`. Public mode is never inferred from a URL or missing identity.
+- credentials, API tokens, private keys, or `.env` files;
+- customer or employee data;
+- private source maps;
+- internal documents;
+- anything that should not be public for the next hour.
 
-## Untrusted content and code
+Up rejects missing `index.html`, assets above 5 MiB, folders above 1,000 assets, symbolic links, special files, sensitive dotfiles, unknown manifest fields, and unsupported bindings. It snapshots files through no-follow handles before invoking Wrangler. It does not currently perform malware, phishing, copyright, semantic code, or comprehensive secret scanning. Cloudflare applies separate abuse controls.
 
-Uploaded browser code and optional backend code are untrusted. Browser content runs on sibling site hostnames, never the control origin. State-changing control requests require the exact origin and same-site Fetch Metadata.
+## Credential isolation
 
-A root `_worker.js` executes `/api/*` in a separate Dynamic Worker isolate:
+Anonymous mode starts pinned Wrangler with an isolated home and config directory under:
 
-- no Up registry, R2 bucket, deployment authority, or encryption keys
-- global outbound network blocked
-- 50 ms CPU and 5 subrequests per invocation
-- 1 MiB code limit
-- no response cookies
-- generic errors without source, stack, or logs
+```text
+~/.up/anonymous
+```
 
-Optional capabilities are narrow:
+Up removes current and deprecated Cloudflare credential variables from the Wrangler child process, including:
 
-- **Database:** one site-specific SQLite Durable Object stub; the namespace is never provided.
-- **Secrets:** AES-256-GCM ciphertext in a site-specific Durable Object. Dynamic code cannot read values; it can request an allowlisted HTTPS operation where trusted code injects the bearer credential. Returned text is bounded and direct secret occurrences are redacted.
-- **Schedules:** trusted minute scheduler with atomic leases, UTC quotas, exponential retries, pause/disable states, and bounded audit receipts.
+- `CLOUDFLARE_API_TOKEN` / `CF_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID` / `CF_ACCOUNT_ID`
+- `CLOUDFLARE_API_KEY` / `CF_API_KEY`
+- `CLOUDFLARE_EMAIL` / `CF_EMAIL`
+- `CLOUDFLARE_API_USER_SERVICE_KEY`
 
-## Production requirements
+This is a safety boundary: `up deploy` must not silently deploy into a developer's authenticated account. The state directories are mode `0700`; Wrangler writes temporary account state as mode `0600`.
 
-- Create Access before attaching `/app` and `/api` routes.
-- Do not gate the public documentation or rely on an Access Bypass policy.
-- Keep new sites `company` unless the owner explicitly chooses otherwise.
-- Mint site sessions only through the protected broker and use a cryptographically generated `SESSION_SECRET`.
-- Generate `SECRETS_KEY` as 32 random bytes and store it only as a Worker secret and a mode-600 local recovery file.
-- Keep R2 private and expose no direct object URL.
-- Keep `workers_dev: false` and `preview_urls: false`.
-- Verify public reachability only for explicitly public sites.
-- Verify anonymous denial for company/restricted sites after every routing or Access change.
-- Treat site names, deployment IDs, object keys, and URLs as public identifiers—not capabilities.
+Wrangler—not Up—performs proof of work, temporary-account provisioning, supported resource provisioning, upload, and claim handoff. Up wraps the documented `wrangler deploy --temporary` command instead of calling the unpublished provisioning API directly.
 
-Before restoring the AX reference installation, export a fresh read-only Access application snapshot and run `bun run release:access:check` with `UP_ACCESS_APPLICATION_FILE`, `UP_EXPECTED_ACCESS_APP_ID`, `UP_EXPECTED_ACCESS_IDP`, `UP_EXPECTED_EMAIL_DOMAIN`, and `UP_CONTROL_HOST`. The guard fails if it finds an Everyone or Bypass policy, an unreviewed IdP, missing `/app` or `/api` destinations, or weakened cookie settings. `bun run deploy:up:safe` runs this guard before deployment and never modifies Access.
+Interactive Wrangler prompts for Cloudflare's Terms and Privacy Policy. Non-interactive Up requires `--accept-cloudflare-terms` or `UP_ACCEPT_CLOUDFLARE_TERMS=yes`; an agent must receive human approval before using either.
 
-## Installation boundary
+## Claim URL
 
-`bun run setup` provisions or reuses the child zone, DNS, private R2, Access application, Worker Loader, Durable Objects, scheduler, session secret, and encryption key. It reads the generated Access audience and injects it into a gitignored deployment config; an operator never copies the AUD.
+The claim URL is an ownership capability for the **whole temporary account**, not just one Worker.
 
-Installation is not complete until authenticated publisher access, a private-site session, an explicit public site, and cookie-free denial for private/restricted content are all verified end to end.
+Anyone who receives it may be able to claim every deployment and supported resource created in the active anonymous Up session. Treat it like a password:
+
+- do not commit it;
+- do not include it in screenshots, videos, CI logs, telemetry, or issue reports;
+- do not send it to unrelated agents or people;
+- do not put it in shell arguments or filenames;
+- use it within about 60 minutes.
+
+`up claim --open` reads the current local claim metadata and opens the Cloudflare dashboard flow. Up does not claim an account itself or confirm post-claim ownership.
+
+## Expiry and durability
+
+Unclaimed Temporary Accounts are documented to expire after about 60 minutes. Their Workers and supported resources are deleted. Do not use anonymous mode for production, CI/CD, backups, or durable data.
+
+Cloudflare rate-limits account creation and applies additional undisclosed abuse checks. Deployment may fail even when local validation passes.
+
+## Company mode
+
+The retained secondary command:
+
+```sh
+up private <folder> <name> --origin <installation>
+```
+
+uses the original customer-owned, Access-protected installation. Its trust model is separate:
+
+- the control API verifies Access identity;
+- a sibling-domain signed session gates site bytes and capabilities;
+- R2 remains private;
+- site scope comes from the hostname after authentication;
+- browser code receives no Cloudflare credentials;
+- deployment assets remain pending until size and SHA-256 verification succeeds;
+- activation changes one registry pointer.
+
+Company mode must keep `workers_dev: false`, preview URLs disabled, private R2, and an Access policy with no Everyone or Bypass rule. Production mutation remains a separate explicitly approved operation.
+
+## Release checks
+
+Before merging anonymous-mode changes:
+
+```sh
+bun run check
+bun run test:e2e
+```
+
+Ordinary CI must not create a live Temporary Account. Live anonymous smoke tests are manual, use isolated state, redact the claim URL, and delete local temporary credentials afterward.

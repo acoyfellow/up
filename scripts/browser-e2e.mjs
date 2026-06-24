@@ -8,24 +8,24 @@ try {
   page.on('pageerror', (error) => browserErrors.push(error.message));
   await page.goto(origin, { waitUntil: 'networkidle' });
   if (browserErrors.length) throw Error(`browser hydration failed: ${browserErrors.join('; ')}`);
-  if (!(await page.getByRole('heading', { name: 'Your company’s private web.' }).isVisible()))
-    throw Error('product front door missing');
-  if (!(await page.getByRole('link', { name: 'Open Up', exact: true }).isVisible()))
-    throw Error('publisher CTA missing');
-  if (!(await page.getByRole('link', { name: 'Install your own', exact: true }).isVisible()))
-    throw Error('installation CTA missing');
   if (
-    !(await page
-      .getByText('Cloudflare’s hosted installation is currently available to Cloudflare employees.')
-      .isVisible())
+    !(await page.getByRole('heading', { name: 'Your app is live before you sign up.' }).isVisible())
   )
-    throw Error('hosted installation qualifier missing');
-  for (const name of ['Tutorial', 'How-to guides', 'Reference', 'Explanation']) {
+    throw Error('product front door missing');
+  if (!(await page.getByRole('link', { name: 'Get the CLI', exact: true }).isVisible()))
+    throw Error('CLI CTA missing');
+  if (!(await page.getByRole('link', { name: 'See it work', exact: true }).isVisible()))
+    throw Error('tutorial CTA missing');
+  if (
+    !(await page.getByText('Independent project. Not an official Cloudflare product.').isVisible())
+  )
+    throw Error('independent-project qualifier missing');
+  for (const name of ['Docs', 'How it works', 'Get the CLI']) {
     if (!(await page.getByRole('link', { name }).first().isVisible()))
-      throw Error(`Diátaxis entry missing: ${name}`);
+      throw Error(`primary navigation entry missing: ${name}`);
   }
   await page.goto(`${origin}/tutorial`);
-  if (!(await page.getByRole('heading', { name: 'Set up Up' }).isVisible()))
+  if (!(await page.getByRole('heading', { name: 'Deploy the stack before signup' }).isVisible()))
     throw Error('tutorial missing');
   const protectedApi = await page.request.get(`${origin}/api/sites`);
   if (![403, 503].includes(protectedApi.status()))
@@ -35,10 +35,12 @@ try {
 
   const noJs = await browser.newPage({ javaScriptEnabled: false });
   await noJs.goto(origin, { waitUntil: 'load' });
-  if (!(await noJs.getByRole('heading', { name: 'Your company’s private web.' }).isVisible()))
+  if (
+    !(await noJs.getByRole('heading', { name: 'Your app is live before you sign up.' }).isVisible())
+  )
     throw Error('SSR front door missing without JavaScript');
   const description = await noJs.locator('meta[name="description"]').getAttribute('content');
-  if (!description?.includes('company-private URL'))
+  if (!description?.includes('KV, D1, and Durable Objects'))
     throw Error('SSR description metadata missing');
   const canonical = await noJs.locator('link[rel="canonical"]').getAttribute('href');
   if (canonical !== 'https://up.ax.cloudflare.dev/') throw Error('SSR canonical metadata missing');

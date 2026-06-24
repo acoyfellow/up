@@ -1,9 +1,12 @@
 # Up
 
-- Setup: https://up.ax.cloudflare.dev/tutorial
+- Tutorial: https://up.ax.cloudflare.dev/tutorial
 - How-to: https://up.ax.cloudflare.dev/how-to
-- Reference: https://up.ax.cloudflare.dev/reference
-- Principles: https://up.ax.cloudflare.dev/explanation
+- Binding reference: https://up.ax.cloudflare.dev/reference
+- Architecture: https://up.ax.cloudflare.dev/explanation
 - Source: https://github.com/acoyfellow/up
+- Dynamic proof: https://github.com/acoyfellow/up/tree/main/examples/binding-lab
+- Capa catalog: https://capa.coey.dev
+- Capa integration contract: https://github.com/acoyfellow/up/blob/main/docs/capa-integration.md
 
-Up puts static folders online for your company behind Cloudflare Access. Sites stay private by default and run from private R2 in your Cloudflare account.
+Up runs a dynamic Cloudflare application before signup: Worker code, Static Assets, KV, D1, and Durable Objects work together in one public Temporary Account. A proven Capa spike installs a generated third-party API Worker, provider secret, and JSRPC service binding into that same account; the click-to-connect installer is not shipped yet. The app and resources expire after about 60 minutes unless the human uses the sensitive account-wide ownership link. After ownership, `up handoff` reconnects the same Worker and bindings through normal Wrangler OAuth. Up is an independent experiment, not an official Cloudflare product.

@@ -1,7 +1,7 @@
 {
-  "name": "Up — your company’s private web",
+  "name": "Up — dynamic stacks before signup",
   "short_name": "Up",
-  "description": "Publish a folder to a company-private URL, private by default.",
+  "description": "Run a Cloudflare app with Worker code, assets, and platform bindings before signup, then keep it if it works.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -20,7 +20,10 @@
       "purpose": "maskable"
     }
   ],
-  "shortcuts": [{ "name": "Publish", "url": "/app" }, { "name": "Tutorial", "url": "/tutorial" }],
+  "shortcuts": [
+    { "name": "Dynamic app tutorial", "url": "/tutorial" },
+    { "name": "Binding reference", "url": "/reference" }
+  ],
   "screenshots": [
     {
       "src": "/screenshots/desktop.png",

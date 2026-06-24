@@ -155,4 +155,4 @@ await writeFile(CREDENTIALS_FILE, `${JSON.stringify(record, null, 2)}\n`, { mode
 console.log(`\nConnected. Token stored in ${CREDENTIALS_FILE} (gitignored, mode 600).`);
 console.log('Scripts read it automatically. For ad-hoc shells:');
 console.log('  export CLOUDFLARE_API_TOKEN="$(bun run scripts/print-token.ts)"');
-console.log('\nNext: bun run access:provision  →  bun run deploy:app');
+console.log('\nNext: bun run company:access:provision  →  bun run company:deploy:app');

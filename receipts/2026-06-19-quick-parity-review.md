@@ -26,7 +26,9 @@ A source-only disposable spike used Alchemy v2 `2.0.0-beta.25`. It could type-ch
 
 Current Cloudflare Temporary Accounts were reviewed from the June 19 changelog and official claim-deployments documentation.
 
-Temporary Accounts support Workers, Static Assets, KV, D1, Hyperdrive, Queues, and certificates. They do not currently support Durable Objects, R2, Workers AI, Access, custom domains, or wildcard routes.
+Temporary Accounts support Workers, Static Assets, KV, D1, Hyperdrive, Queues, and certificates. At review time this receipt treated Durable Objects, R2, Workers AI, Access, custom domains, and wildcard routes as unsupported.
+
+**2026-06-23 correction:** Cloudflare's current official matrix now explicitly includes Durable Objects for commands that use temporary credentials. R2, Workers AI, Access, custom domains, and wildcard routes remain outside the documented matrix. The temporary deployment below did not use or validate Durable Objects.
 
 A real unauthenticated temporary account was created with an isolated `HOME` and Wrangler `4.103.0`. No permanent Cloudflare credentials were used or changed.
 
